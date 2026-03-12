@@ -36,7 +36,7 @@ export function AppSidebar() {
               <Building2 className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-xs font-bold text-sidebar-primary-foreground leading-tight">CloudZoo 360</p>
+              <p className="text-xs font-bold text-sidebar-primary-foreground leading-tight">InnoSynth</p>
               <p className="text-[10px] text-sidebar-foreground/70 leading-tight">Print Workshop</p>
             </div>
           </div>

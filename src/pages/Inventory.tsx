@@ -5,8 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Search, Plus, Boxes, TrendingDown, AlertTriangle } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const inward = stockMovements.filter(m => m.type === "Inward");
 const outward = stockMovements.filter(m => m.type === "Outward");
@@ -19,6 +27,7 @@ function MovementTable({ data }: { data: typeof stockMovements }) {
     m.product.toLowerCase().includes(search.toLowerCase()) ||
     m.ref.toLowerCase().includes(search.toLowerCase())
   );
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -26,14 +35,13 @@ function MovementTable({ data }: { data: typeof stockMovements }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Button size="sm" className="h-9 gap-1"><Plus className="h-3.5 w-3.5" />New Entry</Button>
       </div>
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                {["Entry #","Date","Product","Qty","Unit","Warehouse","Ref"].map(h => (
+                {["Entry #", "Date", "Product", "Qty", "Unit", "Warehouse", "Ref"].map(h => (
                   <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -61,7 +69,166 @@ function MovementTable({ data }: { data: typeof stockMovements }) {
   );
 }
 
+function CreateInventoryModal({ trigger, title, tabName }: { trigger: React.ReactNode; title: string, tabName: string }) {
+  const [open, setOpen] = useState(false);
+
+  // Define fields for each tab type
+  const getFields = () => {
+    switch (tabName) {
+      case "inward":
+        return [
+          { label: "Product", span: false, isProduct: true },
+          { label: "Quantity", span: false, type: "number" },
+          { label: "Unit", span: false },
+          { label: "Warehouse", span: false, isWarehouse: true },
+          { label: "Reference No.", span: true },
+          { label: "Date", span: false, type: "date" },
+          { label: "Remarks", span: true, type: "textarea" },
+        ];
+      case "outward":
+        return [
+          { label: "Product", span: false, isProduct: true },
+          { label: "Quantity", span: false, type: "number" },
+          { label: "Unit", span: false },
+          { label: "Warehouse", span: false, isWarehouse: true },
+          { label: "Reference No.", span: true },
+          { label: "Date", span: false, type: "date" },
+          { label: "Remarks", span: true, type: "textarea" },
+        ];
+      case "grn":
+        return [
+          { label: "Product", span: false, isProduct: true },
+          { label: "Quantity Received", span: false, type: "number" },
+          { label: "Unit", span: false },
+          { label: "Warehouse", span: false, isWarehouse: true },
+          { label: "PO/Reference No.", span: true },
+          { label: "GRN Date", span: false, type: "date" },
+          { label: "Supplier", span: true },
+          { label: "Remarks", span: true, type: "textarea" },
+        ];
+      case "dispatch":
+        return [
+          { label: "Product", span: false, isProduct: true },
+          { label: "Quantity Dispatched", span: false, type: "number" },
+          { label: "Unit", span: false },
+          { label: "Warehouse", span: false, isWarehouse: true },
+          { label: "Dispatch/Invoice No.", span: true },
+          { label: "Dispatch Date", span: false, type: "date" },
+          { label: "Customer", span: true },
+          { label: "Remarks", span: true, type: "textarea" },
+        ];
+      case "packing":
+        return [
+          { label: "Invoice/Order No.", span: true },
+          { label: "Customer Name", span: true },
+          { label: "Packing Date", span: false, type: "date" },
+          { label: "No. of Packages", span: false, type: "number" },
+          { label: "Package Type", span: false },
+          { label: "Weight (kg)", span: false, type: "number" },
+          { label: "Carrier/Courier", span: true },
+          { label: "Tracking No.", span: true },
+          { label: "Remarks", span: true, type: "textarea" },
+        ];
+      case "adjustments":
+        return [
+          { label: "Product", span: false, isProduct: true },
+          { label: "Adjustment Type", span: false, isAdjustmentType: true },
+          { label: "Quantity", span: false, type: "number" },
+          { label: "Unit", span: false },
+          { label: "Warehouse", span: false, isWarehouse: true },
+          { label: "Date", span: false, type: "date" },
+          { label: "Reason", span: true, type: "textarea" },
+          { label: "Authorized By", span: true },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const fields = getFields();
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-3 py-2">
+          {fields.map(f => (
+            <div key={f.label} className={f.span ? "col-span-2" : ""}>
+              <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
+              {f.isProduct ? (
+                <Select>
+                  <SelectTrigger className="mt-1 h-9">
+                    <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : f.isWarehouse ? (
+                <Select>
+                  <SelectTrigger className="mt-1 h-9">
+                    <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : f.isAdjustmentType ? (
+                <Select>
+                  <SelectTrigger className="mt-1 h-9">
+                    <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="add">Add Stock</SelectItem>
+                    <SelectItem value="remove">Remove Stock</SelectItem>
+                    <SelectItem value="set">Set Quantity</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : f.type === "textarea" ? (
+                <Textarea className="mt-1 h-20" placeholder={f.label} />
+              ) : (
+                <Input className="mt-1 h-9" placeholder={f.label} type={f.type || "text"} />
+              )}
+            </div>
+          ))}
+          <div className="col-span-2 flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => console.log("Creating", tabName)}>Save</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Inventory() {
+  const [activeTab, setActiveTab] = useState("inward");
+
+  const getNewButtonLabel = (tab: string) => {
+    switch (tab) {
+      case "inward": return "Add Stock Inward";
+      case "outward": return "Add Stock Outward";
+      case "grn": return "Add GRN Entry";
+      case "dispatch": return "Add Dispatch Entry";
+      case "packing": return "Add Packing List";
+      case "adjustments": return "Add Stock Adjustment";
+      default: return "Add New";
+    }
+  };
+
+  const getButtonText = (tab: string) => {
+    switch (tab) {
+      case "inward": return "New Inward";
+      case "outward": return "New Outward";
+      case "grn": return "New GRN";
+      case "dispatch": return "New Dispatch";
+      case "packing": return "New Packing";
+      case "adjustments": return "New Adjustment";
+      default: return "New Entry";
+    }
+  };
+
   return (
     <div className="p-6 space-y-4">
       <div>
@@ -106,14 +273,26 @@ export default function Inventory() {
         </Card>
       </div>
 
-      <Tabs defaultValue="inward">
-        <TabsList className="h-9">
-          {["inward","outward","grn","dispatch","packing","adjustments"].map(t => (
-            <TabsTrigger key={t} value={t} className="text-xs px-3">
-              {t === "inward" ? "Stock Inward" : t === "outward" ? "Stock Outward" : t === "grn" ? "GRN" : t === "packing" ? "Packing List" : t.charAt(0).toUpperCase() + t.slice(1)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="inward">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <TabsList className="h-9">
+            {["inward", "outward", "grn", "dispatch", "packing", "adjustments"].map(t => (
+              <TabsTrigger key={t} value={t} className="text-xs px-3">
+                {t === "inward" ? "Stock Inward" : t === "outward" ? "Stock Outward" : t === "grn" ? "GRN" : t === "packing" ? "Packing List" : t.charAt(0).toUpperCase() + t.slice(1)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <CreateInventoryModal
+            tabName={activeTab}
+            title={getNewButtonLabel(activeTab)}
+            trigger={
+              <Button size="sm" className="h-9 gap-1">
+                <Plus className="h-3.5 w-3.5" />
+                {getButtonText(activeTab)}
+              </Button>
+            }
+          />
+        </div>
 
         <TabsContent value="inward" className="mt-4"><MovementTable data={inward} /></TabsContent>
         <TabsContent value="outward" className="mt-4"><MovementTable data={outward} /></TabsContent>
@@ -126,37 +305,6 @@ export default function Inventory() {
         </TabsContent>
         <TabsContent value="adjustments" className="mt-4">
           <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Stock Adjustment</CardTitle></CardHeader>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-4 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Product</label>
-                    <select className="mt-1 w-full h-9 text-sm border border-input rounded-md px-3 bg-background">
-                      {products.map(p => <option key={p.id}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Adjustment Type</label>
-                    <select className="mt-1 w-full h-9 text-sm border border-input rounded-md px-3 bg-background">
-                      <option>Add Stock</option>
-                      <option>Remove Stock</option>
-                      <option>Set Quantity</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Quantity</label>
-                    <Input type="number" className="mt-1 h-9" placeholder="0" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Reason</label>
-                    <Input className="mt-1 h-9" placeholder="Reason for adjustment" />
-                  </div>
-                </div>
-                <Button size="sm">Apply Adjustment</Button>
-              </CardContent>
-            </Card>
-
             {/* Warehouses */}
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Warehouses</CardTitle></CardHeader>
@@ -164,7 +312,7 @@ export default function Inventory() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/40">
-                      {["ID","Name","Location","Capacity (sqft)","Incharge"].map(h => (
+                      {["ID", "Name", "Location", "Capacity (sqft)", "Incharge"].map(h => (
                         <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
                       ))}
                     </tr>

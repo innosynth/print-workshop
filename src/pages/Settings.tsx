@@ -4,19 +4,174 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { warehouses } from "@/lib/mockData";
-import { Building2, Users, Tag, Package, Save } from "lucide-react";
+import { Building2, Users, Tag, Package, Save, Printer, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePrintSettings } from "@/lib/print-settings-context";
+import { Textarea } from "@/components/ui/textarea";
+
+function AddAgentModal() {
+  const [open, setOpen] = useState(false);
+  const [agentForm, setAgentForm] = useState({ name: "", mobile: "", email: "", commission: 0, active: true });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add Agent</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Add New Sales Agent</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-xs">Agent Name *</Label>
+            <Input className="mt-1 h-9" value={agentForm.name} onChange={e => setAgentForm({ ...agentForm, name: e.target.value })} placeholder="Enter agent name" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Mobile *</Label>
+              <Input className="mt-1 h-9" value={agentForm.mobile} onChange={e => setAgentForm({ ...agentForm, mobile: e.target.value })} placeholder="Mobile number" />
+            </div>
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input className="mt-1 h-9" value={agentForm.email} onChange={e => setAgentForm({ ...agentForm, email: e.target.value })} placeholder="Email address" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Commission (%)</Label>
+            <Input type="number" className="mt-1 h-9" value={agentForm.commission} onChange={e => setAgentForm({ ...agentForm, commission: parseFloat(e.target.value) || 0 })} placeholder="Commission percentage" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => { console.log("Adding agent:", agentForm); setOpen(false); }}>Add Agent</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddHSNModal() {
+  const [open, setOpen] = useState(false);
+  const [hsnForm, setHsnForm] = useState({ hsn: "", description: "", gstRate: "18", category: "" });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add HSN</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Add HSN/SAC Code</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">HSN/SAC Code *</Label>
+              <Input className="mt-1 h-9" value={hsnForm.hsn} onChange={e => setHsnForm({ ...hsnForm, hsn: e.target.value })} placeholder="e.g., 3921" />
+            </div>
+            <div>
+              <Label className="text-xs">GST Rate (%)</Label>
+              <Select value={hsnForm.gstRate} onValueChange={(v) => setHsnForm({ ...hsnForm, gstRate: v })}>
+                <SelectTrigger className="mt-1 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">0%</SelectItem>
+                  <SelectItem value="5">5%</SelectItem>
+                  <SelectItem value="12">12%</SelectItem>
+                  <SelectItem value="18">18%</SelectItem>
+                  <SelectItem value="28">28%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Description *</Label>
+            <Input className="mt-1 h-9" value={hsnForm.description} onChange={e => setHsnForm({ ...hsnForm, description: e.target.value })} placeholder="Description of goods/services" />
+          </div>
+          <div>
+            <Label className="text-xs">Category</Label>
+            <Input className="mt-1 h-9" value={hsnForm.category} onChange={e => setHsnForm({ ...hsnForm, category: e.target.value })} placeholder="Category name" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => { console.log("Adding HSN:", hsnForm); setOpen(false); }}>Add HSN</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddWarehouseModal() {
+  const [open, setOpen] = useState(false);
+  const [warehouseForm, setWarehouseForm] = useState({ id: "", name: "", location: "", capacity: 0, incharge: "", phone: "", email: "" });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add Warehouse</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Add New Warehouse</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Warehouse ID *</Label>
+              <Input className="mt-1 h-9" value={warehouseForm.id} onChange={e => setWarehouseForm({ ...warehouseForm, id: e.target.value })} placeholder="e.g., WH001" />
+            </div>
+            <div>
+              <Label className="text-xs">Warehouse Name *</Label>
+              <Input className="mt-1 h-9" value={warehouseForm.name} onChange={e => setWarehouseForm({ ...warehouseForm, name: e.target.value })} placeholder="Warehouse name" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Location *</Label>
+            <Input className="mt-1 h-9" value={warehouseForm.location} onChange={e => setWarehouseForm({ ...warehouseForm, location: e.target.value })} placeholder="Full address" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Capacity (sqft)</Label>
+              <Input type="number" className="mt-1 h-9" value={warehouseForm.capacity} onChange={e => setWarehouseForm({ ...warehouseForm, capacity: parseInt(e.target.value) || 0 })} placeholder="Capacity in sqft" />
+            </div>
+            <div>
+              <Label className="text-xs">Incharge Person</Label>
+              <Input className="mt-1 h-9" value={warehouseForm.incharge} onChange={e => setWarehouseForm({ ...warehouseForm, incharge: e.target.value })} placeholder="Person in charge" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Phone</Label>
+              <Input className="mt-1 h-9" value={warehouseForm.phone} onChange={e => setWarehouseForm({ ...warehouseForm, phone: e.target.value })} placeholder="Contact phone" />
+            </div>
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input className="mt-1 h-9" value={warehouseForm.email} onChange={e => setWarehouseForm({ ...warehouseForm, email: e.target.value })} placeholder="Contact email" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => { console.log("Adding warehouse:", warehouseForm); setOpen(false); }}>Add Warehouse</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Settings() {
+  const { settings: printSettings, setSettings: setPrintSettings } = usePrintSettings();
   const { toast } = useToast();
   const [company, setCompany] = useState({
-    name: "CloudZoo 360 Print Workshop",
+    name: "InnoSynth Print Workshop",
     address: "Unit 4, Industrial Estate, Andheri East, Mumbai – 400 093",
     gst: "27AABCC1234D1Z8",
     phone: "022-28349876",
-    email: "info@cloudzoo360.in",
-    website: "www.cloudzoo360.in",
+    email: "info@innosynth.org",
+    website: "www.innosynth.org",
     pan: "AABCC1234D",
     state: "Maharashtra",
     pincode: "400093",
@@ -24,6 +179,10 @@ export default function Settings() {
 
   const handleSave = () => {
     toast({ title: "Settings saved", description: "Company profile updated successfully." });
+  };
+
+  const handlePrintSettingsSave = () => {
+    toast({ title: "Print settings saved", description: "Print configuration updated successfully." });
   };
 
   return (
@@ -36,6 +195,7 @@ export default function Settings() {
       <Tabs defaultValue="company">
         <TabsList className="h-9">
           <TabsTrigger value="company" className="text-xs px-3 gap-1.5"><Building2 className="h-3.5 w-3.5" />Company</TabsTrigger>
+          <TabsTrigger value="print" className="text-xs px-3 gap-1.5"><Printer className="h-3.5 w-3.5" />Print Config</TabsTrigger>
           <TabsTrigger value="agents" className="text-xs px-3 gap-1.5"><Users className="h-3.5 w-3.5" />Agents</TabsTrigger>
           <TabsTrigger value="hsn" className="text-xs px-3 gap-1.5"><Tag className="h-3.5 w-3.5" />HSN Config</TabsTrigger>
           <TabsTrigger value="warehouses" className="text-xs px-3 gap-1.5"><Package className="h-3.5 w-3.5" />Warehouses</TabsTrigger>
@@ -87,27 +247,115 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="print" className="mt-4">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Print Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Default Paper Size */}
+              <div>
+                <Label className="text-sm font-medium">Default Paper Size</Label>
+                <Select value={printSettings.defaultPaperSize} onValueChange={(v) => setPrintSettings({ ...printSettings, defaultPaperSize: v as "A4" | "thermal" })}>
+                  <SelectTrigger className="mt-1 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4 (210mm x 297mm)</SelectItem>
+                    <SelectItem value="thermal">Thermal (80mm)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* A4 Settings */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Printer className="h-4 w-4" />A4 Paper Settings
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Page Margin (mm)</Label>
+                    <Input type="number" className="mt-1 h-9" value={printSettings.a4Margin}
+                      onChange={e => setPrintSettings({ ...printSettings, a4Margin: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Font Size (px)</Label>
+                    <Input type="number" className="mt-1 h-9" value={printSettings.a4FontSize}
+                      onChange={e => setPrintSettings({ ...printSettings, a4FontSize: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Thermal Settings */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Printer className="h-4 w-4" />Thermal Paper Settings
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Paper Width (mm)</Label>
+                    <Select value={printSettings.thermalWidth} onValueChange={(v) => setPrintSettings({ ...printSettings, thermalWidth: v })}>
+                      <SelectTrigger className="mt-1 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="57">57mm</SelectItem>
+                        <SelectItem value="58">58mm</SelectItem>
+                        <SelectItem value="80">80mm</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Paper Height (mm)</Label>
+                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalHeight}
+                      onChange={e => setPrintSettings({ ...printSettings, thermalHeight: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Page Margin (mm)</Label>
+                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalMargin}
+                      onChange={e => setPrintSettings({ ...printSettings, thermalMargin: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Font Size (px)</Label>
+                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalFontSize}
+                      onChange={e => setPrintSettings({ ...printSettings, thermalFontSize: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+              <div className="flex justify-end">
+                <Button size="sm" className="gap-1.5" onClick={handlePrintSettingsSave}><Save className="h-3.5 w-3.5" />Save Print Settings</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="agents" className="mt-4">
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Sales Agents</CardTitle>
-                <Button size="sm" className="h-8 text-xs">Add Agent</Button>
+                <AddAgentModal />
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {["Name","Mobile","Email","Commission %","Active"].map(h => (
+                    {["Name", "Mobile", "Email", "Commission %", "Active"].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { name: "Arjun Kumar", mobile: "9823456789", email: "arjun.k@cloudzoo360.com", commission: 3, active: true },
-                    { name: "Priya Singh", mobile: "9834567890", email: "priya.s@cloudzoo360.com", commission: 2.5, active: true },
+                    { name: "Arjun Kumar", mobile: "9823456789", email: "arjun.k@innosynth.org", commission: 3, active: true },
+                    { name: "Priya Singh", mobile: "9834567890", email: "priya.s@innosynth.org", commission: 2.5, active: true },
                   ].map((a, i) => (
                     <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-semibold">{a.name}</td>
@@ -130,14 +378,14 @@ export default function Settings() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">HSN / SAC Configuration</CardTitle>
-                <Button size="sm" className="h-8 text-xs">Add HSN</Button>
+                <AddHSNModal />
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {["HSN Code","Description","GST Rate","Category"].map(h => (
+                    {["HSN Code", "Description", "GST Rate", "Category"].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -171,14 +419,14 @@ export default function Settings() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Warehouses & Locations</CardTitle>
-                <Button size="sm" className="h-8 text-xs">Add Warehouse</Button>
+                <AddWarehouseModal />
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {["ID","Name","Location","Capacity","Incharge","Action"].map(h => (
+                    {["ID", "Name", "Location", "Capacity", "Incharge", "Action"].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>

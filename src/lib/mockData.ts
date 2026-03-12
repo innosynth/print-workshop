@@ -1,4 +1,4 @@
-// ── CloudZoo 360 – Mock Data ──────────────────────────────────────────────────
+// ── InnoSynth – Mock Data ─────────────────────────────────────────────────────
 
 export type ContactType = "B2B" | "B2C" | "Supplier" | "Employee";
 export type Status = "Active" | "Inactive";
@@ -18,9 +18,9 @@ export const contacts = [
   { id: "S001", name: "Supreme Inks Ltd", type: "Supplier" as ContactType, mobile: "9890123456", whatsapp: "9890123456", gst: "27AABCS7890M1Z9", email: "purchase@supremeinks.com", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: -18500 },
   { id: "S002", name: "Flex Roll Suppliers", type: "Supplier" as ContactType, mobile: "9901234567", whatsapp: "9901234567", gst: "08AABCF8901N1Z4", email: "sales@flexroll.com", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Jaipur", balance: -9800 },
   { id: "S003", name: "Substrate World", type: "Supplier" as ContactType, mobile: "9812367890", whatsapp: "9812367890", gst: "29AABCS0123P1Z7", email: "info@substrateworld.in", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Bangalore", balance: -31200 },
-  { id: "E001", name: "Arjun Kumar", type: "Employee" as ContactType, mobile: "9823456789", whatsapp: "9823456789", gst: "", email: "arjun.k@cloudzoo360.com", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
-  { id: "E002", name: "Priya Singh", type: "Employee" as ContactType, mobile: "9834567890", whatsapp: "9834567890", gst: "", email: "priya.s@cloudzoo360.com", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
-  { id: "E003", name: "Rahul Mehta", type: "Employee" as ContactType, mobile: "9745678901", whatsapp: "9745678901", gst: "", email: "rahul.m@cloudzoo360.com", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
+  { id: "E001", name: "Arjun Kumar", type: "Employee" as ContactType, mobile: "9823456789", whatsapp: "9823456789", gst: "", email: "arjun.k@innosynth.org", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
+  { id: "E002", name: "Priya Singh", type: "Employee" as ContactType, mobile: "9834567890", whatsapp: "9834567890", gst: "", email: "priya.s@innosynth.org", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
+  { id: "E003", name: "Rahul Mehta", type: "Employee" as ContactType, mobile: "9745678901", whatsapp: "9745678901", gst: "", email: "rahul.m@innosynth.org", status: "Active" as Status, approval: "Approved" as ApprovalStatus, city: "Mumbai", balance: 0 },
 ];
 
 // ─── Products ────────────────────────────────────────────────────────────────

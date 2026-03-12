@@ -1,11 +1,18 @@
+import { useState } from "react";
 import { dashboardStats, monthlySalesPurchase, products, contacts, invoices } from "@/lib/mockData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX, Printer } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts";
+import { usePrintSettings } from "@/lib/print-settings-context";
+import { QRCodeCanvas } from "qrcode.react";
 
 function StatCard({ title, value, icon: Icon, sub, trend }: {
   title: string; value: string; icon: React.ElementType;
@@ -38,10 +45,185 @@ function StatCard({ title, value, icon: Icon, sub, trend }: {
 const fmt = (n: number) =>
   "₹" + (n >= 100000 ? (n / 100000).toFixed(1) + "L" : n >= 1000 ? (n / 1000).toFixed(1) + "K" : n);
 
+function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () => void }) {
+  const { settings } = usePrintSettings();
+  const [paperSize, setPaperSize] = useState<"A4" | "thermal">(settings.defaultPaperSize);
+
+  const companyInfo = {
+    name: "InnoSynth Print Workshop",
+    address: "Unit 4, Industrial Estate, Andheri East, Mumbai – 400 093",
+    gst: "27AABCC1234D1Z8",
+    phone: "022-28349876",
+    email: "info@innosynth.org",
+    upiId: "innosynth@upi",
+  };
+
+  // Generate UPI payment link
+  const upiLink = `upi://pay?pa=${companyInfo.upiId}&pn=${encodeURIComponent(companyInfo.name)}&am=${invoice.total}&tn=${invoice.id}&cu=INR`;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const a4Style = `
+    @media print {
+      @page { size: A4; margin: ${settings.a4Margin}mm; }
+      .no-print { display: none !important; }
+      .print-container { width: 100% !important; max-width: none !important; }
+    }
+  `;
+
+  const thermalStyle = `
+    @media print {
+      @page { size: ${settings.thermalWidth}mm ${settings.thermalHeight}mm; margin: ${settings.thermalMargin}mm; }
+      .no-print { display: none !important; }
+      .print-container { width: 100% !important; max-width: none !important; }
+      .thermal-format { font-size: ${settings.thermalFontSize}px !important; }
+      .thermal-format table { font-size: calc(${settings.thermalFontSize}px - 1px) !important; }
+      .thermal-format .company-info { font-size: calc(${settings.thermalFontSize}px - 1px) !important; }
+      .thermal-format .invoice-header { font-size: calc(${settings.thermalFontSize}px + 1px) !important; }
+    }
+  `;
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+        <style>{paperSize === "A4" ? a4Style : thermalStyle}</style>
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Invoice Print Preview - {invoice.id}</span>
+            <div className="flex gap-2">
+              <Button
+                variant={paperSize === "A4" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaperSize("A4")}
+                className="no-print"
+              >
+                A4
+              </Button>
+              <Button
+                variant={paperSize === "thermal" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaperSize("thermal")}
+                className="no-print"
+              >
+                Thermal (80mm)
+              </Button>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className={`print-container ${paperSize === "thermal" ? "thermal-format" : ""}`}>
+          {/* Invoice Content */}
+          <div className={`border-2 border-black ${paperSize === "thermal" ? "p-2" : "p-4"}`}
+            style={paperSize === "thermal"
+              ? { maxWidth: `${settings.thermalWidth}px`, margin: "0 auto", fontSize: `${settings.thermalFontSize}px` }
+              : { fontSize: `${settings.a4FontSize}px` }}>
+            {/* Header */}
+            <div className="text-center mb-2 company-info">
+              <h2 className={`${paperSize === "thermal" ? "text-sm" : "text-xl"} font-bold`}>{companyInfo.name}</h2>
+              <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>{companyInfo.address}</p>
+              <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>GST: {companyInfo.gst} | Phone: {companyInfo.phone}</p>
+              <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Email: {companyInfo.email}</p>
+            </div>
+
+            {/* Invoice Details */}
+            <div className="flex justify-between items-start mb-2 invoice-header">
+              <div>
+                <h3 className={`${paperSize === "thermal" ? "text-xs" : "text-lg"} font-bold`}>TAX INVOICE</h3>
+                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Invoice #: {invoice.id}</p>
+                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Date: {invoice.date}</p>
+              </div>
+              <div className="text-right">
+                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>Customer: {invoice.customer}</p>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <table className={`w-full border-collapse border border-black mb-2 ${paperSize === "thermal" ? "text-xs" : ""}`}>
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border border-black p-1 text-left">SL#</th>
+                  <th className="border border-black p-1 text-left">Description</th>
+                  <th className="border border-black p-1 text-center">Qty</th>
+                  <th className="border border-black p-1 text-right">Rate</th>
+                  <th className="border border-black p-1 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border border-black p-1 text-center">1</td>
+                  <td className="border border-black p-1">Print Services</td>
+                  <td className="border border-black p-1 text-center">{invoice.items}</td>
+                  <td className="border border-black p-1 text-right">₹{Math.round(invoice.amount / invoice.items)}</td>
+                  <td className="border border-black p-1 text-right">₹{invoice.amount.toLocaleString("en-IN")}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="w-full">
+                <div className="flex justify-between py-1">
+                  <span className={paperSize === "thermal" ? "text-xs" : "text-sm"}>Subtotal:</span>
+                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{invoice.amount.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className={paperSize === "thermal" ? "text-xs" : "text-sm"}>Tax ({Math.round((invoice.tax / invoice.amount) * 100)}%):</span>
+                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{invoice.tax.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between py-1 border-t-2 border-black mt-1 pt-1">
+                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>Total:</span>
+                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>₹{invoice.total.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-4 pt-2 border-t border-black">
+              {/* UPI Payment QR Code - Only show for A4 */}
+              {paperSize === "A4" && (
+                <div className="flex justify-center mb-4">
+                  <div className="text-center">
+                    <QRCodeCanvas
+                      value={upiLink}
+                      size={128}
+                      level="H"
+                      includeMargin={true}
+                      className="border-2 border-black p-1"
+                    />
+                    <p className="text-xs mt-2 font-semibold">Scan to Pay ₹{invoice.total.toLocaleString("en-IN")}</p>
+                    <p className="text-[10px] text-muted-foreground">UPI: {companyInfo.upiId}</p>
+                  </div>
+                </div>
+              )}
+              <div className="text-center">
+                <p className={paperSize === "thermal" ? "text-[10px]" : "text-xs"}>Thank you for your business!</p>
+                <p className={`${paperSize === "thermal" ? "text-[10px]" : "text-xs"} mt-1`}>This is a computer-generated invoice.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 mt-4 no-print">
+            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button onClick={handlePrint}><Printer className="h-4 w-4 mr-2" />Print</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Dashboard() {
   const lowStock = products.filter(p => p.stock > 0 && p.stock < p.minStock);
   const outOfStock = products.filter(p => p.stock === 0);
   const recentInvoices = invoices.slice(0, 5);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
+  const handlePrintClick = (invoice: any) => {
+    setSelectedInvoice(invoice);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -169,7 +351,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
-                  {["Invoice #","Date","Customer","Amount","Status"].map(h => (
+                  {["Invoice #", "Date", "Customer", "Amount", "Status", "Action"].map(h => (
                     <th key={h} className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -182,6 +364,16 @@ export default function Dashboard() {
                     <td className="px-4 py-2.5 font-medium">{inv.customer}</td>
                     <td className="px-4 py-2.5 font-semibold">₹{inv.total.toLocaleString("en-IN")}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={inv.status} /></td>
+                    <td className="px-4 py-2.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => handlePrintClick(inv)}
+                      >
+                        <Printer className="h-3.5 w-3.5" />Print
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -189,6 +381,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Print Preview Dialog */}
+      {selectedInvoice && (
+        <InvoicePrintPreview
+          invoice={selectedInvoice}
+          onClose={() => {
+            setSelectedInvoice(null);
+          }}
+        />
+      )}
     </div>
   );
 }
