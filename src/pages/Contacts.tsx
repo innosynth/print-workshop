@@ -26,14 +26,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     );
 
   const addButtonLabel = tabName === "B2B" ? "Add B2B Customer" :
-    tabName === "B2C" ? "Add B2C Customer" :
-      tabName === "Supplier" ? "Add Supplier" : "Add Employee";
+    tabName === "B2C" ? "Add B2C Customer" : "Add Supplier";
   const dialogTitle = tabName === "B2B" ? "Add New B2B Customer" :
-    tabName === "B2C" ? "Add New B2C Customer" :
-      tabName === "Supplier" ? "Add New Supplier" : "Add New Employee";
+    tabName === "B2C" ? "Add New B2C Customer" : "Add New Supplier";
   const saveButtonLabel = tabName === "B2B" ? "Save B2B Customer" :
-    tabName === "B2C" ? "Save B2C Customer" :
-      tabName === "Supplier" ? "Save Supplier" : "Save Employee";
+    tabName === "B2C" ? "Save B2C Customer" : "Save Supplier";
 
   // Define fields for each contact type
   const getFormFields = () => {
@@ -69,16 +66,6 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { name: "City", placeholder: "Enter city", required: true },
           { name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
           { name: "Payment Terms", placeholder: "e.g., 30 days credit" },
-        ];
-      case "Employee":
-        return [
-          { name: "Full Name", placeholder: "Enter employee name", required: true },
-          { name: "Mobile", placeholder: "Enter mobile number", required: true },
-          { name: "Email", placeholder: "Enter email address", required: true },
-          { name: "Designation", placeholder: "Enter designation", required: true },
-          { name: "Department", placeholder: "Enter department" },
-          { name: "Joining Date", placeholder: "Select joining date", type: "date" },
-          { name: "Address", placeholder: "Enter address", type: "textarea" },
         ];
       default:
         return [];
@@ -167,14 +154,13 @@ export default function Contacts() {
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-bold">Contacts</h1>
-        <p className="text-sm text-muted-foreground">Manage customers, suppliers and employees</p>
+        <p className="text-sm text-muted-foreground">Manage customers and suppliers</p>
       </div>
       <Tabs defaultValue="b2b">
         <TabsList className="h-9">
           <TabsTrigger value="b2b" className="text-xs px-4">B2B Customers</TabsTrigger>
           <TabsTrigger value="b2c" className="text-xs px-4">B2C Customers</TabsTrigger>
           <TabsTrigger value="suppliers" className="text-xs px-4">Suppliers</TabsTrigger>
-          <TabsTrigger value="employees" className="text-xs px-4">Employees</TabsTrigger>
         </TabsList>
         <TabsContent value="b2b" className="mt-4">
           <ContactTable type="B2B" tabName="B2B" />
@@ -184,9 +170,6 @@ export default function Contacts() {
         </TabsContent>
         <TabsContent value="suppliers" className="mt-4">
           <ContactTable type="Supplier" tabName="Supplier" />
-        </TabsContent>
-        <TabsContent value="employees" className="mt-4">
-          <ContactTable type="Employee" tabName="Employee" />
         </TabsContent>
       </Tabs>
     </div>
