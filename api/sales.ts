@@ -48,6 +48,30 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
     }
 
+    if (resource === 'gst_report') {
+      const { returnFor } = request.query;
+      // For now, we mainly support Invoice-based GST reporting
+      const lines = await db.select({
+        companyName: contacts.name,
+        gstin: contacts.gst,
+        invoiceNo: invoices.invoiceNo,
+        date: invoices.date,
+        lineName: invoiceItems.name,
+        qty: invoiceItems.qty,
+        rate: invoiceItems.rate,
+        taxableValue: invoiceItems.amount,
+        totalTax: invoices.tax, // Note: This is invoice-level, ideally we want line-level tax
+        grandTotal: invoices.total,
+        placeOfSupply: contacts.city
+      })
+      .from(invoiceItems)
+      .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+      .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+      .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+      
+      return response.status(200).json(lines);
+    }
+
     if (resource === 'purchases') {
       if (method === 'GET') {
         if (type === 'orders') {

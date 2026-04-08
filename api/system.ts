@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../src/db/index';
-import { invoices, contacts, products, expenses, accounts, meterReadings, users } from '../src/db/schema';
+import { invoices, contacts, products, expenses, accounts, meterReadings, users, machines } from '../src/db/schema';
 import { sql, desc, eq } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -8,6 +8,17 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const method = request.method;
 
   try {
+    if (resource === 'machines') {
+      if (method === 'GET') {
+        const allMachines = await db.select().from(machines).orderBy(desc(machines.createdAt));
+        return response.status(200).json(allMachines);
+      }
+      if (method === 'POST') {
+        const newMachine = await db.insert(machines).values(request.body).returning();
+        return response.status(200).json(newMachine[0]);
+      }
+    }
+    
     if (resource === 'meter_readings') {
       if (method === 'GET') {
         const readingsData = await db.select({
@@ -41,17 +52,21 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const lsm = parseFloat(data.lsMono || "0");
         const op = parseFloat(data.openingReading || "0");
 
-        const closingReading = (bwl + bws + cl + cs + lsc + lsm).toString();
-        const totalUsage = (parseFloat(closingReading) - op).toString();
-
+        const manualClosing = parseFloat(data.closingReading || "0");
+        const sumCounters = bwl + bws + cl + cs + lsc + lsm;
+        
+        // Priority: Manual entry > Automated Sum
+        const finalClosing = manualClosing > 0 ? manualClosing : sumCounters;
+        
+        const { id, ...rest } = data;
         const payload = {
-          ...data,
-          closingReading,
-          totalUsage
+          ...rest,
+          closingReading: finalClosing.toString(),
+          totalUsage: (finalClosing - op).toString()
         };
 
-        if (data.id) {
-          const updated = await db.update(meterReadings).set(payload).where(eq(meterReadings.id, data.id)).returning();
+        if (id) {
+          const updated = await db.update(meterReadings).set(payload).where(eq(meterReadings.id, id)).returning();
           return response.status(200).json(updated[0]);
         } else {
           const inserted = await db.insert(meterReadings).values(payload).returning();

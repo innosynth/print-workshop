@@ -199,6 +199,13 @@ export const paymentQrs = pgTable("paymentQrs", {
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
+export const machines = pgTable("machines", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  status: text("status").default("Active"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
 export const meterReadings = pgTable("meterReadings", {
   id: serial("id").primaryKey(),
   machineName: text("machineName").notNull(),
