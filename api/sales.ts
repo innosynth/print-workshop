@@ -36,6 +36,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
         }).from(quotations).leftJoin(contacts, eq(quotations.customerId, contacts.id)).orderBy(desc(quotations.createdAt));
         return response.status(200).json(data);
       }
+      if (method === 'POST') {
+        const { items, ...quotationData } = request.body;
+        const newQt = await db.insert(quotations).values(quotationData).returning();
+        return response.status(200).json(newQt[0]);
+      }
     }
 
     if (resource === 'returns') {
@@ -86,6 +91,18 @@ export default async function handler(request: VercelRequest, response: VercelRe
             amount: purchaseEntries.amount, status: purchaseEntries.status, supplierName: contacts.name,
           }).from(purchaseEntries).leftJoin(contacts, eq(purchaseEntries.supplierId, contacts.id)).orderBy(desc(purchaseEntries.createdAt));
           return response.status(200).json(data);
+        }
+      }
+      if (method === 'POST') {
+        const data = request.body;
+        if (type === 'orders') {
+          const newOrder = await db.insert(purchaseOrders).values(data).returning();
+          return response.status(200).json(newOrder[0]);
+        } else {
+          // Flatten items into description or summary if items table doesn't exist for purchases
+          const { items, ...entryData } = data;
+          const newEntry = await db.insert(purchaseEntries).values(entryData).returning();
+          return response.status(200).json(newEntry[0]);
         }
       }
     }

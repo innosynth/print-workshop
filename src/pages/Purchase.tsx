@@ -4,8 +4,140 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2, Trash2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+
+
+function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const [items, setItems] = useState([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+  const [supplierId, setSupplierId] = useState("");
+
+  const { data: contacts = [] } = useQuery({ 
+    queryKey: ["contacts-suppliers"], 
+    queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) 
+  });
+  const suppliers = contacts.filter((c: any) => c.type === "Supplier" || c.type === "Employee");
+
+  const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
+  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    (newItems[index] as any)[field] = value;
+    if (field === "qty" || field === "rate") {
+      newItems[index].amount = newItems[index].qty * newItems[index].rate;
+    }
+    setItems(newItems);
+  };
+
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  const handleSave = async () => {
+    if (!supplierId) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a supplier/payee" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const resource = type === 'expenses' ? 'expenses' : 'purchases';
+      const endpoint = type === 'expenses' ? '/api/system?resource=expenses' : `/api/sales?resource=purchases&type=${type}`;
+      
+      const payload = type === 'expenses' ? {
+        category: "General",
+        description: items[0].name,
+        amount: total.toString(),
+        payTo: suppliers.find((s: any) => s.id.toString() === supplierId)?.name || "",
+        date: new Date().toISOString().split('T')[0]
+      } : {
+        supplierId: parseInt(supplierId),
+        [type === 'entries' ? 'purchaseNo' : 'orderNo']: `${type === 'entries' ? 'PUR' : 'PO'}-${Date.now().toString().slice(-6)}`,
+        date: new Date().toISOString().split('T')[0],
+        amount: total.toString(),
+        tax: (total * 0.18).toString(),
+        total: (total * 1.18).toString(),
+        status: "Paid",
+        items: items
+      };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      toast({ title: "Success", description: `${title} created successfully` });
+      setOpen(false);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{type === 'expenses' ? 'Pay To' : 'Supplier'}</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+            </div>
+          </div>
+
+          <Separator />
+          
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="font-bold">Items/Details</Label>
+              <Button variant="outline" size="sm" onClick={addItem} className="h-7"><Plus className="h-3 w-3 mr-1" />Add Row</Button>
+            </div>
+            {items.map((item, i) => (
+              <div key={i} className="flex gap-2">
+                <Input placeholder="Description" className="flex-[3]" value={item.name} onChange={e => updateItem(i, "name", e.target.value)} />
+                <Input type="number" placeholder="Qty" className="flex-1" value={item.qty} onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)} />
+                <Input type="number" placeholder="Rate" className="flex-1" value={item.rate} onChange={e => updateItem(i, "rate", parseFloat(e.target.value) || 0)} />
+                <Button variant="ghost" size="icon" onClick={() => removeItem(i)} disabled={items.length === 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end pt-4 font-bold text-lg">
+            Total: ₹{(total * 1.18).toFixed(2)}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save {type.slice(0, -1)}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoading?: boolean }) {
   const [search, setSearch] = useState("");
@@ -117,9 +249,15 @@ export default function Purchase() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
-            <Plus className="h-3.5 w-3.5" />New {activeTab === "entries" ? "Entry" : activeTab.slice(0, -1)}
-          </Button>
+          <CreatePurchaseModal
+            type={activeTab}
+            title={`Add New ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+            trigger={
+              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+                <Plus className="h-3.5 w-3.5" />New {activeTab === "entries" ? "Entry" : activeTab.slice(0, -1)}
+              </Button>
+            }
+          />
         </div>
 
         <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} /></TabsContent>

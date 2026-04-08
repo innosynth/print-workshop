@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
-import { invoices, contacts, products, expenses, accounts, meterReadings, users, machines } from '../db/schema.js';
+import { invoices, contacts, products, expenses, accounts, meterReadings, users, machines, stockMovements } from '../db/schema.js';
 import { sql, desc, eq } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -100,22 +100,46 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     if (resource === 'expenses') {
-      const allExpenses = await db.select().from(expenses).orderBy(desc(expenses.createdAt));
-      return response.status(200).json(allExpenses);
+      if (method === 'GET') {
+        const allExpenses = await db.select().from(expenses).orderBy(desc(expenses.createdAt));
+        return response.status(200).json(allExpenses);
+      }
+      if (method === 'POST') {
+        const data = request.body;
+        const newExpense = await db.insert(expenses).values({
+          ...data,
+          expenseNo: `EXP-${Date.now().toString().slice(-6)}`
+        }).returning();
+        return response.status(200).json(newExpense[0]);
+      }
     }
 
     if (resource === 'inventory') {
       const allProducts = await db.select().from(products);
-      const summary = {
-        totalProducts: allProducts.length,
-        lowStock: allProducts.filter(p => (Number(p.stock || 0) > 0 && Number(p.stock || 0) < 10)).length,
-        outOfStock: allProducts.filter(p => Number(p.stock || 0) <= 0).length,
-      };
-      const movements = [
-        { id: 'MOV-1001', date: '2024-04-10', product: 'Art Paper 300gsm', qty: 50, unit: 'Reams', warehouse: 'Main Hub', ref: 'PUR-2024-015', type: 'Inward' },
-        { id: 'MOV-1002', date: '2024-04-12', product: 'Vinyl Glossy', qty: 10, unit: 'Rolls', warehouse: 'Main Hub', ref: 'INV-2024-042', type: 'Outward' },
-      ];
-      return response.status(200).json({ summary, movements, products: allProducts });
+      if (method === 'GET') {
+        const summary = {
+          totalProducts: allProducts.length,
+          lowStock: allProducts.filter(p => (Number(p.stock || 0) > 0 && Number(p.stock || 0) < 10)).length,
+          outOfStock: allProducts.filter(p => Number(p.stock || 0) <= 0).length,
+        };
+        const movements = await db.select().from(stockMovements).orderBy(desc(stockMovements.date), desc(stockMovements.createdAt));
+        return response.status(200).json({ summary, movements, products: allProducts });
+      }
+      if (method === 'POST') {
+        const data = request.body;
+        const newMovement = await db.insert(stockMovements).values(data).returning();
+        
+        // Update product stock
+        const product = allProducts.find(p => p.name === data.productName);
+        if (product) {
+          const currentStock = Number(product.stock || 0);
+          const moveQty = Number(data.qty || 0);
+          const newStock = data.type === 'Inward' ? currentStock + moveQty : currentStock - moveQty;
+          await db.update(products).set({ stock: newStock.toString() }).where(eq(products.id, product.id));
+        }
+        
+        return response.status(200).json(newMovement[0]);
+      }
     }
 
     return response.status(404).json({ error: 'Resource not found' });

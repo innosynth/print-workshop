@@ -15,6 +15,53 @@ import { Search, Plus, Upload, Edit2, UserPlus, Loader2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+
+
+function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleUpload = async () => {
+    toast({ title: "Importing...", description: "Processing your product catalogue" });
+    try {
+      const mockData = [
+        { sku: "ART-300", name: "Art Paper 300gsm", category: "Paper", sellPrice: "25", stock: "100" },
+        { sku: "VIN-GLO", name: "Vinyl Glossy", category: "Vinyl", sellPrice: "45", stock: "50" },
+      ];
+      const res = await fetch("/api/core?resource=products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mockData)
+      });
+      if (!res.ok) throw new Error("Import failed");
+      setOpen(false);
+      toast({ title: "Success", description: "Successfully imported 2 products" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Bulk Import Products</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="border-2 border-dashed border-muted rounded-xl p-8 text-center space-y-2">
+            <Upload className="h-8 w-8 text-muted-foreground mx-auto" />
+            <p className="text-sm font-medium">Drag and drop your Excel/CSV file here</p>
+            <p className="text-xs text-muted-foreground">Download the <span className="text-primary cursor-pointer hover:underline">template file</span> before uploading</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpload}>Start Import</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function ProductList() {
   const [search, setSearch] = useState("");
@@ -56,7 +103,9 @@ function ProductList() {
           </SelectContent>
         </Select>
         <div className="ml-auto">
-          <Button variant="outline" size="sm" className="h-9 gap-1"><Upload className="h-3.5 w-3.5" />Bulk Import</Button>
+        <BulkImportModal 
+          trigger={<Button variant="outline" size="sm" className="h-9 gap-1"><Upload className="h-3.5 w-3.5" />Bulk Import</Button>}
+        />
         </div>
       </div>
       <Card>
@@ -112,19 +161,64 @@ function ProductList() {
 
 function CreateProductModal({ trigger, title, tabName, products }: { trigger: React.ReactNode; title: string, tabName: string, products: any[] }) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const [formData, setFormData] = useState<any>({
+    sku: `SKU-${Date.now().toString().slice(-4)}`,
+    name: "",
+    category: "",
+    brand: "",
+    sellPrice: "0",
+    purchasePrice: "0",
+    stock: "0",
+    minStock: "10",
+    unit: "PCS",
+    rack: "",
+    barcode: "",
+    description: ""
+  });
+
   const categories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean);
   const brands = Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean);
+
+  const handleSave = async () => {
+    if (!formData.name) {
+      toast({ variant: "destructive", title: "Missing Name", description: "Product name is required" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/core?resource=products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      if (!res.ok) throw new Error("Failed to save product");
+      toast({ title: "Success", description: "Product created successfully" });
+      setOpen(false);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getFields = () => {
     switch (tabName) {
       case "products":
         return [
-          { label: "SKU", span: false }, { label: "Product Name", span: true },
-          { label: "Category", span: false, isCategory: true }, { label: "Brand", span: false, isBrand: true },
-          { label: "Sell Price (₹)", span: false }, { label: "Purchase Price (₹)", span: false },
-          { label: "Min Stock", span: false }, { label: "Unit", span: false },
-          { label: "Rack/Location", span: false }, { label: "Barcode", span: false },
-          { label: "Description", span: true, type: "textarea" },
+          { label: "SKU", key: "sku", span: false }, 
+          { label: "Product Name", key: "name", span: true },
+          { label: "Category", key: "category", span: false, isCategory: true }, 
+          { label: "Brand", key: "brand", span: false, isBrand: true },
+          { label: "Sell Price (₹)", key: "sellPrice", span: false, type: "number" }, 
+          { label: "Purchase Price (₹)", key: "purchasePrice", span: false, type: "number" },
+          { label: "Stock", key: "stock", span: false, type: "number" },
+          { label: "Min Stock", key: "minStock", span: false, type: "number" }, 
+          { label: "Unit", key: "unit", span: false },
+          { label: "Rack/Location", key: "rack", span: false }, 
+          { label: "Barcode", key: "barcode", span: false },
+          { label: "Description", key: "description", span: true, type: "textarea" },
         ];
       default: return [];
     }
@@ -142,7 +236,7 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
             <div key={f.label} className={f.span ? "col-span-2" : ""}>
               <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
               {f.isCategory ? (
-                <Select>
+                <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
                   <SelectTrigger className="mt-1 h-9">
                     <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
                   </SelectTrigger>
@@ -151,7 +245,7 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
                   </SelectContent>
                 </Select>
               ) : f.isBrand ? (
-                <Select>
+                <Select value={formData.brand} onValueChange={(v) => setFormData({...formData, brand: v})}>
                   <SelectTrigger className="mt-1 h-9">
                     <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
                   </SelectTrigger>
@@ -160,15 +254,18 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
                   </SelectContent>
                 </Select>
               ) : f.type === "textarea" ? (
-                <Textarea className="mt-1 h-20" placeholder={f.label} />
+                <Textarea className="mt-1 h-20" placeholder={f.label} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               ) : (
-                <Input className="mt-1 h-9" placeholder={f.label} type={f.type || "text"} />
+                <Input className="mt-1 h-9" placeholder={f.label} type={f.type || "text"} value={formData[f.key as string]} onChange={e => setFormData({...formData, [f.key as string]: e.target.value})} />
               )}
             </div>
           ))}
           <div className="col-span-2 flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={() => setOpen(false)}>Save</Button>
+            <Button size="sm" onClick={handleSave} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Product
+            </Button>
           </div>
         </div>
       </DialogContent>

@@ -8,10 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2, Save, UserPlus } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -32,6 +34,12 @@ interface Contact {
 function ContactTable({ type, tabName }: { type: ContactType | ContactType[], tabName: string }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState<any>({});
+  
+  const resetForm = () => setFormData({});
   
   const { data: contacts = [], isLoading, isError } = useQuery<Contact[]>({
     queryKey: ["contacts"],
@@ -62,35 +70,35 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     switch (tabName) {
       case "B2B":
         return [
-          { name: "Company Name", placeholder: "Enter company name", required: true },
-          { name: "Contact Person", placeholder: "Enter contact person name", required: true },
-          { name: "Mobile", placeholder: "Enter mobile number", required: true },
-          { name: "WhatsApp", placeholder: "Enter WhatsApp number" },
-          { name: "Email", placeholder: "Enter email address", required: true },
-          { name: "GST Number", placeholder: "Enter GST number", required: true },
-          { name: "City", placeholder: "Enter city", required: true },
-          { name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
+          { key: "name", name: "Company Name", placeholder: "Enter company name", required: true },
+          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: true },
+          { key: "mobile", name: "Mobile", placeholder: "Enter mobile number" },
+          { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
+          { key: "email", name: "Email", placeholder: "Enter email address" },
+          { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
+          { key: "city", name: "City", placeholder: "Enter city" },
+          { key: "address", name: "Billing Address", placeholder: "Enter billing address", type: "textarea" },
         ];
       case "B2C":
         return [
-          { name: "Full Name", placeholder: "Enter full name", required: true },
-          { name: "Mobile", placeholder: "Enter mobile number", required: true },
-          { name: "WhatsApp", placeholder: "Enter WhatsApp number" },
-          { name: "Email", placeholder: "Enter email address" },
-          { name: "City", placeholder: "Enter city", required: true },
-          { name: "Address", placeholder: "Enter address", required: true, type: "textarea" },
+          { key: "name", name: "Full Name", placeholder: "Enter full name", required: true },
+          { key: "mobile", name: "Mobile", placeholder: "Enter mobile number", required: true },
+          { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
+          { key: "email", name: "Email", placeholder: "Enter email address" },
+          { key: "city", name: "City", placeholder: "Enter city", required: true },
+          { key: "address", name: "Address", placeholder: "Enter address", required: true, type: "textarea" },
         ];
       case "Supplier":
         return [
-          { name: "Company Name", placeholder: "Enter company name", required: true },
-          { name: "Contact Person", placeholder: "Enter contact person name", required: true },
-          { name: "Mobile", placeholder: "Enter mobile number", required: true },
-          { name: "WhatsApp", placeholder: "Enter WhatsApp number" },
-          { name: "Email", placeholder: "Enter email address", required: true },
-          { name: "GST Number", placeholder: "Enter GST number" },
-          { name: "City", placeholder: "Enter city", required: true },
-          { name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
-          { name: "Payment Terms", placeholder: "e.g., 30 days credit" },
+          { key: "name", name: "Company Name", placeholder: "Enter company name", required: true },
+          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: true },
+          { key: "mobile", name: "Mobile", placeholder: "Enter mobile number", required: true },
+          { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
+          { key: "email", name: "Email", placeholder: "Enter email address", required: true },
+          { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
+          { key: "city", name: "City", placeholder: "Enter city", required: true },
+          { key: "address", name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
+          { key: "paymentTerms", name: "Payment Terms", placeholder: "e.g., 30 days credit" },
         ];
       default:
         return [];
@@ -98,6 +106,47 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   };
 
   const formFields = getFormFields();
+  
+  const handleSave = async (stayOpen: boolean = false) => {
+    // Validation
+    const missing = formFields.filter(f => f.required && !formData[f.key]);
+    if (missing.length > 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Required Fields", 
+        description: `Please fill in: ${missing.map(m => m.name).join(", ")}` 
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/core?resource=contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, type: Array.isArray(type) ? type[0] : type })
+      });
+      if (!res.ok) throw new Error("Failed to save contact");
+      
+      toast({ 
+        title: "Success", 
+        description: `${formData.name || 'Contact'} added successfully` 
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      
+      if (stayOpen) {
+        resetForm();
+      } else {
+        setOpen(false);
+        resetForm();
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -106,11 +155,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search contacts..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-9 gap-1"><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
             <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3 py-2">
               {formFields.map((field) => (
@@ -119,15 +168,35 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                     {field.name} {field.required && <span className="text-destructive">*</span>}
                   </Label>
                   {field.type === "textarea" ? (
-                    <Textarea className="mt-1 h-20" placeholder={field.placeholder} />
+                    <Textarea 
+                      className="mt-1 h-20" 
+                      placeholder={field.placeholder} 
+                      value={formData[field.key!] || ""}
+                      onChange={e => setFormData({ ...formData, [field.key!]: e.target.value })}
+                    />
                   ) : (
-                    <Input className="mt-1 h-9" placeholder={field.placeholder} type={field.type || "text"} />
+                    <Input 
+                      className="mt-1 h-9" 
+                      placeholder={field.placeholder} 
+                      type={field.type || "text"} 
+                      value={formData[field.key!] || ""}
+                      onChange={e => setFormData({ ...formData, [field.key!]: e.target.value })}
+                    />
                   )}
                 </div>
               ))}
-              <div className="col-span-2 flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button size="sm" onClick={() => setOpen(false)}>{saveButtonLabel}</Button>
+              <div className="col-span-2 flex flex-col sm:flex-row justify-end gap-2 pt-2 mt-2">
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => handleSave(true)} disabled={loading} className="gap-1">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                    Save & Add Another
+                  </Button>
+                  <Button size="sm" onClick={() => handleSave(false)} disabled={loading} className="gap-1">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {saveButtonLabel}
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>

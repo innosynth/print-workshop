@@ -95,8 +95,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'POST') {
         const data = request.body;
-        const newProduct = await db.insert(products).values(data).returning();
-        return response.status(200).json(newProduct[0]);
+        if (Array.isArray(data)) {
+          const inserted = await db.insert(products).values(data).returning();
+          return response.status(200).json(inserted);
+        } else {
+          const newProduct = await db.insert(products).values(data).returning();
+          return response.status(200).json(newProduct[0]);
+        }
       }
     }
 

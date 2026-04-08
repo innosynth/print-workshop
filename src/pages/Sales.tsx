@@ -14,6 +14,9 @@ import { Search, Plus, Trash2, Printer, Loader2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { usePrintSettings } from "@/lib/print-settings-context";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -357,6 +360,186 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   );
 }
 
+function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+  const [customerId, setCustomerId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const { data: contacts = [] } = useQuery({ 
+    queryKey: ["contacts"], 
+    queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) 
+  });
+
+  const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
+  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    (newItems[index] as any)[field] = value;
+    if (field === "qty" || field === "rate") {
+      newItems[index].amount = newItems[index].qty * newItems[index].rate;
+    }
+    setItems(newItems);
+  };
+
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  const handleSave = async () => {
+    if (!customerId) {
+      toast({ variant: "destructive", title: "Missing information", description: "Please select a customer" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: parseInt(customerId),
+          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: `${type === 'quotations' ? 'QT' : 'INV'}-${Date.now().toString().slice(-6)}`,
+          date: new Date().toISOString().split('T')[0],
+          amount: total.toString(),
+          tax: (total * 0.18).toString(),
+          total: (total * 1.18).toString(),
+          status: "Draft",
+          items: items.map(item => ({
+            ...item,
+            rate: item.rate.toString(),
+            amount: item.amount.toString()
+          }))
+        })
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      toast({ title: "Success", description: `${title} created successfully` });
+      setOpen(false);
+      // Reset form
+      setItems([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+      setCustomerId("");
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Select Customer</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+            </div>
+          </div>
+
+          <Separator />
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label className="text-sm font-bold">Line Items</Label>
+              <Button variant="outline" size="sm" onClick={addItem} className="h-7 gap-1">
+                <Plus className="h-3.5 w-3.5" /> Add Item
+              </Button>
+            </div>
+            
+            <div className="space-y-2">
+              {items.map((item, index) => (
+                <div key={index} className="flex gap-2 items-end">
+                  <div className="flex-[3] space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Description</Label>
+                    <Input 
+                      placeholder="Item name" 
+                      value={item.name} 
+                      onChange={e => updateItem(index, "name", e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
+                    <Input 
+                      type="number" 
+                      value={item.qty} 
+                      onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Rate</Label>
+                    <Input 
+                      type="number" 
+                      value={item.rate} 
+                      onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Total</Label>
+                    <div className="h-10 flex items-center px-3 bg-muted rounded-md font-bold text-sm">
+                      ₹{item.amount.toFixed(2)}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-destructive" 
+                    onClick={() => removeItem(index)}
+                    disabled={items.length === 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex justify-end">
+            <div className="w-1/3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal:</span>
+                <span className="font-bold">₹{total.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tax (18%):</span>
+                <span className="font-bold">₹{(total * 0.18).toFixed(2)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between text-lg">
+                <span className="font-bold">Grand Total:</span>
+                <span className="font-black text-primary">₹{(total * 1.18).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save {type.slice(0, -1)}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TxTable({ data, cols, isLoading, onPrint, onConvert }: { 
   data: any[]; cols: any[]; isLoading?: boolean; onPrint?: (row: any) => void; onConvert?: (row: any) => void 
 }) {
@@ -476,9 +659,15 @@ export default function Sales() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
-            <Plus className="h-3.5 w-3.5" />New {activeTab.slice(0, -1)}
-          </Button>
+          <CreateSalesModal
+            type={activeTab}
+            title={`Create New ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1)}`}
+            trigger={
+              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+                <Plus className="h-3.5 w-3.5" />New {activeTab.slice(0, -1)}
+              </Button>
+            }
+          />
         </div>
 
         <TabsContent value="invoices" className="mt-4">
