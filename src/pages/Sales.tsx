@@ -1,23 +1,23 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw } from "lucide-react";
+import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, Trash2, Printer, Loader2 } from "lucide-react";
-import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import { usePrintSettings } from "@/lib/print-settings-context";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -51,10 +51,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     ifscCode: "ICIC0007307"
   };
 
+  const isEstimate = docType === "estimates";
   const amount = parseFloat(invoice.amount || 0);
   const total = parseFloat(invoice.total || amount);
-  const taxRate = 18; // Default 18%
-  const taxableAmount = total / (1 + taxRate / 100);
+  const taxRate = isEstimate ? 0 : 18;
+  const taxableAmount = isEstimate ? total : total / (1 + taxRate / 100);
   const totalTax = total - taxableAmount;
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
@@ -283,14 +284,18 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="px-2 py-1 text-gray-500">Sub Total</td>
                         <td className="px-2 py-1 text-right font-black">₹{taxableAmount.toFixed(2)}</td>
                       </tr>
-                      <tr className="border border-black">
-                        <td className="px-2 py-1 text-gray-500">CGST 9 %</td>
-                        <td className="px-2 py-1 text-right font-black">₹{cgst.toFixed(2)}</td>
-                      </tr>
-                      <tr className="border border-black">
-                        <td className="px-2 py-1 text-gray-500">SGST 9 %</td>
-                        <td className="px-2 py-1 text-right font-black">₹{sgst.toFixed(2)}</td>
-                      </tr>
+                      {!isEstimate && (
+                        <>
+                          <tr className="border border-black">
+                            <td className="px-2 py-1 text-gray-500">CGST 9 %</td>
+                            <td className="px-2 py-1 text-right font-black">₹{cgst.toFixed(2)}</td>
+                          </tr>
+                          <tr className="border border-black">
+                            <td className="px-2 py-1 text-gray-500">SGST 9 %</td>
+                            <td className="px-2 py-1 text-right font-black">₹{sgst.toFixed(2)}</td>
+                          </tr>
+                        </>
+                      )}
                       <tr className="border border-black bg-gray-50 font-black">
                         <td className="px-2 py-1 text-gray-900 text-xs">Grand Total</td>
                         <td className="px-2 py-1 text-right text-sm">₹{total.toFixed(2)}</td>
@@ -406,15 +411,22 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   const [customerId, setCustomerId] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data: contacts = [] } = useQuery({ 
+  const { data: contacts = [], isError: contactsError } = useQuery({ 
     queryKey: ["contacts"], 
-    queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) 
+    queryFn: () => fetch("/api/core?resource=contacts").then(res => {
+      if (!res.ok) throw new Error("Failed to fetch contacts");
+      return res.json();
+    }) 
   });
 
   const { data: products = [] } = useQuery({ 
     queryKey: ["products"], 
-    queryFn: () => fetch("/api/core?resource=products").then(res => res.json()) 
+    queryFn: () => fetch("/api/core?resource=products").then(res => {
+      if (!res.ok) throw new Error("Failed to fetch products");
+      return res.json();
+    }) 
   });
 
   const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
@@ -443,21 +455,25 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: parseInt(customerId),
-          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: `${type === 'quotations' ? 'QT' : 'INV'}-${Date.now().toString().slice(-6)}`,
+          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: `${type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV'}-${Date.now().toString().slice(-6)}`,
           date: new Date().toISOString().split('T')[0],
-          amount: total.toString(),
-          tax: (total * 0.18).toString(),
-          total: (total * 1.18).toString(),
+          amount: total.toFixed(2),
+          tax: type === 'estimates' ? "0" : (total * 0.18).toFixed(2),
+          total: type === 'estimates' ? total.toFixed(2) : (total * 1.18).toFixed(2),
           status: type === 'estimates' ? "Draft" : "Pending",
           items: items.map(item => ({
             ...item,
-            rate: item.rate.toString(),
-            amount: item.amount.toString()
+            qty: parseInt(item.qty.toString()),
+            rate: item.rate.toFixed(2),
+            amount: item.amount.toFixed(2)
           }))
         })
       });
       if (!res.ok) throw new Error("Failed to save");
       toast({ title: "Success", description: `${title} created successfully` });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["returns"] });
       setOpen(false);
       // Reset form
       setItems([{ name: "", qty: 1, rate: 0, amount: 0 }]);
@@ -483,9 +499,12 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                   <SelectValue placeholder="Choose customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {contacts.map((c: any) => (
+                  {Array.isArray(contacts) && contacts.filter((c: any) => c.status !== "Inactive").map((c: any) => (
                     <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                   ))}
+                  {(!Array.isArray(contacts) || contacts.length === 0) && (
+                    <SelectItem value="none" disabled>No customers available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -511,19 +530,21 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                   <div className="flex-[3] space-y-1">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Description</Label>
                     <Select 
-                      value={item.name} 
-                      onValueChange={v => {
-                        const prod = products.find((p: any) => p.name === v);
-                        updateItem(index, "name", v);
-                        if (prod) updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
+                      value={products.find((p: any) => p.name === item.name)?.id?.toString() || ""} 
+                      onValueChange={id => {
+                        const prod = products.find((p: any) => p.id.toString() === id);
+                        if (prod) {
+                          updateItem(index, "name", prod.name);
+                          updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
+                        }
                       }}
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {products.map((p: any) => (
-                          <SelectItem key={p.id} value={p.name}>{p.name} (₹{p.sellPrice})</SelectItem>
+                        {Array.isArray(products) && products.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>{p.name} (₹{p.sellPrice})</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -572,14 +593,16 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="font-bold">₹{total.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax (18%):</span>
-                <span className="font-bold">₹{(total * 0.18).toFixed(2)}</span>
-              </div>
+              {type !== 'estimates' && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax (18%):</span>
+                  <span className="font-bold">₹{(total * 0.18).toFixed(2)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between text-lg">
                 <span className="font-bold">Grand Total:</span>
-                <span className="font-black text-primary">₹{(total * 1.18).toFixed(2)}</span>
+                <span className="font-black text-primary">₹{(total * (type === 'estimates' ? 1 : 1.18)).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -597,8 +620,14 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert }: { 
-  data: any[]; cols: any[]; isLoading?: boolean; onPrint?: (row: any) => void; onConvert?: (row: any) => void 
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId }: { 
+  data: any[]; 
+  cols: any[]; 
+  isLoading?: boolean, 
+  onPrint?: (r: any) => void, 
+  onConvert?: (r: any) => void, 
+  onToggleStatus?: (r: any) => void,
+  loadingId?: number | null 
 }) {
   const [search, setSearch] = useState("");
   const filtered = (data || []).filter(row =>
@@ -644,9 +673,21 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert }: {
                                 <Printer className="h-3.5 w-3.5" />Print
                               </Button>
                             )}
-                            {onConvert && (
-                              <Button variant="default" size="sm" className="h-7 gap-1 text-xs" onClick={() => onConvert(row)}>
+                            {onConvert && row.status !== 'Invoiced' && (
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                className="h-7 gap-1 text-xs" 
+                                onClick={() => onConvert(row)}
+                                disabled={loadingId === row.id}
+                              >
+                                {loadingId === row.id && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
                                 Convert
+                              </Button>
+                            )}
+                            {onToggleStatus && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Unpaid" : "Mark as Paid"}>
+                                {row.status === "Paid" ? <Banknote className="h-4 w-4 text-green-600" /> : <Ban className="h-4 w-4 text-orange-500" />}
                               </Button>
                             )}
                           </div>
@@ -669,7 +710,9 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert }: {
 }
 
 export default function Sales() {
-  const [activeTab, setActiveTab] = useState("invoices");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "invoices";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const [selectedInvoice, setSelectedInvoice] = useState<any>({ data: null, type: "invoices" });
 
   const { data: invoices = [], isLoading: invLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
@@ -677,6 +720,7 @@ export default function Sales() {
   const { data: returns = [], isLoading: srLoading } = useQuery({ queryKey: ["returns"], queryFn: () => fetch("/api/sales?resource=returns").then(res => res.json()) });
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [convertingId, setConvertingId] = useState<number | null>(null);
 
   const handleConvertQuotation = async (quotation: any) => {
     if (quotation.status === "Invoiced") {
@@ -684,6 +728,7 @@ export default function Sales() {
       return;
     }
     
+    setConvertingId(quotation.id);
     try {
       const qtRes = await fetch(`/api/sales?resource=quotations&id=${quotation.id}`);
       if (!qtRes.ok) throw new Error("Failed to fetch quotation details");
@@ -693,15 +738,15 @@ export default function Sales() {
         customerId: qtDetail.customerId,
         invoiceNo: `INV-QT-${qtDetail.quotationNo.split('-').pop()}`,
         date: new Date().toISOString().split('T')[0],
-        amount: qtDetail.amount,
-        tax: (parseFloat(qtDetail.amount) * 0.18).toString(),
-        total: (parseFloat(qtDetail.amount) * 1.18).toString(),
-        status: "Pending",
+        amount: parseFloat(qtDetail.amount).toFixed(2),
+        tax: (parseFloat(qtDetail.amount) * 0.18).toFixed(2),
+        total: (parseFloat(qtDetail.amount) * 1.18).toFixed(2),
+        status: "Paid",
         items: qtDetail.items.map((item: any) => ({
           name: item.name,
-          qty: item.qty,
-          rate: item.rate,
-          amount: item.amount
+          qty: parseInt(item.qty),
+          rate: parseFloat(item.rate).toFixed(2),
+          amount: parseFloat(item.amount).toFixed(2)
         }))
       };
       
@@ -723,6 +768,24 @@ export default function Sales() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Conversion Failed", description: e.message });
+    } finally {
+      setConvertingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (invoice: any) => {
+    try {
+      const newStatus = invoice.status === "Paid" ? "Pending" : "Paid";
+      const res = await fetch(`/api/sales?resource=invoices&id=${invoice.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      toast({ title: "Status Updated", description: `Invoice marked as ${newStatus}` });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
     }
   };
 
@@ -730,6 +793,7 @@ export default function Sales() {
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
+    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
     { key: "status", label: "Status", render: (r: any) => <StatusBadge status={r.status} /> },
   ];
@@ -738,6 +802,7 @@ export default function Sales() {
     { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.quotationNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
+    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
     { key: "status", label: "Status", render: (r: any) => <StatusBadge status={r.status} /> },
   ];
@@ -778,7 +843,13 @@ export default function Sales() {
         </div>
 
         <TabsContent value="invoices" className="mt-4">
-          <TxTable data={invoices.filter((i:any) => i.status !== 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })} />
+          <TxTable 
+            data={invoices.filter((i:any) => i.status !== 'Draft')} 
+            cols={invCols} 
+            isLoading={invLoading} 
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })} 
+            onToggleStatus={handleToggleStatus}
+          />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
           <TxTable 
@@ -787,6 +858,7 @@ export default function Sales() {
             isLoading={qtLoading} 
             onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })}
             onConvert={handleConvertQuotation}
+            loadingId={convertingId}
           />
         </TabsContent>
         <TabsContent value="estimates" className="mt-4">

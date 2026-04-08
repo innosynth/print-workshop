@@ -21,13 +21,44 @@ import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+const ProtectedRoute = ({ children, module }: { children: React.ReactNode, module?: string }) => {
+  const { user, isLoading, hasPermission } = useAuth();
   
   if (isLoading) return <div className="h-screen flex items-center justify-center bg-zinc-950"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   if (!user) return <Navigate to="/login" />;
   
+  if (module && !hasPermission(module, 'view')) {
+    return <Navigate to="/" />;
+  }
+  
   return <Layout>{children}</Layout>;
+};
+
+const NAV_ITEMS = [
+  { title: "Dashboard", url: "/", module: "Dashboard" },
+  { title: "Contacts", url: "/contacts", module: "Contacts" },
+  { title: "Sales", url: "/sales", module: "Sales" },
+  { title: "Purchase", url: "/purchase", module: "Purchase" },
+  { title: "Accounting", url: "/accounting", module: "Accounting" },
+  { title: "Inventory", url: "/inventory", module: "Inventory" },
+  { title: "Products", url: "/products", module: "Products" },
+  { title: "Meter Readings", url: "/meter-readings", module: "Meter Readings" },
+  { title: "Reports", url: "/reports", module: "Reports" },
+  { title: "Settings", url: "/settings", module: "Settings" },
+];
+
+const HomeRedirect = () => {
+  const { hasPermission } = useAuth();
+  const firstAvailable = NAV_ITEMS.find(item => {
+    if (item.module === "Meter Readings") return true; // Always visible as per sidebar logic
+    return hasPermission(item.module, 'view');
+  });
+
+  if (firstAvailable && firstAvailable.url !== "/") {
+    return <Navigate to={firstAvailable.url} replace />;
+  }
+
+  return <Dashboard />;
 };
 
 const App = () => (
@@ -39,16 +70,16 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-            <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
-            <Route path="/purchase" element={<ProtectedRoute><Purchase /></ProtectedRoute>} />
-            <Route path="/accounting" element={<ProtectedRoute><Accounting /></ProtectedRoute>} />
-            <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><HomeRedirect /></ProtectedRoute>} />
+            <Route path="/contacts" element={<ProtectedRoute module="Contacts"><Contacts /></ProtectedRoute>} />
+            <Route path="/sales" element={<ProtectedRoute module="Sales"><Sales /></ProtectedRoute>} />
+            <Route path="/purchase" element={<ProtectedRoute module="Purchase"><Purchase /></ProtectedRoute>} />
+            <Route path="/accounting" element={<ProtectedRoute module="Accounting"><Accounting /></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute module="Inventory"><Inventory /></ProtectedRoute>} />
+            <Route path="/products" element={<ProtectedRoute module="Products"><Products /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute module="Reports"><Reports /></ProtectedRoute>} />
             <Route path="/meter-readings" element={<ProtectedRoute><MeterReadings /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute module="Settings"><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 
 function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [items, setItems] = useState([{ name: "", qty: 1, rate: 0, amount: 0 }]);
   const [supplierId, setSupplierId] = useState("");
 
@@ -73,6 +76,9 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
       });
       if (!res.ok) throw new Error("Failed to save");
       toast({ title: "Success", description: `${title} created successfully` });
+      queryClient.invalidateQueries({ queryKey: ["purchase-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setOpen(false);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -93,6 +99,16 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                 <SelectContent>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-xs font-bold text-primary gap-2 h-9 px-2 hover:text-primary hover:bg-primary/5 border-b rounded-none"
+                    onClick={() => {
+                       setOpen(false);
+                       navigate("/contacts?tab=suppliers");
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> ADD NEW SUPPLIER
+                  </Button>
                   {suppliers.map((s: any) => (
                     <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                   ))}
@@ -190,7 +206,10 @@ function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoadin
 }
 
 export default function Purchase() {
-  const [activeTab, setActiveTab] = useState("entries");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "entries";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: entries = [], isLoading: entriesLoading } = useQuery({ queryKey: ["purchase-entries"], queryFn: () => fetch("/api/sales?resource=purchases&type=entries").then(res => res.json()) });
   const { data: orders = [], isLoading: ordersLoading } = useQuery({ queryKey: ["purchase-orders"], queryFn: () => fetch("/api/sales?resource=purchases&type=orders").then(res => res.json()) });

@@ -56,7 +56,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
   const [paperSize, setPaperSize] = useState<"A4" | "thermal">(settings.defaultPaperSize);
 
   const companyInfo = {
-    name: "InnoSynth Print Workshop",
+    name: "Print Workshop",
     address: "Unit 4, Industrial Estate, Andheri East, Mumbai – 400 093",
     gst: "27AABCC1234D1Z8",
     phone: "022-28349876",
@@ -240,8 +240,9 @@ export default function Dashboard() {
     },
   });
 
-  const lowStock = products.filter((p: any) => p.stock > 0 && p.stock < p.minStock);
-  const outOfStock = products.filter((p: any) => p.stock === 0);
+  const lowStock = Array.isArray(products) ? products.filter((p: any) => p.stock > 0 && p.stock < p.minStock) : [];
+  const outOfStock = Array.isArray(products) ? products.filter((p: any) => p.stock === 0) : [];
+  const invoicesList = Array.isArray(recentInvoices) ? recentInvoices : [];
   
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
@@ -380,7 +381,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentInvoices.map((inv: any) => (
+                    {invoicesList.map((inv: any) => (
                       <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-mono text-xs font-semibold text-primary">{inv.invoiceNo}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">{inv.date}</td>
@@ -399,7 +400,7 @@ export default function Dashboard() {
                         </td>
                       </tr>
                     ))}
-                    {recentInvoices.length === 0 && (
+                    {invoicesList.length === 0 && (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No recent invoices</td></tr>
                     )}
                   </tbody>

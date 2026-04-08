@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,13 +87,17 @@ function ChartOfAccountsTable() {
 }
 
 export default function Accounting() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "coa";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
+
   return (
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-bold">Accounting</h1>
         <p className="text-sm text-muted-foreground">Ledger, chart of accounts, and outstanding tracking</p>
       </div>
-      <Tabs defaultValue="coa">
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="coa">
         <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1">
           {[
             { id: "coa", label: "Chart of Accounts" },

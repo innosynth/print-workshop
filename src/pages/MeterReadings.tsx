@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import * as XLSX from 'xlsx';
 
 export default function MeterReadings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeRange = searchParams.get("range") || "Month";
+  const setActiveRange = (v: string) => setSearchParams({ range: v });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -26,7 +30,7 @@ export default function MeterReadings() {
     return d.toISOString().split('T')[0];
   });
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
-  const [activeRange, setActiveRange] = useState("Month");
+
   
   const [formData, setFormData] = useState({
     id: null as number | null,
@@ -391,4 +395,3 @@ export default function MeterReadings() {
   );
 }
 
-import { Fragment } from "react";

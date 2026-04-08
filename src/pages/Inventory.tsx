@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ function CreateMovementModal({ trigger, title, type }: { trigger: React.ReactNod
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState("1");
 
@@ -47,6 +49,7 @@ function CreateMovementModal({ trigger, title, type }: { trigger: React.ReactNod
       // The backend needs to support this. I'll check it. 
       // For now assume standard insert.
       toast({ title: "Success", description: `${title} recorded` });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
       setOpen(false);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -92,8 +95,8 @@ function CreateMovementModal({ trigger, title, type }: { trigger: React.ReactNod
 function MovementTable({ data, isLoading }: { data: any[]; isLoading?: boolean }) {
   const [search, setSearch] = useState("");
   const filtered = (data || []).filter(m =>
-    m.product.toLowerCase().includes(search.toLowerCase()) ||
-    m.ref.toLowerCase().includes(search.toLowerCase())
+    (m.product || "").toLowerCase().includes(search.toLowerCase()) ||
+    (m.ref || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -144,7 +147,9 @@ function MovementTable({ data, isLoading }: { data: any[]; isLoading?: boolean }
 }
 
 export default function Inventory() {
-  const [activeTab, setActiveTab] = useState("inward");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "inward";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
 
   const { data: inventoryData, isLoading } = useQuery({ 
     queryKey: ["inventory"], 

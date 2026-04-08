@@ -200,6 +200,20 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
+export const productCategories = pgTable("productCategories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export const productBrands = pgTable("productBrands", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
 export const paymentQrs = pgTable("paymentQrs", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

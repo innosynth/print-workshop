@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,14 @@ import { Search, Plus, Upload, Edit2, UserPlus, Loader2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 
 
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleUpload = async () => {
     toast({ title: "Importing...", description: "Processing your product catalogue" });
@@ -38,6 +40,7 @@ function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
       if (!res.ok) throw new Error("Import failed");
       setOpen(false);
       toast({ title: "Success", description: "Successfully imported 2 products" });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
     }
@@ -77,7 +80,9 @@ function ProductList() {
     },
   });
 
-  const categories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean);
+  const categories = Array.isArray(products) 
+    ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
+    : [];
 
   const filtered = (products || [])
     .filter((p: any) => catFilter === "all" || p.category === catFilter)
@@ -168,6 +173,84 @@ function ProductList() {
   );
 }
 
+function CategoryList({ products, dbCategories }: { products: any[], dbCategories: any[] }) {
+  // Merge categories from products and the dedicated categories table for a complete view
+  const catNamesFromProducts = Array.isArray(products) 
+    ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
+    : [];
+  
+  const allCategoryNames = Array.from(new Set([...catNamesFromProducts, ...dbCategories.map(c => c.name)]));
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {allCategoryNames.map(cat => {
+        const prodCount = products.filter(p => p.category === cat).length;
+        const totalStock = products.filter(p => p.category === cat).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
+        const dbCat = dbCategories.find(c => c.name === cat);
+        return (
+          <Card key={cat} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{cat}</h3>
+                <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
+                {dbCat?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbCat.description}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
+                <div className="flex items-center justify-end gap-1.5 mt-1">
+                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                   <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+      {allCategoryNames.length === 0 && (
+         <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30">No categories found in product master</div>
+      )}
+    </div>
+  );
+}
+
+function BrandList({ products, dbBrands }: { products: any[], dbBrands: any[] }) {
+  const brandNamesFromProducts = Array.isArray(products) 
+    ? Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean)
+    : [];
+    
+  const allBrandNames = Array.from(new Set([...brandNamesFromProducts, ...dbBrands.map(b => b.name)]));
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {allBrandNames.map(brand => {
+        const prodCount = products.filter(p => p.brand === brand).length;
+        const totalStock = products.filter(p => p.brand === brand).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
+        const dbBrand = dbBrands.find(b => b.name === brand);
+        return (
+          <Card key={brand} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{brand}</h3>
+                <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
+                {dbBrand?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbBrand.description}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Inventory</p>
+                <div className="flex items-center justify-end gap-1.5 mt-1">
+                   <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+      {allBrandNames.length === 0 && (
+         <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30">No brand data recorded yet</div>
+      )}
+    </div>
+  );
+}
+
 function CreateProductModal({ trigger, title, tabName, products, initialData }: { trigger: React.ReactNode; title: string, tabName: string, products: any[], initialData?: any }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -203,8 +286,18 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
     description: ""
   });
 
-  const categories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean);
-  const brands = Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean);
+  const categories = Array.isArray(products) 
+    ? Array.from(new Set([
+        ...products.map((p: any) => p.category), 
+        ...(Array.isArray(initialData?.dbCategories) ? initialData.dbCategories : []).map((c: any) => c.name)
+      ])).filter(Boolean)
+    : [];
+  const brands = Array.isArray(products)
+    ? Array.from(new Set([
+        ...products.map((p: any) => p.brand), 
+        ...(Array.isArray(initialData?.dbBrands) ? initialData.dbBrands : []).map((b: any) => b.name)
+      ])).filter(Boolean)
+    : [];
 
   const handleSave = async () => {
     if (!formData.name) {
@@ -213,17 +306,21 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/core?resource=products", {
+      const { createdAt, ...saveData } = formData;
+      const resource = tabName === 'categories' ? 'categories' : tabName === 'brands' ? 'brands' : 'products';
+      const res = await fetch(`/api/core?resource=${resource}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(saveData)
       });
-      if (!res.ok) throw new Error("Failed to save product");
-      toast({ title: "Success", description: `Product ${formData.id ? 'updated' : 'created'} successfully` });
+      if (!res.ok) throw new Error(`Failed to save ${resource}`);
+      toast({ title: "Success", description: `${title} saved successfully` });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: [resource] });
       setOpen(false);
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
+      resetForm();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
       setLoading(false);
     }
@@ -244,6 +341,16 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
           { label: "Unit", key: "unit", span: false },
           { label: "Rack/Location", key: "rack", span: false }, 
           { label: "Barcode", key: "barcode", span: false },
+          { label: "Description", key: "description", span: true, type: "textarea" },
+        ];
+      case "categories":
+        return [
+          { label: "Category Name", key: "name", span: true },
+          { label: "Description", key: "description", span: true, type: "textarea" },
+        ];
+      case "brands":
+        return [
+          { label: "Brand Name", key: "name", span: true },
           { label: "Description", key: "description", span: true, type: "textarea" },
         ];
       default: return [];
@@ -300,8 +407,26 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
 }
 
 export default function Products() {
-  const [activeTab, setActiveTab] = useState("products");
-  const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => fetch("/api/core?resource=products").then(res => res.json()) });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "products";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
+  const { data: products = [] } = useQuery({ 
+    queryKey: ["products"], 
+    queryFn: () => fetch("/api/core?resource=products").then(res => {
+      if (!res.ok) throw new Error("Failed to fetch products");
+      return res.json();
+    }) 
+  });
+
+  const { data: dbCategories = [] } = useQuery({ 
+    queryKey: ["categories"], 
+    queryFn: () => fetch("/api/core?resource=categories").then(res => res.ok ? res.json() : []) 
+  });
+
+  const { data: dbBrands = [] } = useQuery({ 
+    queryKey: ["brands"], 
+    queryFn: () => fetch("/api/core?resource=brands").then(res => res.ok ? res.json() : []) 
+  });
 
   const getNewButtonLabel = (tab: string) => {
     switch (tab) {
@@ -335,6 +460,7 @@ export default function Products() {
           <CreateProductModal
             tabName={activeTab}
             products={products}
+            initialData={{ dbCategories, dbBrands }}
             title={getNewButtonLabel(activeTab)}
             trigger={
               <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
@@ -346,12 +472,8 @@ export default function Products() {
         </div>
 
         <TabsContent value="products" className="mt-4"><ProductList /></TabsContent>
-        <TabsContent value="categories" className="mt-4">
-          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Product category classification and sub-groups</div>
-        </TabsContent>
-        <TabsContent value="brands" className="mt-4">
-          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Brand master and manufacturer tracking</div>
-        </TabsContent>
+        <TabsContent value="categories" className="mt-4"><CategoryList products={products} dbCategories={dbCategories} /></TabsContent>
+        <TabsContent value="brands" className="mt-4"><BrandList products={products} dbBrands={dbBrands} /></TabsContent>
         <TabsContent value="pricelists" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Custom price lists for retail and wholesale contracts</div>
         </TabsContent>

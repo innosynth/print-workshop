@@ -94,3 +94,31 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+@media print {
+  .print-hidden, 
+  [role="navigation"], 
+  aside, 
+  header, 
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .p-8 {
+    padding: 0 !important;
+  }
+  
+  .border-b {
+    border-bottom: none !important;
+  }
+}

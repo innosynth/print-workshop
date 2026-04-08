@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer } from "lucide-react";
+import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer, RotateCcw, ArrowLeft } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,7 +21,24 @@ const reportTypes = [
   { key: "transaction", icon: History, title: "Transaction History", desc: "Complete transaction log across all modules" },
 ];
 
-function GSTReport() {
+const exportToExcel = (data: any[], filename: string) => {
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+  XLSX.writeFile(workbook, `${filename}.xlsx`);
+};
+
+const exportToCSV = (data: any[], filename: string) => {
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const csv = XLSX.utils.sheet_to_csv(worksheet);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}.csv`;
+  link.click();
+};
+
+function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
   const [returnFor, setReturnFor] = useState("invoice");
   const [dateRange, setDateRange] = useState("Previous Month");
   const [taxType, setTaxType] = useState("Both");
@@ -32,17 +50,32 @@ function GSTReport() {
     queryFn: () => fetch(`/api/sales?resource=gst_report&returnFor=${returnFor}`).then(res => res.json()) 
   });
 
-  const handleExport = () => {
-    const worksheet = XLSX.utils.json_to_sheet(gstLines);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "GST Audit");
-    XLSX.writeFile(workbook, `GST_Audit_${returnFor}_${new Date().toLocaleDateString()}.xlsx`);
+  const filteredGstLines = gstLines.filter((line: any) => {
+    if (returnFor === "invoice") {
+      const ref = (line.invoiceNo || "").toUpperCase();
+      return !ref.startsWith("EST") && !ref.startsWith("QUO");
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToExcel(filteredGstLines, `GST_Audit_${returnFor}_${new Date().toLocaleDateString()}`));
+  }, [filteredGstLines, returnFor]);
+
+  const handleClear = () => {
+    setReturnFor("invoice");
+    setDateRange("Previous Month");
+    setTaxType("Both");
+    setFilterType("Both");
+    setHsnSearch("");
   };
 
+  const isFiltered = returnFor !== "invoice" || dateRange !== "Previous Month" || taxType !== "Both" || filterType !== "Both" || hsnSearch !== "";
+
   return (
-    <div className="space-y-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-      <Card className="bg-white border-gray-200 shadow-sm">
-        <CardContent className="p-5 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end">
+    <div className="space-y-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100 print:bg-white print:p-0 print:border-none">
+      <Card className="bg-white border-gray-200 shadow-sm print:hidden">
+        <CardContent className="p-5 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 items-end">
           <div className="space-y-1.5">
             <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Tax Return For</Label>
             <Select value={returnFor} onValueChange={setReturnFor}>
@@ -89,40 +122,18 @@ function GSTReport() {
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">HSN/SAC</Label>
-            <div className="flex items-center gap-2">
-               <Input className="h-10 bg-gray-50/50 border-gray-200 font-bold" placeholder="HSN..." value={hsnSearch} onChange={e => setHsnSearch(e.target.value)} />
-               <div className="flex items-center gap-1">
-                 <Checkbox id="unGroup" />
-                 <Label htmlFor="unGroup" className="text-[9px] font-bold text-gray-400 leading-tight">UnGroup HSN</Label>
-               </div>
-            </div>
+          <div className="space-y-1.5 col-span-1 lg:col-span-2">
+            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">HSN/SAC Search</Label>
+            <Input className="h-10 bg-gray-50/50 border-gray-200 font-bold" placeholder="HSN..." value={hsnSearch} onChange={e => setHsnSearch(e.target.value)} />
           </div>
           
-          <div className="space-y-1.5">
-             <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">GST %</Label>
-             <div className="flex items-center gap-2">
-                <Select defaultValue="18">
-                  <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="18">18 %</SelectItem>
-                    <SelectItem value="12">12 %</SelectItem>
-                    <SelectItem value="5">5 %</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-1">
-                  <Checkbox id="cess_filter" />
-                  <Label htmlFor="cess_filter" className="text-[9px] font-bold text-gray-400">CESS</Label>
-                </div>
-             </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button className="h-10 flex-1 font-bold uppercase tracking-widest text-xs">Find</Button>
-            <Button variant="outline" className="h-10 flex-1 font-bold uppercase tracking-widest text-xs gap-1" onClick={handleExport}>
-               Next →
-            </Button>
+          <div className="flex gap-2 mb-0.5">
+            <Button className="h-10 flex-1 font-bold uppercase tracking-widest text-[10px]">Find Records</Button>
+            {isFiltered && (
+              <Button variant="ghost" className="h-10 flex-1 font-bold uppercase tracking-widest text-[10px] text-destructive hover:bg-destructive/10" onClick={handleClear}>
+                <RotateCcw className="h-3 w-3 mr-1" /> Reset
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -130,9 +141,6 @@ function GSTReport() {
       <Card className="border-gray-200 shadow-xl overflow-hidden">
         <CardHeader className="pb-3 border-b bg-gray-50 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-black uppercase tracking-[0.1em] text-gray-600">Invoice GST Audit Submission</CardTitle>
-          <Button variant="ghost" size="sm" className="h-8 gap-2 font-bold text-primary" onClick={handleExport}>
-            <Download className="h-4 w-4" /> Download Excel Report
-          </Button>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-auto max-h-[600px]">
@@ -161,7 +169,7 @@ function GSTReport() {
                   </tr>
                 </thead>
                 <tbody className="divide-y font-medium text-gray-700">
-                  {gstLines.map((line: any, idx: number) => {
+                  {filteredGstLines.map((line: any, idx: number) => {
                     const taxable = parseFloat(line.taxableValue || 0);
                     const cgst = taxable * 0.09;
                     const sgst = taxable * 0.09;
@@ -189,7 +197,7 @@ function GSTReport() {
                       </tr>
                     );
                   })}
-                  {gstLines.length === 0 && (
+                  {filteredGstLines.length === 0 && (
                     <tr><td colSpan={16} className="p-20 text-center text-gray-400 font-bold uppercase italic">No records found for GST auditing.</td></tr>
                   )}
                 </tbody>
@@ -202,17 +210,44 @@ function GSTReport() {
   );
 }
 
-function DailySalesReport() {
+function DailySalesReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchTerm, setSearchTerm] = useState("");
   const { data: lines = [], isLoading } = useQuery({ queryKey: ["gst_report"], queryFn: () => fetch("/api/sales?resource=gst_report").then(res => res.json()) });
   
+  const filteredLines = lines.filter((l: any) => {
+    const isWithinDate = startDate ? l.date === startDate : true;
+    const isMatchSearch = !searchTerm || 
+      (l.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (l.lineName || "").toLowerCase().includes(searchTerm.toLowerCase());
+    return isWithinDate && isMatchSearch;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filteredLines, `Daily_Sales_${startDate}`));
+  }, [filteredLines, startDate]);
+
+  const handleClear = () => {
+    setStartDate(new Date().toISOString().split('T')[0]);
+    setSearchTerm("");
+  };
+
+  const isFiltered = startDate !== new Date().toISOString().split('T')[0] || searchTerm !== "";
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center bg-white p-3 border rounded-lg shadow-sm">
-        <div className="flex gap-2">
-          <Input type="date" className="h-9 w-40" defaultValue={new Date().toISOString().split('T')[0]} />
-          <Button size="sm" className="font-bold uppercase text-[10px]">Filter Report</Button>
+      <div className="flex gap-3 bg-white p-3 border rounded-lg shadow-sm items-end print:hidden">
+        <div className="space-y-1">
+          <Label className="text-[10px] font-black uppercase text-gray-400">Select Date</Label>
+          <Input type="date" className="h-9 w-40 font-bold" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </div>
-        <Button variant="outline" size="sm" className="gap-2 font-bold uppercase text-[10px]"><Download className="h-4 w-4" /> Export CSV</Button>
+        <div className="space-y-1 flex-1">
+          <Label className="text-[10px] font-black uppercase text-gray-400">Search Customer / Product</Label>
+          <Input placeholder="Search..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <div className="flex gap-2">
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+        </div>
       </div>
       <Card className="border-gray-200 shadow-xl overflow-hidden">
         <CardContent className="p-0">
@@ -230,7 +265,7 @@ function DailySalesReport() {
             <tbody className="divide-y font-medium text-gray-700">
               {isLoading ? (
                 <tr><td colSpan={6} className="p-20 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
-              ) : lines.map((l: any, i: number) => (
+              ) : filteredLines.map((l: any, i: number) => (
                 <tr key={i} className="hover:bg-primary/5 transition-colors">
                   <td className="px-4 py-3 text-gray-500 font-bold italic">{l.date}</td>
                   <td className="px-4 py-3 font-black uppercase text-gray-800">{l.companyName}</td>
@@ -240,7 +275,7 @@ function DailySalesReport() {
                   <td className="px-4 py-3 text-right font-black tabular-nums bg-gray-50 text-gray-900">₹{parseFloat(l.taxableValue).toLocaleString()}</td>
                 </tr>
               ))}
-              {lines.length === 0 && !isLoading && <tr><td colSpan={6} className="p-20 text-center text-gray-400 font-bold italic uppercase">No sales recorded for the selected period.</td></tr>}
+              {filteredLines.length === 0 && !isLoading && <tr><td colSpan={6} className="p-20 text-center text-gray-400 font-bold italic uppercase">No sales recorded for the selected criteria.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -249,34 +284,79 @@ function DailySalesReport() {
   );
 }
 
-function InventoryReport() {
+function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const { data: inv = { products: [] }, isLoading } = useQuery({ queryKey: ["inventory"], queryFn: () => fetch("/api/system?resource=inventory").then(res => res.json()) });
   
+  const filteredProducts = (inv.products || []).filter((p: any) => {
+    const isMatchSearch = !searchTerm || 
+      (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (p.sku || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const isMatchCategory = categoryFilter === "ALL" || p.category === categoryFilter;
+    return isMatchSearch && isMatchCategory;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filteredProducts, `Inventory_Report_${new Date().toISOString().split('T')[0]}`));
+  }, [filteredProducts]);
+
+  const categories = Array.from(new Set((inv.products || []).map((p: any) => p.category)));
+
+  const handleClear = () => {
+    setSearchTerm("");
+    setCategoryFilter("ALL");
+  };
+
+  const isFiltered = searchTerm !== "" || categoryFilter !== "ALL";
+
+  const totalValuation = filteredProducts.reduce((acc: number, p: any) => acc + (parseFloat(p.stock) * parseFloat(p.purchasePrice)), 0);
+
   return (
     <div className="space-y-4">
+      <div className="flex gap-4 bg-white p-4 border rounded-xl shadow-sm items-end mb-6 print:hidden">
+        <div className="space-y-1.5 flex-1">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Search Product / SKU</Label>
+          <Input placeholder="Search..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <div className="space-y-1.5 w-48">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Category</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Categories</SelectItem>
+              {categories.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white border-2 border-primary/20 p-6 rounded-2xl shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Catalog Size</p>
-          <p className="text-4xl font-black text-primary leading-none">{inv.products.length}</p>
+          <p className="text-4xl font-black text-primary leading-none">{filteredProducts.length}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Status</span>
-            <span className="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded">Synchronized</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">Filtered Items</span>
+            <span className="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded">Active</span>
           </div>
         </div>
         <div className="bg-white border-2 border-orange-200 p-6 rounded-2xl shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Low Stock Alerts</p>
-          <p className="text-4xl font-black text-orange-600 leading-none">{inv.products.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length}</p>
+          <p className="text-4xl font-black text-orange-600 leading-none">{filteredProducts.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Immediate Action</span>
-            <span className="text-[10px] font-black text-orange-600 uppercase bg-orange-50 px-2 py-0.5 rounded">Required</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">Action items</span>
+            <span className="text-[10px] font-black text-orange-600 uppercase bg-orange-50 px-2 py-0.5 rounded">{filteredProducts.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length > 0 ? 'Urgent' : 'Safe'}</span>
           </div>
         </div>
         <div className="bg-white border-2 border-blue-200 p-6 rounded-2xl shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Stock Valuation</p>
-          <p className="text-4xl font-black text-blue-700 leading-none">₹{inv.products.reduce((acc: number, p: any) => acc + (parseFloat(p.stock) * parseFloat(p.purchasePrice)), 0).toLocaleString()}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Filtered Valuation</p>
+          <p className="text-4xl font-black text-blue-700 leading-none">₹{totalValuation.toLocaleString()}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Assets Value</span>
-            <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">Calculated</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">Filtered total</span>
+            <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">Asset Value</span>
           </div>
         </div>
       </div>
@@ -296,7 +376,7 @@ function InventoryReport() {
             <tbody className="divide-y font-medium text-gray-700">
               {isLoading ? (
                 <tr><td colSpan={6} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
-              ) : inv.products.map((p: any) => (
+              ) : filteredProducts.map((p: any) => (
                 <tr key={p.id} className="hover:bg-primary/5 transition-all">
                   <td className="px-6 py-4 font-mono text-gray-400 italic">{p.sku || 'N/A'}</td>
                   <td className="px-6 py-4 font-black uppercase">{p.name}</td>
@@ -312,6 +392,7 @@ function InventoryReport() {
                   </td>
                 </tr>
               ))}
+              {filteredProducts.length === 0 && !isLoading && <tr><td colSpan={6} className="p-20 text-center text-gray-400 font-bold italic uppercase">No products match your filters.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -320,19 +401,67 @@ function InventoryReport() {
   );
 }
 
-function ExpenseReport() {
+function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const { data: expenses = [], isLoading } = useQuery({ queryKey: ["expenses"], queryFn: () => fetch("/api/system?resource=expenses").then(res => res.json()) });
   
+  const filteredExpenses = expenses.filter((e: any) => {
+    const date = new Date(e.date);
+    const isWithinDate = (!startDate || date >= new Date(startDate)) && (!endDate || date <= new Date(endDate));
+    const isMatchCategory = categoryFilter === "ALL" || e.category === categoryFilter;
+    return isWithinDate && isMatchCategory;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filteredExpenses, `Expense_Report_${startDate || 'all'}_to_${endDate || 'all'}`));
+  }, [filteredExpenses]);
+
+  const categories = Array.from(new Set(expenses.map((e: any) => e.category)));
+
+  const handleClear = () => {
+    setStartDate("");
+    setEndDate("");
+    setCategoryFilter("ALL");
+  };
+
+  const isFiltered = startDate !== "" || endDate !== "" || categoryFilter !== "ALL";
+
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 border rounded-xl shadow-sm items-end mb-4 print:hidden">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Start Date</Label>
+          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 font-bold text-xs" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-400">End Date</Label>
+          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 font-bold text-xs" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Category</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Categories</SelectItem>
+              {categories.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20 w-full"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+        </div>
+      </div>
+
       <div className="flex justify-between items-center bg-gray-900 p-6 rounded-2xl shadow-xl text-white mb-6">
         <div>
           <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80 mb-1">Aggregated Operations Cost</h3>
-          <p className="text-4xl font-black tracking-tighter tabular-nums">₹{expenses.reduce((acc: number, e: any) => acc + parseFloat(e.amount), 0).toLocaleString()}</p>
+          <p className="text-4xl font-black tracking-tighter tabular-nums">₹{filteredExpenses.reduce((acc: number, e: any) => acc + parseFloat(e.amount), 0).toLocaleString()}</p>
         </div>
         <div className="text-right">
-           <p className="text-[10px] font-black uppercase opacity-60">Verified Records</p>
-           <p className="text-xl font-bold">{expenses.length}</p>
+           <p className="text-[10px] font-black uppercase opacity-60">Filtered Records</p>
+           <p className="text-xl font-bold">{filteredExpenses.length}</p>
         </div>
       </div>
       <Card className="border-gray-200 shadow-sm overflow-hidden">
@@ -350,7 +479,7 @@ function ExpenseReport() {
             <tbody className="divide-y text-gray-700">
               {isLoading ? (
                 <tr><td colSpan={5} className="p-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
-              ) : expenses.map((e: any) => (
+              ) : filteredExpenses.map((e: any) => (
                 <tr key={e.id} className="hover:bg-gray-50 transition-all">
                   <td className="px-6 py-4 text-gray-400 font-bold italic">{e.date}</td>
                   <td className="px-6 py-4"><span className="font-black uppercase text-[9px] px-2.5 py-1 rounded bg-gray-100 text-gray-600">{e.category}</span></td>
@@ -359,7 +488,7 @@ function ExpenseReport() {
                   <td className="px-6 py-4 text-center"><StatusBadge status="Cleared" /></td>
                 </tr>
               ))}
-              {expenses.length === 0 && !isLoading && <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-bold uppercase italic">No expense records found.</td></tr>}
+              {filteredExpenses.length === 0 && !isLoading && <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-bold uppercase italic">No expense records found matching filters.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -368,26 +497,51 @@ function ExpenseReport() {
   );
 }
 
-function OutstandingReport() {
+function OutstandingReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [searchTerm, setSearchTerm] = useState("");
   const { data: cs = [], isLoading } = useQuery({ queryKey: ["contacts"], queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) });
+  
   const customers = cs.filter((c: any) => ["B2B", "B2C"].includes(c.type));
+  
+  const filteredCustomers = customers.filter((c: any) => {
+    return !searchTerm || 
+      (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (c.mobile || "").toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filteredCustomers, `Outstanding_Report_${new Date().toISOString().split('T')[0]}`));
+  }, [filteredCustomers]);
+
+  const handleClear = () => setSearchTerm("");
+  const isFiltered = searchTerm !== "";
+
+  const totalOutstanding = filteredCustomers.reduce((acc: number, c: any) => acc + Math.max(0, parseFloat(c.balance || 0)), 0);
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-4 bg-white p-3 border rounded-xl shadow-sm items-end mb-6 print:hidden">
+        <div className="space-y-1 flex-1">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Search Customer Name / Mobile</Label>
+          <Input placeholder="Search debtors..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+      </div>
+
       <div className="bg-red-700 p-8 rounded-[2rem] shadow-2xl shadow-red-200 text-white flex justify-between items-end mb-10 overflow-hidden relative">
         <div className="relative z-10">
-          <p className="text-xs font-black uppercase tracking-[0.3em] opacity-70 mb-2 font-mono">Total Pending Receivables</p>
+          <p className="text-xs font-black uppercase tracking-[0.3em] opacity-70 mb-2 font-mono">Filtered Pending Receivables</p>
           <div className="flex items-center gap-4">
-            <p className="text-5xl font-black tracking-tighter">₹{customers.reduce((acc: number, c: any) => acc + Math.max(0, parseFloat(c.balance || 0)), 0).toLocaleString()}</p>
+            <p className="text-5xl font-black tracking-tighter">₹{totalOutstanding.toLocaleString()}</p>
             <div className="px-3 py-1 bg-white/10 rounded-full border border-white/20 flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Active collections</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Selected collections</span>
             </div>
           </div>
         </div>
         <div className="relative z-10 text-right">
-           <p className="text-[10px] font-black uppercase opacity-60 mb-1">Debtors count</p>
-           <p className="text-2xl font-black">{customers.filter((c: any) => parseFloat(c.balance || 0) > 0).length}</p>
+           <p className="text-[10px] font-black uppercase opacity-60 mb-1">Filtered Debtors</p>
+           <p className="text-2xl font-black">{filteredCustomers.filter((c: any) => parseFloat(c.balance || 0) > 0).length}</p>
         </div>
         <div className="absolute -bottom-10 -right-10 h-64 w-64 bg-white/5 rounded-full blur-3xl" />
       </div>
@@ -406,7 +560,7 @@ function OutstandingReport() {
             <tbody className="divide-y">
               {isLoading ? (
                 <tr><td colSpan={5} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
-              ) : customers.map((c: any) => (
+              ) : filteredCustomers.map((c: any) => (
                 <tr key={c.id} className="hover:bg-red-50/30 transition-all group">
                   <td className="px-8 py-4">
                     <div className="flex flex-col">
@@ -433,6 +587,7 @@ function OutstandingReport() {
                   </td>
                 </tr>
               ))}
+              {filteredCustomers.length === 0 && !isLoading && <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-bold uppercase italic">No debtors matching search found.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -441,84 +596,213 @@ function OutstandingReport() {
   );
 }
 
-function TransactionHistoryReport() {
-  const { data: inv = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
-  const { data: exp = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => fetch("/api/system?resource=expenses").then(res => res.json()) });
+function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const defaultStartDate = new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0];
+  const defaultEndDate = new Date().toISOString().split('T')[0];
 
-  const all = [...inv.map((i: any) => ({ ...i, type: 'SALE', ref: i.invoiceNo })), ...exp.map((e: any) => ({ ...e, type: 'EXPENSE', ref: 'EXP-'+e.id, customerName: 'System Operating Cost' }))]
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(defaultEndDate);
+  const [filterType, setFilterType] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: inv = [], isLoading: invLoading } = useQuery({ 
+    queryKey: ["invoices"], 
+    queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) 
+  });
+  const { data: exp = [], isLoading: expLoading } = useQuery({ 
+    queryKey: ["expenses"], 
+    queryFn: () => fetch("/api/system?resource=expenses").then(res => res.json()) 
+  });
+
+  const isLoading = invLoading || expLoading;
+
+  const handleClear = () => {
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+    setFilterType("ALL");
+    setSearchTerm("");
+  };
+
+  const isFiltered = startDate !== defaultStartDate || endDate !== defaultEndDate || filterType !== "ALL" || searchTerm !== "";
+
+  const allFiltered = [...inv.map((i: any) => ({ ...i, type: 'SALE', ref: i.invoiceNo })), ...exp.map((e: any) => ({ ...e, type: 'EXPENSE', ref: 'EXP-'+e.id, customerName: 'System Operating Cost' }))]
+    .filter(t => {
+      const date = new Date(t.date);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const isWithinDate = date >= start && date <= end;
+      const isMatchType = filterType === "ALL" || t.type === filterType;
+      const search = searchTerm.toLowerCase();
+      const isMatchSearch = !searchTerm || 
+        t.ref?.toLowerCase().includes(search) || 
+        (t.customerName || t.name || "").toLowerCase().includes(search);
+      
+      return isWithinDate && isMatchType && isMatchSearch;
+    })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(allFiltered, `Transaction_History_${startDate}_to_${endDate}`));
+  }, [allFiltered]);
+
+  const totalInflow = allFiltered.filter(t => t.type === 'SALE').reduce((acc, t) => acc + parseFloat(t.total || 0), 0);
+  const totalOutflow = allFiltered.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + parseFloat(t.amount || 0), 0);
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 bg-white p-4 border rounded-xl shadow-sm items-end print:hidden">
+        <div className="space-y-1.5 col-span-1">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Date Range</Label>
+          <div className="flex items-center gap-2">
+            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 font-bold text-xs" />
+            <span className="text-gray-300 font-black">→</span>
+            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 font-bold text-xs" />
+          </div>
+        </div>
+        <div className="space-y-1.5 col-span-1">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Transaction Type</Label>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Transactions</SelectItem>
+              <SelectItem value="SALE">Sales (Inflow)</SelectItem>
+              <SelectItem value="EXPENSE">Expenses (Outflow)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5 col-span-2">
+          <Label className="text-[10px] uppercase font-black text-gray-400">Search Transaction</Label>
+          <Input 
+            placeholder="Search by Ref # or Entity Name..." 
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)}
+            className="h-9 font-bold text-xs"
+          />
+        </div>
+        <div className="col-span-1">
+          {isFiltered && (
+            <Button 
+              variant="outline" 
+              onClick={handleClear} 
+              className="h-9 w-full font-bold uppercase text-[10px] tracking-widest text-destructive hover:bg-destructive/5 hover:text-destructive border-dashed"
+            >
+              <RotateCcw className="h-3 w-3 mr-2" /> Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="flex items-center gap-4 bg-white p-4 border rounded-xl shadow-sm">
         <div className="flex-1 border-r border-gray-100 pr-4">
-           <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Total Records</p>
-           <p className="text-xl font-black">{all.length}</p>
+           <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Filtered Records</p>
+           <p className="text-xl font-black">{allFiltered.length}</p>
         </div>
         <div className="flex-1 border-r border-gray-100 pr-4">
            <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Total Inflow</p>
-           <p className="text-xl font-black text-emerald-600">₹{inv.reduce((acc: number, i: any) => acc + parseFloat(i.total), 0).toLocaleString()}</p>
+           <p className="text-xl font-black text-emerald-600">₹{totalInflow.toLocaleString()}</p>
         </div>
         <div className="flex-1">
            <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Total Outflow</p>
-           <p className="text-xl font-black text-red-600">₹{exp.reduce((acc: number, e: any) => acc + parseFloat(e.amount), 0).toLocaleString()}</p>
+           <p className="text-xl font-black text-red-600">₹{totalOutflow.toLocaleString()}</p>
         </div>
       </div>
-      <Card className="border-gray-200 shadow-md">
+
+      <Card className="border-gray-200 shadow-md overflow-hidden">
         <CardContent className="p-0">
-          <table className="w-full text-[11px] border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-[9px]">
-                <th className="px-6 py-4 text-left w-32">Timestamp</th>
-                <th className="px-6 py-4 text-left w-24">Type</th>
-                <th className="px-6 py-4 text-left w-40">Ref Number</th>
-                <th className="px-6 py-4 text-left">Entity Description</th>
-                <th className="px-6 py-4 text-right bg-blue-50/20">Inflow (+)</th>
-                <th className="px-6 py-4 text-right bg-red-50/20">Outflow (-)</th>
-                <th className="px-6 py-4 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {all.map((t, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-3.5 text-gray-400 font-bold italic">{t.date}</td>
-                  <td className="px-6 py-3.5">
-                    <span className={`text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-tighter ${t.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {t.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3.5 font-mono font-bold text-primary group-hover:underline cursor-pointer">{t.ref}</td>
-                  <td className="px-6 py-3.5 font-black uppercase text-gray-700 truncate max-w-[250px]">{t.customerName || t.name}</td>
-                  <td className="px-6 py-3.5 text-right tabular-nums font-black text-emerald-600 bg-emerald-50/5">
-                    {t.type === 'SALE' ? `₹${parseFloat(t.total).toLocaleString()}` : '—'}
-                  </td>
-                  <td className="px-6 py-3.5 text-right tabular-nums font-black text-red-600 bg-red-50/5">
-                    {t.type === 'EXPENSE' ? `₹${parseFloat(t.amount).toLocaleString()}` : '—'}
-                  </td>
-                  <td className="px-6 py-3.5 text-center"><StatusBadge status={t.status || 'Cleared'} /></td>
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-[11px] border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-[9px]">
+                  <th className="px-6 py-4 text-left w-32">Timestamp</th>
+                  <th className="px-6 py-4 text-left w-24">Type</th>
+                  <th className="px-6 py-4 text-left w-40">Ref Number</th>
+                  <th className="px-6 py-4 text-left">Entity Description</th>
+                  <th className="px-6 py-4 text-right bg-blue-50/20">Inflow (+)</th>
+                  <th className="px-6 py-4 text-right bg-red-50/20">Outflow (-)</th>
+                  <th className="px-6 py-4 text-center">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {isLoading ? (
+                  <tr><td colSpan={7} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
+                ) : allFiltered.map((t, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-3.5 text-gray-400 font-bold italic">{t.date}</td>
+                    <td className="px-6 py-3.5">
+                      <span className={`text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-tighter ${t.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {t.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 font-mono font-bold text-primary group-hover:underline cursor-pointer">{t.ref}</td>
+                    <td className="px-6 py-3.5 font-black uppercase text-gray-700 truncate max-w-[250px]">{t.customerName || t.name || 'System Operating Cost'}</td>
+                    <td className="px-6 py-3.5 text-right tabular-nums font-black text-emerald-600 bg-emerald-50/5">
+                      {t.type === 'SALE' ? `₹${parseFloat(t.total || 0).toLocaleString()}` : '—'}
+                    </td>
+                    <td className="px-6 py-3.5 text-right tabular-nums font-black text-red-600 bg-red-50/5">
+                      {t.type === 'EXPENSE' ? `₹${parseFloat(t.amount || 0).toLocaleString()}` : '—'}
+                    </td>
+                    <td className="px-6 py-3.5 text-center"><StatusBadge status={t.status || 'Cleared'} /></td>
+                  </tr>
+                ))}
+                {!isLoading && allFiltered.length === 0 && (
+                  <tr><td colSpan={7} className="p-20 text-center text-gray-400 font-bold uppercase italic">No transactions found for the selected criteria.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function InvoiceLedgerReport() {
+function InvoiceLedgerReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const { data: invoices = [], isLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
+
+  const filteredInvoices = invoices.filter((i: any) => {
+    const date = new Date(i.date);
+    const isWithinDate = (!startDate || date >= new Date(startDate)) && (!endDate || date <= new Date(endDate));
+    const isMatchSearch = !searchTerm || 
+      (i.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (i.invoiceNo || "").toLowerCase().includes(searchTerm.toLowerCase());
+    return isWithinDate && isMatchSearch;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filteredInvoices, `Invoice_Ledger_${startDate || 'all'}_to_${endDate || 'all'}`));
+  }, [filteredInvoices]);
+
+  const handleClear = () => {
+    setStartDate("");
+    setEndDate("");
+    setSearchTerm("");
+  };
+
+  const isFiltered = startDate !== "" || endDate !== "" || searchTerm !== "";
 
   if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 bg-white p-3 border rounded-xl shadow-sm">
-        <Input type="date" className="h-9 w-40 font-bold" defaultValue="2024-03-01" />
-        <span className="text-gray-300 font-black">→</span>
-        <Input type="date" className="h-9 w-40 font-bold" defaultValue={new Date().toISOString().split('T')[0]} />
-        <Button size="sm" className="font-bold uppercase text-[10px] px-6 ml-2">Audit Range</Button>
-        <Button variant="outline" size="sm" className="ml-auto gap-2 font-bold uppercase text-[10px]"><Download className="h-4 w-4" /> Export Ledger</Button>
+      <div className="flex flex-wrap items-end gap-3 bg-white p-3 border rounded-xl shadow-sm print:hidden">
+        <div className="space-y-1">
+          <Label className="text-[10px] font-black uppercase text-gray-400">Start Date</Label>
+          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-40 font-bold" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-black uppercase text-gray-400">End Date</Label>
+          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-40 font-bold" />
+        </div>
+        <div className="space-y-1 flex-1 min-w-[200px]">
+          <Label className="text-[10px] font-black uppercase text-gray-400">Search Invoice # / Customer</Label>
+          <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-9 font-bold" />
+        </div>
+        <div className="flex gap-2">
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+        </div>
       </div>
       <Card className="border-gray-200 overflow-hidden shadow-2xl">
         <CardContent className="p-0">
@@ -533,7 +817,7 @@ function InvoiceLedgerReport() {
               </tr>
             </thead>
             <tbody className="divide-y font-medium text-gray-700">
-              {invoices.map((inv: any) => (
+              {filteredInvoices.map((inv: any) => (
                 <tr key={inv.id} className="hover:bg-primary/5 transition-all transition-colors cursor-pointer group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -547,7 +831,7 @@ function InvoiceLedgerReport() {
                   <td className="px-6 py-4 text-center"><StatusBadge status={inv.status} /></td>
                 </tr>
               ))}
-              {invoices.length === 0 && <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-black uppercase italic">No ledger entries synchronized.</td></tr>}
+              {filteredInvoices.length === 0 && <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-black uppercase italic">No ledger entries found matching filters.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -557,39 +841,57 @@ function InvoiceLedgerReport() {
 }
 
 export default function Reports() {
-  const [active, setActive] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const active = searchParams.get("active");
+  const setActive = (v: string | null) => {
+    if (v) setSearchParams({ active: v });
+    else setSearchParams({});
+  };
+  const exportRef = useRef<(() => void) | null>(null);
+
+  const handleExport = () => {
+    if (exportRef.current) {
+      exportRef.current();
+    }
+  };
 
   if (active) {
     const report = reportTypes.find(r => r.key === active)!;
     return (
-      <div className="p-8 space-y-8 bg-white min-h-screen">
-        <div className="flex items-center justify-between border-b pb-6">
+      <div className="p-8 space-y-8 bg-white min-h-screen print:p-0">
+        <div className="flex items-center justify-between border-b pb-6 print:hidden">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={() => setActive(null)} className="h-10 gap-2 font-black uppercase text-[10px] tracking-widest border-2 border-gray-100 shadow-sm transition-all hover:bg-black hover:text-white hover:border-black rounded-xl">
-              <History className="h-4 w-4" /> Reports Dashboard
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setActive(null)} 
+              className="h-10 w-10 rounded-full border border-gray-100 shadow-sm hover:bg-black hover:text-white transition-all"
+            >
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="h-8 w-[2px] bg-gray-100" />
             <div>
-              <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3 leading-none">
+              <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3 leading-none text-black">
                 <report.icon className="h-8 w-8 text-primary shadow-sm" /> {report.title}
               </h1>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 ml-11">{report.desc}</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" size="sm" className="h-10 px-6 font-black uppercase text-[10px] gap-2 border-2 border-gray-100 rounded-xl hover:bg-gray-50"><Download className="h-4 w-4" /> Download PDF</Button>
-            <Button size="sm" className="h-10 px-6 font-black uppercase text-[10px] gap-2 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-transform"><Printer className="h-4 w-4" /> Print Report</Button>
+            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 font-black uppercase text-[10px] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><Download className="h-4 w-4" /> Export CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[10px] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><FileText className="h-4 w-4" /> Download PDF</Button>
+            <Button size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[10px] gap-2 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all"><Printer className="h-4 w-4" /> Print Report</Button>
           </div>
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {active === "gst" && <GSTReport />}
-          {active === "invoice-ledger" && <InvoiceLedgerReport />}
-          {active === "daily-sales" && <DailySalesReport />}
-          {active === "inventory" && <InventoryReport />}
-          {active === "expense" && <ExpenseReport />}
-          {active === "outstanding" && <OutstandingReport />}
-          {active === "transaction" && <TransactionHistoryReport />}
+          {active === "gst" && <GSTReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "invoice-ledger" && <InvoiceLedgerReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "daily-sales" && <DailySalesReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "inventory" && <InventoryReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "expense" && <ExpenseReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "outstanding" && <OutstandingReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "transaction" && <TransactionHistoryReport onRegisterExport={(fn) => exportRef.current = fn} />}
           
           {!["gst","invoice-ledger","daily-sales","inventory","expense","outstanding","transaction"].includes(active) && (
             <div className="p-20 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem]">

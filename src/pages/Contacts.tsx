@@ -12,8 +12,12 @@ import { Search, Plus, Loader2, Save, UserPlus, Edit2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -51,8 +55,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   });
 
   const types = Array.isArray(type) ? type : [type];
-  const filtered = (contacts || [])
-    .filter(c => types.includes(c.type as ContactType))
+  const allContactsInTab = Array.isArray(contacts) ? contacts.filter(c => types.includes(c.type as ContactType)) : [];
+  const activeCount = allContactsInTab.filter(c => c.status !== "Inactive").length;
+  const inactiveCount = allContactsInTab.filter(c => c.status === "Inactive").length;
+
+  const filtered = allContactsInTab
     .filter(c =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.mobile && c.mobile.includes(search)) ||
@@ -78,6 +85,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
           { key: "city", name: "City", placeholder: "Enter city" },
           { key: "address", name: "Billing Address", placeholder: "Enter billing address", type: "textarea" },
+          { key: "status", name: "Status", placeholder: "Select status", isStatus: true },
         ];
       case "B2C":
         return [
@@ -121,10 +129,14 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
 
     setLoading(true);
     try {
+      const payload = { ...formData, type: Array.isArray(type) ? type[0] : type };
+      // Sanitize payload to prevent Date serialization issues on backend
+      const { createdAt, ...saveData } = payload;
+      
       const res = await fetch("/api/core?resource=contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, type: Array.isArray(type) ? type[0] : type })
+        body: JSON.stringify(saveData)
       });
       if (!res.ok) throw new Error("Failed to save contact");
       
@@ -179,6 +191,19 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                       value={formData[field.key!] || ""}
                       onChange={e => setFormData({ ...formData, [field.key!]: e.target.value })}
                     />
+                  ) : field.isStatus ? (
+                    <Select 
+                      value={formData[field.key!] || "Active"} 
+                      onValueChange={v => setFormData({ ...formData, [field.key!]: v })}
+                    >
+                      <SelectTrigger className="mt-1 h-9">
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input 
                       className="mt-1 h-9" 
@@ -258,19 +283,24 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           </div>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">{filtered.length} records found</p>
+      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+        Active: <span className="text-primary font-black">{activeCount}</span> {inactiveCount > 0 && <> | Inactive: <span className="text-orange-500 font-black">{inactiveCount}</span></>}
+      </p>
     </div>
   );
 }
 
 export default function Contacts() {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "b2b";
+
   return (
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-bold">Contacts</h1>
         <p className="text-sm text-muted-foreground">Manage B2B/B2C customers and supplier partnerships</p>
       </div>
-      <Tabs defaultValue="b2b">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1 mb-2">
           <TabsTrigger value="b2b" className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">B2B Customers</TabsTrigger>
           <TabsTrigger value="b2c" className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">B2C Customers</TabsTrigger>

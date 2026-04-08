@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
 import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, contacts } from '../db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   const { resource, type } = request.query;
@@ -14,7 +14,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
           id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
           amount: invoices.amount, tax: invoices.tax, total: invoices.total,
           status: invoices.status, customerName: contacts.name, customerId: contacts.id,
-        }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).orderBy(desc(invoices.createdAt));
+          productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`
+        })
+        .from(invoices)
+        .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+        .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+        .groupBy(invoices.id, contacts.id)
+        .orderBy(desc(invoices.createdAt));
         return response.status(200).json(data);
       }
       if (method === 'POST') {
@@ -25,6 +31,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
           await db.insert(invoiceItems).values(itemsWithId);
         }
         return response.status(200).json(newInvoice[0]);
+      }
+      if (method === 'PUT') {
+        const { id } = request.query;
+        const data = request.body;
+        const updated = await db.update(invoices).set(data).where(eq(invoices.id, parseInt(id as string))).returning();
+        return response.status(200).json(updated[0]);
       }
     }
 
@@ -40,7 +52,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const data = await db.select({
           id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
           amount: quotations.amount, status: quotations.status, customerName: contacts.name,
-        }).from(quotations).leftJoin(contacts, eq(quotations.customerId, contacts.id)).orderBy(desc(quotations.createdAt));
+          productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`
+        })
+        .from(quotations)
+        .leftJoin(contacts, eq(quotations.customerId, contacts.id))
+        .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
+        .groupBy(quotations.id, contacts.id)
+        .orderBy(desc(quotations.createdAt));
         return response.status(200).json(data);
       }
       if (method === 'POST') {

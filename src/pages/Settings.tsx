@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 type Permission = {
@@ -77,8 +79,38 @@ function RolesManager() {
     setPermissions(newPerms);
   };
 
+  if (isLoading) return (
+    <div className="py-20 flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
+      <div className="space-y-3">
+        <Label className="text-sm font-bold flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Existing Roles</Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {roles.map((r: any) => (
+            <Card key={r.id} className="border-border bg-muted/20 shadow-sm">
+              <CardHeader className="p-4 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold">{r.name}</CardTitle>
+                  <CardDescription className="text-[10px] uppercase font-semibold">Created {new Date(r.createdAt || Date.now()).toLocaleDateString()}</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+              </CardHeader>
+            </Card>
+          ))}
+          {roles.length === 0 && (
+            <div className="col-span-full py-8 text-center border-2 border-dashed border-muted rounded-xl text-muted-foreground text-sm italic">
+              No roles configured yet. Create one below.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator className="bg-muted" />
+
       <div className="flex items-end gap-4 bg-muted/30 p-4 rounded-lg border border-border">
         <div className="flex-1 space-y-1.5">
           <Label>Role Name</Label>
@@ -136,20 +168,6 @@ function RolesManager() {
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {roles.map((r: any) => (
-          <Card key={r.id} className="border-border bg-muted/20 shadow-sm">
-            <CardHeader className="p-4 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-bold">{r.name}</CardTitle>
-                <CardDescription className="text-[10px] uppercase font-semibold">Created {new Date(r.createdAt).toLocaleDateString()}</CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }
@@ -186,6 +204,12 @@ function EmployeesManager() {
       toast({ title: "Employee added", description: "The employee profile has been created." });
     }
   });
+
+  if (empLoading) return (
+    <div className="py-20 flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -249,7 +273,7 @@ function EmployeesManager() {
               </tr>
             </thead>
             <tbody>
-              {employees.map((emp: any) => (
+              {(Array.isArray(employees) ? employees : []).map((emp: any) => (
                 <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{emp.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{emp.email}</td>
@@ -337,6 +361,12 @@ function PaymentQrManager() {
     }
   };
 
+  if (isLoading) return (
+    <div className="py-20 flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -376,34 +406,7 @@ function PaymentQrManager() {
 
         <div className="space-y-3 px-1 overflow-y-auto max-h-[500px]">
           {qrs.map((qr: any) => (
-            <Card key={qr.id} className="border-border bg-white shadow-sm overflow-hidden group">
-              <CardContent className="p-4 flex gap-4">
-                <div className="relative h-20 w-20 shrink-0">
-                  <img src={qr.imageUrl} className="h-full w-full rounded-lg border border-border p-1 bg-white" alt={qr.name} />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                    <Printer className="h-5 w-5 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-sm text-foreground">{qr.name}</h4>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteMutation.mutate(qr.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center space-x-2 bg-muted/40 p-2 rounded-lg border border-border/50">
-                      <Checkbox id={`inv-${qr.id}`} checked={qr.isActiveForInvoice} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForInvoice: !!v })} />
-                      <label htmlFor={`inv-${qr.id}`} className="text-[8px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Invoice</label>
-                    </div>
-                    <div className="flex items-center space-x-2 bg-muted/40 p-2 rounded-lg border border-border/50">
-                      <Checkbox id={`est-${qr.id}`} checked={qr.isActiveForEstimate} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForEstimate: !!v })} />
-                      <label htmlFor={`est-${qr.id}`} className="text-[8px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Estimate</label>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <QrCard key={qr.id} qr={qr} toggleMutation={toggleMutation} deleteMutation={deleteMutation} />
           ))}
           {qrs.length === 0 && !isLoading && (
             <div className="h-40 flex items-center justify-center border border-dashed rounded-lg text-muted-foreground text-sm italic">
@@ -416,7 +419,59 @@ function PaymentQrManager() {
   );
 }
 
+function QrCard({ qr, toggleMutation, deleteMutation }: any) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  return (
+    <Card className="border-border bg-white shadow-sm overflow-hidden group">
+      <CardContent className="p-4 flex gap-4">
+        <div className="relative h-20 w-20 shrink-0 bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden">
+          {!imgLoaded && <Loader2 className="absolute h-5 w-5 animate-spin text-primary/30" />}
+          <img 
+            src={qr.imageUrl} 
+            className={`h-full w-full rounded-lg border border-border p-1 bg-white transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`} 
+            alt={qr.name} 
+            onLoad={() => setImgLoaded(true)}
+          />
+          <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg ${imgLoaded ? 'block' : 'hidden'}`}>
+            <Printer className="h-5 w-5 text-white" />
+          </div>
+        </div>
+        <div className="flex-1 space-y-3">
+          <div className="flex justify-between items-start">
+            <h4 className="font-bold text-sm text-foreground">{qr.name}</h4>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteMutation.mutate(qr.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between bg-muted/40 p-2 px-3 rounded-lg border border-border/50">
+              <label htmlFor={`inv-${qr.id}`} className="text-[9px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Invoice</label>
+              {toggleMutation.isPending && (toggleMutation.variables as any)?.id === qr.id && (toggleMutation.variables as any).isActiveForInvoice !== undefined ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              ) : (
+                <Switch id={`inv-${qr.id}`} checked={qr.isActiveForInvoice} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForInvoice: !!v })} />
+              )}
+            </div>
+            <div className="flex items-center justify-between bg-muted/40 p-2 px-3 rounded-lg border border-border/50">
+              <label htmlFor={`est-${qr.id}`} className="text-[9px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Estimate</label>
+              {toggleMutation.isPending && (toggleMutation.variables as any)?.id === qr.id && (toggleMutation.variables as any).isActiveForEstimate !== undefined ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              ) : (
+                <Switch id={`est-${qr.id}`} checked={qr.isActiveForEstimate} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForEstimate: !!v })} />
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Settings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "company";
+  const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -477,7 +532,7 @@ export default function Settings() {
         <p className="text-sm text-muted-foreground">Configure profile, users, roles and system behavior</p>
       </div>
 
-      <Tabs defaultValue="company" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="company" className="w-full">
         <TabsList className="h-12 mb-6 bg-transparent gap-2 px-1">
           <TabsTrigger value="company" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Building2 className="h-4 w-4" />Workshop Profile</TabsTrigger>
           <TabsTrigger value="employees" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Users className="h-4 w-4" />Staff Members</TabsTrigger>
