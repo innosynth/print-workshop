@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePrintSettings } from "@/lib/print-settings-context";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -62,23 +63,62 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     window.print();
   };
 
-  const a4Style = `
+  const printStyles = `
     @media print {
-      @page { size: A4; margin: ${settings.a4Margin}mm; }
-      body { -webkit-print-color-adjust: exact; }
-      .no-print { display: none !important; }
-      .print-container { width: 100% !important; max-width: none !important; color: black !important; }
-      .text-primary-print { color: #000 !important; }
-      .bg-muted-print { background-color: #f3f4f6 !important; }
-    }
-  `;
-
-  const thermalStyle = `
-    @media print {
-      @page { size: ${settings.thermalWidth}mm auto; margin: ${settings.thermalMargin}mm; }
-      .no-print { display: none !important; }
-      .print-container { width: 100% !important; max-width: none !important; color: black !important; }
-      .thermal-format { font-size: ${settings.thermalFontSize}px !important; }
+      @page { 
+        size: ${paperSize === "A4" ? "A4" : `${settingsData?.settings?.thermalWidth || settings.thermalWidth}mm auto`}; 
+        margin: ${paperSize === "A4" ? (settingsData?.settings?.a4Margin || settings.a4Margin) : (settingsData?.settings?.thermalMargin || settings.thermalMargin)}mm; 
+      }
+      body { 
+        -webkit-print-color-adjust: exact; 
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      #root, header, aside, footer, .no-print, [role="dialog"] > :not(.print-container) { 
+        display: none !important; 
+      }
+      [data-radix-portal] {
+        position: static !important;
+      }
+      [data-radix-portal] > div {
+        position: static !important;
+        transform: none !important;
+        background: white !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+      }
+      .print-container { 
+        width: 100% !important; 
+        max-width: none !important; 
+        margin: 0 !important;
+        padding: ${paperSize === "A4" ? '0' : '0'} !important;
+        display: block !important;
+        color: black !important; 
+      }
+      .thermal-format { 
+        font-size: ${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px !important; 
+      }
+      /* Ensure text is black for printing */
+      * {
+        color: black !important;
+        border-color: black !important;
+      }
+      .text-primary, .text-muted-foreground {
+        color: black !important;
+      }
+      .bg-primary, .bg-muted {
+        background-color: transparent !important;
+        border: 1px solid black !important;
+      }
     }
   `;
 
@@ -87,7 +127,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-white p-0">
-        <style>{paperSize === "A4" ? a4Style : thermalStyle}</style>
+        <style>{printStyles}</style>
         
         <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10">
           <span className="font-bold">{docTitle} Preview - {invoice.invoiceNo || "Draft"}</span>
@@ -99,9 +139,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           </div>
         </div>
 
-        <div className={`print-container p-8 mx-auto ${paperSize === "thermal" ? "max-w-[300px] thermal-format p-4" : "max-w-[800px]"}`}>
+        <div className={`print-container p-8 mx-auto ${paperSize === "thermal" ? "thermal-format p-4" : ""}`}>
           {paperSize === "A4" ? (
-            <div className="space-y-6" style={{ fontSize: `${settings.a4FontSize}px` }}>
+            <div className="space-y-6" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
               {/* A4 Header */}
               <div className="flex justify-between items-start border-b-2 border-black pb-4">
                 <div className="flex gap-4 items-center">
@@ -262,7 +302,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
             </div>
           ) : (
-            <div className="space-y-1 text-center font-sans tracking-tight leading-tight" style={{ fontSize: `${settings.thermalFontSize}px` }}>
+            <div className="space-y-1 text-center font-sans tracking-tight leading-tight" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px` }}>
               {/* Thermal Format Header */}
               <div className="mb-2">
                 <h1 className="text-2xl font-black">{profile.name}</h1>
@@ -372,6 +412,11 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
     queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) 
   });
 
+  const { data: products = [] } = useQuery({ 
+    queryKey: ["products"], 
+    queryFn: () => fetch("/api/core?resource=products").then(res => res.json()) 
+  });
+
   const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
@@ -403,7 +448,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
           amount: total.toString(),
           tax: (total * 0.18).toString(),
           total: (total * 1.18).toString(),
-          status: "Draft",
+          status: type === 'estimates' ? "Draft" : "Pending",
           items: items.map(item => ({
             ...item,
             rate: item.rate.toString(),
@@ -465,11 +510,23 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                 <div key={index} className="flex gap-2 items-end">
                   <div className="flex-[3] space-y-1">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Description</Label>
-                    <Input 
-                      placeholder="Item name" 
+                    <Select 
                       value={item.name} 
-                      onChange={e => updateItem(index, "name", e.target.value)}
-                    />
+                      onValueChange={v => {
+                        const prod = products.find((p: any) => p.name === v);
+                        updateItem(index, "name", v);
+                        if (prod) updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
+                      }}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Select Product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((p: any) => (
+                          <SelectItem key={p.id} value={p.name}>{p.name} (₹{p.sellPrice})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex-1 space-y-1">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
@@ -618,6 +675,56 @@ export default function Sales() {
   const { data: invoices = [], isLoading: invLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
   const { data: quotations = [], isLoading: qtLoading } = useQuery({ queryKey: ["quotations"], queryFn: () => fetch("/api/sales?resource=quotations").then(res => res.json()) });
   const { data: returns = [], isLoading: srLoading } = useQuery({ queryKey: ["returns"], queryFn: () => fetch("/api/sales?resource=returns").then(res => res.json()) });
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleConvertQuotation = async (quotation: any) => {
+    if (quotation.status === "Invoiced") {
+      toast({ title: "Already Invoiced", description: "This quotation has already been converted." });
+      return;
+    }
+    
+    try {
+      const qtRes = await fetch(`/api/sales?resource=quotations&id=${quotation.id}`);
+      if (!qtRes.ok) throw new Error("Failed to fetch quotation details");
+      const qtDetail = await qtRes.json();
+      
+      const invBody = {
+        customerId: qtDetail.customerId,
+        invoiceNo: `INV-QT-${qtDetail.quotationNo.split('-').pop()}`,
+        date: new Date().toISOString().split('T')[0],
+        amount: qtDetail.amount,
+        tax: (parseFloat(qtDetail.amount) * 0.18).toString(),
+        total: (parseFloat(qtDetail.amount) * 1.18).toString(),
+        status: "Pending",
+        items: qtDetail.items.map((item: any) => ({
+          name: item.name,
+          qty: item.qty,
+          rate: item.rate,
+          amount: item.amount
+        }))
+      };
+      
+      const invRes = await fetch("/api/sales?resource=invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(invBody)
+      });
+      if (!invRes.ok) throw new Error("Failed to create invoice from quotation");
+      
+      await fetch(`/api/sales?resource=quotations&id=${quotation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Invoiced" })
+      });
+      
+      toast({ title: "Success", description: "Quotation converted to invoice successfully" });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Conversion Failed", description: e.message });
+    }
+  };
 
   const invCols = [
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.invoiceNo}</span> },
@@ -671,10 +778,16 @@ export default function Sales() {
         </div>
 
         <TabsContent value="invoices" className="mt-4">
-          <TxTable data={invoices} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })} />
+          <TxTable data={invoices.filter((i:any) => i.status !== 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })} />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
-          <TxTable data={quotations} cols={qtCols} isLoading={qtLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })} />
+          <TxTable 
+            data={quotations} 
+            cols={qtCols} 
+            isLoading={qtLoading} 
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })}
+            onConvert={handleConvertQuotation}
+          />
         </TabsContent>
         <TabsContent value="estimates" className="mt-4">
           <TxTable data={invoices.filter((i:any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} />

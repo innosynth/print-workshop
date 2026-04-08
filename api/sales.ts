@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
-import { invoices, invoiceItems, quotations, salesReturns, purchaseEntries, purchaseOrders, contacts } from '../db/schema.js';
+import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, contacts } from '../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -30,6 +30,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     if (resource === 'quotations') {
       if (method === 'GET') {
+        const { id } = request.query;
+        if (id) {
+          const main = await db.select().from(quotations).where(eq(quotations.id, parseInt(id as string))).limit(1);
+          if (main.length === 0) return response.status(404).json({ error: 'Quotation not found' });
+          const items = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, main[0].id));
+          return response.status(200).json({ ...main[0], items });
+        }
         const data = await db.select({
           id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
           amount: quotations.amount, status: quotations.status, customerName: contacts.name,
@@ -39,7 +46,17 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (method === 'POST') {
         const { items, ...quotationData } = request.body;
         const newQt = await db.insert(quotations).values(quotationData).returning();
+        if (items?.length > 0) {
+          const itemsWithId = items.map((item: any) => ({ ...item, quotationId: newQt[0].id }));
+          await db.insert(quotationItems).values(itemsWithId);
+        }
         return response.status(200).json(newQt[0]);
+      }
+      if (method === 'PUT') {
+        const { id } = request.query;
+        const data = request.body;
+        const updated = await db.update(quotations).set(data).where(eq(quotations.id, parseInt(id as string))).returning();
+        return response.status(200).json(updated[0]);
       }
     }
 

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Plus, Loader2, Save, UserPlus } from "lucide-react";
+import { Search, Plus, Loader2, Save, UserPlus, Edit2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,10 +61,10 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
 
   const addButtonLabel = tabName === "B2B" ? "Add B2B Customer" :
     tabName === "B2C" ? "Add B2C Customer" : "Add Supplier";
-  const dialogTitle = tabName === "B2B" ? "Add New B2B Customer" :
-    tabName === "B2C" ? "Add New B2C Customer" : "Add New Supplier";
-  const saveButtonLabel = tabName === "B2B" ? "Save B2B Customer" :
-    tabName === "B2C" ? "Save B2C Customer" : "Save Supplier";
+  const dialogTitle = formData.id ? `Edit ${tabName === "B2B" ? "B2B Customer" : tabName === "B2C" ? "B2C Customer" : "Supplier"}` :
+    (tabName === "B2B" ? "Add New B2B Customer" : tabName === "B2C" ? "Add New B2C Customer" : "Add New Supplier");
+  const saveButtonLabel = formData.id ? "Update Details" : (tabName === "B2B" ? "Save B2B Customer" :
+    tabName === "B2C" ? "Save B2C Customer" : "Save Supplier");
 
   const getFormFields = () => {
     switch (tabName) {
@@ -130,7 +130,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       
       toast({ 
         title: "Success", 
-        description: `${formData.name || 'Contact'} added successfully` 
+        description: `${formData.name || 'Contact'} ${formData.id ? 'updated' : 'added'} successfully` 
       });
       
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
@@ -147,6 +147,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       setLoading(false);
     }
   };
+  
+  const handleEdit = (contact: Contact) => {
+    setFormData(contact);
+    setOpen(true);
+  };
 
   return (
     <div className="space-y-3">
@@ -157,7 +162,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="h-9 gap-1"><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
+            <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
             <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
@@ -217,14 +222,14 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {["ID", "Name", "Type", "Mobile", "WhatsApp", "GST No.", "City", "Status", "Approval", "Balance"].map(h => (
+                    {["ID", "Name", "Type", "Mobile", "WhatsApp", "GST No.", "City", "Status", "Approval", "Balance", ""].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(c => (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer">
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{c.id}</td>
                       <td className="px-4 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
                       <td className="px-4 py-2.5"><Badge variant="outline" className="text-xs">{c.type}</Badge></td>
@@ -237,10 +242,15 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                       <td className={`px-4 py-2.5 font-semibold tabular-nums ${parseFloat(c.balance) > 0 ? "text-primary" : parseFloat(c.balance) < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                         ₹{Math.abs(parseFloat(c.balance)).toLocaleString("en-IN")}
                       </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(c)}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
                   )}
                 </tbody>
               </table>

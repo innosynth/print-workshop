@@ -12,6 +12,7 @@ export const contacts = pgTable("contacts", {
   status: text("status").default("Active"), // 'Active', 'Inactive'
   approval: text("approval").default("Approved"), // 'Approved', 'Pending', 'Rejected'
   city: text("city"),
+  contactPerson: text("contactPerson"),
   balance: numeric("balance").default("0"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
@@ -66,6 +67,15 @@ export const quotations = pgTable("quotations", {
   amount: numeric("amount").notNull(),
   status: text("status").default("Pending"),
   createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export const quotationItems = pgTable("quotationItems", {
+  id: serial("id").primaryKey(),
+  quotationId: integer("quotationId").references(() => quotations.id),
+  name: text("name"),
+  qty: numeric("qty"),
+  rate: numeric("rate"),
+  amount: numeric("amount"),
 });
 
 // ─── Sales Returns ────────────────────────────────────────────────────────────

@@ -83,8 +83,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'POST') {
         const data = request.body;
-        const newContact = await db.insert(contacts).values(data).returning();
-        return response.status(200).json(newContact[0]);
+        if (data.id) {
+          const updated = await db.update(contacts).set(data).where(eq(contacts.id, data.id)).returning();
+          return response.status(200).json(updated[0]);
+        } else {
+          const newContact = await db.insert(contacts).values(data).returning();
+          return response.status(200).json(newContact[0]);
+        }
       }
     }
 
@@ -98,6 +103,9 @@ export default async function handler(request: VercelRequest, response: VercelRe
         if (Array.isArray(data)) {
           const inserted = await db.insert(products).values(data).returning();
           return response.status(200).json(inserted);
+        } else if (data.id) {
+          const updated = await db.update(products).set(data).where(eq(products.id, data.id)).returning();
+          return response.status(200).json(updated[0]);
         } else {
           const newProduct = await db.insert(products).values(data).returning();
           return response.status(200).json(newProduct[0]);

@@ -16,6 +16,7 @@ import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
@@ -138,10 +139,18 @@ function ProductList() {
                       <td className="px-4 py-2.5 text-muted-foreground">{p.unit}</td>
                       <td className="px-4 py-2.5 font-mono text-xs">{p.rack}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-2.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
+                      <td className="px-4 py-2.5 text-right">
+                        <CreateProductModal 
+                          tabName="products" 
+                          products={products}
+                          initialData={p}
+                          title="Edit Product"
+                          trigger={
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          }
+                        />
                       </td>
                     </tr>
                   ))}
@@ -159,11 +168,27 @@ function ProductList() {
   );
 }
 
-function CreateProductModal({ trigger, title, tabName, products }: { trigger: React.ReactNode; title: string, tabName: string, products: any[] }) {
+function CreateProductModal({ trigger, title, tabName, products, initialData }: { trigger: React.ReactNode; title: string, tabName: string, products: any[], initialData?: any }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const [formData, setFormData] = useState<any>({
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState<any>(initialData || {
+    sku: `SKU-${Date.now().toString().slice(-4)}`,
+    name: "",
+    category: "",
+    brand: "",
+    sellPrice: "0",
+    purchasePrice: "0",
+    stock: "0",
+    minStock: "10",
+    unit: "PCS",
+    rack: "",
+    barcode: "",
+    description: ""
+  });
+
+  const resetForm = () => setFormData(initialData || {
     sku: `SKU-${Date.now().toString().slice(-4)}`,
     name: "",
     category: "",
@@ -194,7 +219,8 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
         body: JSON.stringify(formData)
       });
       if (!res.ok) throw new Error("Failed to save product");
-      toast({ title: "Success", description: "Product created successfully" });
+      toast({ title: "Success", description: `Product ${formData.id ? 'updated' : 'created'} successfully` });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setOpen(false);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
@@ -227,7 +253,7 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
   const fields = getFields();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
@@ -264,7 +290,7 @@ function CreateProductModal({ trigger, title, tabName, products }: { trigger: Re
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Product
+              {formData.id ? "Update Product" : "Save Product"}
             </Button>
           </div>
         </div>
