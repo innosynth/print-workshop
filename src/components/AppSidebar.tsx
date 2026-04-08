@@ -31,7 +31,10 @@ export function AppSidebar() {
   const location = useLocation();
   const { hasPermission } = useAuth();
 
-  const filteredNavItems = navItems.filter(item => hasPermission(item.title, 'view'));
+  const filteredNavItems = navItems.filter(item => {
+    if (item.title === "Meter Readings") return true; // Always visible as requested
+    return hasPermission(item.title, 'view');
+  });
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">

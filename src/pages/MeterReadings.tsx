@@ -15,7 +15,18 @@ export default function MeterReadings() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [formData, setFormData] = useState({ id: null as number | null, machineName: "", startReading: "", endReading: "", date: new Date().toISOString().split('T')[0] });
+  const [formData, setFormData] = useState({
+    id: null as number | null,
+    machineName: "",
+    date: new Date().toISOString().split('T')[0],
+    bwLarge: "0",
+    bwSmall: "0",
+    colorLarge: "0",
+    colorSmall: "0",
+    lsColor: "0",
+    lsMono: "0",
+    openingReading: "0"
+  });
 
   const { data: readings = [], isLoading } = useQuery({
     queryKey: ["meter_readings"],
@@ -34,95 +45,112 @@ export default function MeterReadings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meter_readings"] });
       setOpen(false);
-      setFormData({ id: null, machineName: "", startReading: "", endReading: "", date: new Date().toISOString().split('T')[0] });
+      resetForm();
       toast({ title: "Success", description: "Meter reading saved successfully." });
     }
   });
 
+  const resetForm = () => {
+    setFormData({
+      id: null,
+      machineName: "",
+      date: new Date().toISOString().split('T')[0],
+      bwLarge: "0",
+      bwSmall: "0",
+      colorLarge: "0",
+      colorSmall: "0",
+      lsColor: "0",
+      lsMono: "0",
+      openingReading: "0"
+    });
+  };
+
   const filtered = readings.filter((r: any) => 
-    r.machineName.toLowerCase().includes(search.toLowerCase()) || 
-    r.userName?.toLowerCase().includes(search.toLowerCase())
+    r.machineName.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="p-6 space-y-6 bg-white min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Gauge className="h-5 w-5 text-primary" /> Machine Meter Readings
+          <h1 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tight">
+            <Gauge className="h-6 w-6 text-primary" /> Meter Reading Report
           </h1>
-          <p className="text-sm text-muted-foreground">Track daily machine consumption and counters</p>
+          <p className="text-sm font-bold text-gray-500 uppercase mt-0.5">Report Date From: {new Date().toLocaleDateString()} to {new Date().toLocaleDateString()}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search machine or user..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search machine..." className="pl-10 h-10 font-medium" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button size="sm" className="h-9 gap-1.5 shadow-lg shadow-primary/20">
-                <Plus className="h-3.5 w-3.5" /> Log Reading
+              <Button className="h-10 gap-2 font-bold uppercase tracking-wider px-6 shadow-lg shadow-primary/20">
+                <Plus className="h-4 w-4" /> New Entry
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md bg-zinc-950 border-zinc-800">
+            <DialogContent className="max-w-2xl bg-white">
               <DialogHeader>
-                <DialogTitle>{formData.id ? 'End of Day Reading' : 'Start Reading'}</DialogTitle>
-                <DialogDescription>Record the current meter value for the machine.</DialogDescription>
+                <DialogTitle className="text-xl font-black uppercase">Log Daily Meter Reading</DialogTitle>
+                <DialogDescription>Enter the closing counter values for the machine.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label>Machine Name</Label>
-                  <Input 
-                    placeholder="e.g. Roland 700 / Plotter 1" 
-                    value={formData.machineName} 
-                    onChange={e => setFormData({ ...formData, machineName: e.target.value })}
-                    disabled={!!formData.id}
-                    className="bg-zinc-900/50 border-zinc-800"
-                  />
+              <div className="grid grid-cols-2 gap-6 py-4">
+                <div className="space-y-4">
+                   <div className="space-y-1.5">
+                     <Label className="font-bold uppercase text-[10px] text-gray-500">Machine Name</Label>
+                     <Input placeholder="e.g. C 10000" value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="font-bold" />
+                   </div>
+                   <div className="space-y-1.5">
+                     <Label className="font-bold uppercase text-[10px] text-gray-500">Date</Label>
+                     <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="font-bold" />
+                   </div>
+                   <div className="space-y-1.5 p-4 bg-muted/30 rounded-lg">
+                     <Label className="font-black uppercase text-[10px] text-primary">Opening Reading (Shift Start)</Label>
+                     <Input type="number" value={formData.openingReading} onChange={e => setFormData({...formData, openingReading: e.target.value})} className="text-lg font-black border-primary/20" />
+                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.date} 
-                      onChange={e => setFormData({ ...formData, date: e.target.value })}
-                      disabled={!!formData.id}
-                      className="bg-zinc-900/50 border-zinc-800"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Start Reading</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="Initial count" 
-                      value={formData.startReading} 
-                      onChange={e => setFormData({ ...formData, startReading: e.target.value })}
-                      disabled={!!formData.id}
-                      className="bg-zinc-900/50 border-zinc-800"
-                    />
-                  </div>
+                <div className="space-y-4">
+                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-blue-50/30">
+                     <div className="col-span-2 text-[10px] font-black uppercase text-blue-600">BW Counters</div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">LARGE</Label>
+                        <Input type="number" value={formData.bwLarge} onChange={e => setFormData({...formData, bwLarge: e.target.value})} />
+                     </div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">SMALL</Label>
+                        <Input type="number" value={formData.bwSmall} onChange={e => setFormData({...formData, bwSmall: e.target.value})} />
+                     </div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-orange-50/30">
+                     <div className="col-span-2 text-[10px] font-black uppercase text-orange-600">COLOR Counters</div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">LARGE</Label>
+                        <Input type="number" value={formData.colorLarge} onChange={e => setFormData({...formData, colorLarge: e.target.value})} />
+                     </div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">SMALL</Label>
+                        <Input type="number" value={formData.colorSmall} onChange={e => setFormData({...formData, colorSmall: e.target.value})} />
+                     </div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-purple-50/30">
+                     <div className="col-span-2 text-[10px] font-black uppercase text-purple-600">LS Counters</div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">COLOR</Label>
+                        <Input type="number" value={formData.lsColor} onChange={e => setFormData({...formData, lsColor: e.target.value})} />
+                     </div>
+                     <div className="space-y-1">
+                        <Label className="text-[9px] font-bold">MONO</Label>
+                        <Input type="number" value={formData.lsMono} onChange={e => setFormData({...formData, lsMono: e.target.value})} />
+                     </div>
+                   </div>
                 </div>
-                {formData.id && (
-                  <div className="space-y-2 bg-primary/5 p-4 rounded-lg border border-primary/20 animate-in fade-in zoom-in duration-300">
-                    <Label className="text-primary">Closing Reading (End of Day)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="Current count" 
-                      value={formData.endReading} 
-                      onChange={e => setFormData({ ...formData, endReading: e.target.value })}
-                      className="bg-zinc-900/50 border-primary/30 focus:border-primary h-11 text-lg font-bold"
-                      autoFocus
-                    />
-                  </div>
-                )}
                 <Button 
-                  className="w-full h-11 font-bold" 
+                  className="col-span-2 h-12 text-lg font-black uppercase tracking-widest shadow-xl" 
                   onClick={() => mutation.mutate({ ...formData, userId: user?.id })}
                   disabled={mutation.isPending}
                 >
-                  {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  {formData.id ? 'Save Closing Reading' : 'Log Start Reading'}
+                  {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-5 w-5 mr-1.5" />}
+                  Submit Reading Record
                 </Button>
               </div>
             </DialogContent>
@@ -130,113 +158,71 @@ export default function MeterReadings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        <div className="xl:col-span-3">
-          <Card className="border-zinc-800 bg-zinc-900/20 backdrop-blur-sm">
-            <CardContent className="p-0">
-              <div className="overflow-auto min-h-[400px]">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-800 bg-zinc-900/50 text-muted-foreground">
-                        <th className="text-left px-6 py-4 font-semibold uppercase text-[10px] tracking-wider">Date</th>
-                        <th className="text-left px-6 py-4 font-semibold uppercase text-[10px] tracking-wider">Machine</th>
-                        <th className="px-4 py-4 font-semibold uppercase text-[10px] tracking-wider">Opening</th>
-                        <th className="px-4 py-4 font-semibold uppercase text-[10px] tracking-wider">Closing</th>
-                        <th className="px-4 py-4 font-semibold uppercase text-[10px] tracking-wider">Consumption</th>
-                        <th className="text-left px-6 py-4 font-semibold uppercase text-[10px] tracking-wider">Logged By</th>
-                        <th className="text-right px-6 py-4 font-semibold uppercase text-[10px] tracking-wider">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {filtered.map((r: any) => (
-                        <tr key={r.id} className="hover:bg-zinc-800/20 transition-colors group">
-                          <td className="px-6 py-4 whitespace-nowrap text-zinc-400 font-medium">{r.date}</td>
-                          <td className="px-6 py-4 font-bold text-zinc-100">{r.machineName}</td>
-                          <td className="px-4 py-4 text-center font-mono text-zinc-400 tracking-tight">{parseFloat(r.startReading).toLocaleString()}</td>
-                          <td className="px-4 py-4 text-center font-mono text-zinc-100 font-semibold">
-                            {r.endReading ? parseFloat(r.endReading).toLocaleString() : <span className="text-orange-500 animate-pulse font-medium text-[10px] uppercase">Running...</span>}
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            {r.diff ? (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold text-xs ring-1 ring-primary/20">
-                                <TrendingDown className="h-3 w-3" /> {parseFloat(r.diff).toLocaleString()}
-                              </div>
-                            ) : "—"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-zinc-400">
-                            <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500">
-                                {r.userName?.substring(0, 2).toUpperCase()}
-                              </div>
-                              {r.userName}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {!r.endReading && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7 text-xs border-primary/20 hover:border-primary/50 text-primary"
-                                onClick={() => {
-                                  setFormData({ id: r.id, machineName: r.machineName, startReading: r.startReading, endReading: "", date: r.date });
-                                  setOpen(true);
-                                }}
-                              >
-                                End Day
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Card className="border-zinc-800 bg-zinc-900/40">
-            <CardHeader>
-              <CardTitle className="text-sm">Usage Overview</CardTitle>
-              <CardDescription className="text-[10px]">Total consumption today</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <History className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Active Jobs</span>
-                  </div>
-                  <span className="text-lg font-bold">{readings.filter((r: any) => !r.endReading).length}</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Consumption Trend</span>
-                    <span className="text-primary font-bold">Standard</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-[65%]" />
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-                  <div className="flex items-center gap-2 text-primary mb-1">
-                    <LayoutPanelLeft className="h-4 w-4" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Efficiency Tip</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 leading-relaxed font-medium">
-                    Closing readings should be logged before midnight to ensure accurate daily performance reports.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="border rounded-lg overflow-hidden shadow-sm">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-primary text-white font-black uppercase tracking-tighter">
+              <th className="border-r border-white/20 px-4 py-2.5 text-left w-64" rowSpan={2}>Machine/ Group</th>
+              <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>BW</th>
+              <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>COLOR</th>
+              <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>LS</th>
+              <th className="border-r border-white/20 px-2 py-2.5 text-center" rowSpan={2}>Opening Reading</th>
+              <th className="border-r border-white/20 px-2 py-2.5 text-center" rowSpan={2}>Closing Reading</th>
+              <th className="px-4 py-2.5 text-right bg-blue-700" rowSpan={2}>Total Usage</th>
+            </tr>
+            <tr className="bg-primary/90 text-white font-bold uppercase text-[9px]">
+              <th className="border-r border-white/10 px-2 py-1.5">LARGE</th>
+              <th className="border-r border-white/10 px-2 py-1.5">SMALL</th>
+              <th className="border-r border-white/10 px-2 py-1.5">LARGE</th>
+              <th className="border-r border-white/10 px-2 py-1.5">SMALL</th>
+              <th className="border-r border-white/10 px-2 py-1.5">COLOR</th>
+              <th className="border-r border-white/10 px-2 py-1.5">MONO</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y font-medium text-gray-800">
+            {isLoading ? (
+              <tr><td colSpan={10} className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={10} className="py-20 text-center font-bold text-gray-400">NO METER READINGS RECORDED FOR THIS PERIOD</td></tr>
+            ) : (
+              filtered.map((r: any) => (
+                <Fragment key={r.id}>
+                  <tr className="bg-orange-50/50">
+                    <td className="px-4 py-2 font-black uppercase text-sm border-r border-gray-100" colSpan={10}>{r.machineName}</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50 transition-colors">
+                    <td className="px-8 py-2.5 font-bold border-r border-gray-100 text-gray-500 italic">{r.date}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.bwLarge || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.bwSmall || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.colorLarge || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.colorSmall || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.lsColor || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.lsMono || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums font-bold text-blue-600">{parseFloat(r.openingReading || 0).toLocaleString()}</td>
+                    <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums font-bold text-green-600">{parseFloat(r.closingReading || 0).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right font-black text-sm bg-gray-50">{parseFloat(r.totalUsage || 0).toLocaleString()}</td>
+                  </tr>
+                </Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="flex justify-end pt-4">
+        <div className="bg-blue-600 text-white px-8 py-3 rounded-lg shadow-xl flex items-center gap-8">
+           <div className="text-right">
+             <p className="text-[10px] font-black uppercase opacity-70">Job Efficiency</p>
+             <p className="text-sm font-bold">100% Verified</p>
+           </div>
+           <div className="text-right">
+             <p className="text-[10px] font-black uppercase opacity-70">Audit Status</p>
+             <p className="text-sm font-bold">Cleared</p>
+           </div>
         </div>
       </div>
     </div>
   );
 }
+
+import { Fragment } from "react";

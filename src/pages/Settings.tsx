@@ -112,22 +112,22 @@ function RolesManager() {
               </thead>
               <tbody>
                 {permissions.map((p, i) => (
-                  <tr key={p.module} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                    <td className="px-6 py-3 font-medium text-zinc-200">{p.module}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox checked={p.fullAccess} onCheckedChange={(v) => handlePermissionChange(i, 'fullAccess', !!v)} />
+                  <tr key={p.module} className="border-b last:border-0 hover:bg-muted/30 transition-colors group">
+                    <td className="px-6 py-4 font-bold text-gray-400 group-hover:text-primary transition-colors text-xs">{p.module}</td>
+                    <td className="px-4 py-4 text-center">
+                      <Checkbox checked={p.fullAccess} onCheckedChange={(v) => handlePermissionChange(i, 'fullAccess', !!v)} className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox checked={p.view} onCheckedChange={(v) => handlePermissionChange(i, 'view', !!v)} />
+                    <td className="px-4 py-4 text-center">
+                      <Checkbox checked={p.view} onCheckedChange={(v) => handlePermissionChange(i, 'view', !!v)} className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox checked={p.create} onCheckedChange={(v) => handlePermissionChange(i, 'create', !!v)} />
+                    <td className="px-4 py-4 text-center">
+                      <Checkbox checked={p.create} onCheckedChange={(v) => handlePermissionChange(i, 'create', !!v)} className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox checked={p.edit} onCheckedChange={(v) => handlePermissionChange(i, 'edit', !!v)} />
+                    <td className="px-4 py-4 text-center">
+                      <Checkbox checked={p.edit} onCheckedChange={(v) => handlePermissionChange(i, 'edit', !!v)} className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox checked={p.delete} onCheckedChange={(v) => handlePermissionChange(i, 'delete', !!v)} />
+                    <td className="px-4 py-4 text-center">
+                      <Checkbox checked={p.delete} onCheckedChange={(v) => handlePermissionChange(i, 'delete', !!v)} className="data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
                     </td>
                   </tr>
                 ))}
@@ -139,13 +139,13 @@ function RolesManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {roles.map((r: any) => (
-          <Card key={r.id} className="border-zinc-800 bg-zinc-900/50">
+          <Card key={r.id} className="border-border bg-muted/20 shadow-sm">
             <CardHeader className="p-4 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm">{r.name}</CardTitle>
-                <CardDescription className="text-[10px]">Created {new Date(r.createdAt).toLocaleDateString()}</CardDescription>
+                <CardTitle className="text-sm font-bold">{r.name}</CardTitle>
+                <CardDescription className="text-[10px] uppercase font-semibold">Created {new Date(r.createdAt).toLocaleDateString()}</CardDescription>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
             </CardHeader>
           </Card>
         ))}
@@ -376,24 +376,29 @@ function PaymentQrManager() {
 
         <div className="space-y-3 px-1 overflow-y-auto max-h-[500px]">
           {qrs.map((qr: any) => (
-            <Card key={qr.id} className="border-zinc-800 bg-zinc-900/40">
+            <Card key={qr.id} className="border-border bg-white shadow-sm overflow-hidden group">
               <CardContent className="p-4 flex gap-4">
-                <img src={qr.imageUrl} className="h-20 w-20 rounded bg-white p-1" alt={qr.name} />
-                <div className="flex-1 space-y-2">
+                <div className="relative h-20 w-20 shrink-0">
+                  <img src={qr.imageUrl} className="h-full w-full rounded-lg border border-border p-1 bg-white" alt={qr.name} />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                    <Printer className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 space-y-3">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-semibold text-sm">{qr.name}</h4>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteMutation.mutate(qr.id)}>
+                    <h4 className="font-bold text-sm text-foreground">{qr.name}</h4>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteMutation.mutate(qr.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center space-x-2 bg-zinc-800/50 p-2 rounded-md border border-zinc-700/50">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center space-x-2 bg-muted/40 p-2 rounded-lg border border-border/50">
                       <Checkbox id={`inv-${qr.id}`} checked={qr.isActiveForInvoice} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForInvoice: !!v })} />
-                      <label htmlFor={`inv-${qr.id}`} className="text-[10px] uppercase font-bold text-zinc-400 cursor-pointer">Active for Invoice</label>
+                      <label htmlFor={`inv-${qr.id}`} className="text-[8px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Invoice</label>
                     </div>
-                    <div className="flex items-center space-x-2 bg-zinc-800/50 p-2 rounded-md border border-zinc-700/50">
+                    <div className="flex items-center space-x-2 bg-muted/40 p-2 rounded-lg border border-border/50">
                       <Checkbox id={`est-${qr.id}`} checked={qr.isActiveForEstimate} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForEstimate: !!v })} />
-                      <label htmlFor={`est-${qr.id}`} className="text-[10px] uppercase font-bold text-zinc-400 cursor-pointer">Active for Estimate</label>
+                      <label htmlFor={`est-${qr.id}`} className="text-[8px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Estimate</label>
                     </div>
                   </div>
                 </div>
@@ -425,7 +430,8 @@ export default function Settings() {
   });
 
   const [company, setCompany] = useState<any>({
-    name: "", address: "", gst: "", phone: "", email: "", website: "", pan: "", state: "", pincode: "",
+    name: "", slogan: "", address: "", gst: "", phone: "", email: "", website: "", pan: "", state: "", pincode: "",
+    bankName: "", bankBranch: "", accountNumber: "", ifscCode: "", accountName: "",
   });
 
   const [printConfig, setPrintConfig] = useState<any>({
@@ -465,58 +471,89 @@ export default function Settings() {
   );
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 bg-background">
       <div>
         <h1 className="text-xl font-bold font-heading">Settings & Workshop Management</h1>
         <p className="text-sm text-muted-foreground">Configure profile, users, roles and system behavior</p>
       </div>
 
-      <Tabs defaultValue="company">
-        <TabsList className="h-9 mb-4">
-          <TabsTrigger value="company" className="text-xs px-3 gap-1.5"><Building2 className="h-3.5 w-3.5" />Workshop Profile</TabsTrigger>
-          <TabsTrigger value="employees" className="text-xs px-3 gap-1.5"><Users className="h-3.5 w-3.5" />Staff Members</TabsTrigger>
-          <TabsTrigger value="roles" className="text-xs px-3 gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />RBAC Roles</TabsTrigger>
-          <TabsTrigger value="qrs" className="text-xs px-3 gap-1.5"><Save className="h-3.5 w-3.5" />Payment QRs</TabsTrigger>
-          <TabsTrigger value="print" className="text-xs px-3 gap-1.5"><Printer className="h-3.5 w-3.5" />Print Config</TabsTrigger>
+      <Tabs defaultValue="company" className="w-full">
+        <TabsList className="h-12 mb-6 bg-transparent gap-2 px-1">
+          <TabsTrigger value="company" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Building2 className="h-4 w-4" />Workshop Profile</TabsTrigger>
+          <TabsTrigger value="employees" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Users className="h-4 w-4" />Staff Members</TabsTrigger>
+          <TabsTrigger value="roles" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><ShieldCheck className="h-4 w-4" />RBAC Roles</TabsTrigger>
+          <TabsTrigger value="qrs" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Save className="h-4 w-4" />Payment QRs</TabsTrigger>
+          <TabsTrigger value="print" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Printer className="h-4 w-4" />Print Config</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base">Workshop Identity</CardTitle>
+          <Card className="bg-white border-border shadow-sm">
+            <CardHeader className="pb-4 border-b border-muted/50 mb-4 bg-muted/5 rounded-t-xl">
+              <CardTitle className="text-base font-bold">Workshop Identity</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start gap-6">
-                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-zinc-800 flex items-center justify-center bg-zinc-900/50 cursor-pointer hover:border-primary/50 transition-all">
-                  <div className="text-center">
-                    <Building2 className="h-8 w-8 text-muted-foreground mx-auto" />
-                    <p className="text-[10px] text-muted-foreground mt-2 font-medium">LOGO</p>
+            <CardContent className="space-y-8">
+              <div className="flex flex-col lg:flex-row items-start gap-8">
+                <div className="h-28 w-28 shrink-0 rounded-2xl border-2 border-dashed border-border flex items-center justify-center bg-muted/20 cursor-pointer hover:border-primary/50 transition-all group overflow-hidden shadow-inner">
+                  <div className="text-center group-hover:scale-105 transition-transform">
+                    <Building2 className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+                    <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">LOGO</p>
                   </div>
                 </div>
-                <div className="flex-1 grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold text-zinc-400">Workshop/Company Name</label>
-                    <Input className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={company.name}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                  <div className="md:col-span-2 lg:col-span-2">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Workshop/Company Name</label>
+                    <Input className="h-10 bg-muted/30 border-border" value={company.name}
                       onChange={e => setCompany((p: any) => ({ ...p, name: e.target.value }))} />
                   </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Slogan / Tagline</label>
+                    <Input className="h-10 bg-muted/30 border-border" value={company.slogan || ""}
+                      onChange={e => setCompany((p: any) => ({ ...p, slogan: e.target.value }))} />
+                  </div>
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Full Address</label>
+                    <Input className="h-10 bg-muted/30 border-border" value={company.address || ""}
+                      onChange={e => setCompany((p: any) => ({ ...p, address: e.target.value }))} />
+                  </div>
                   {[
-                    { key: "gst", label: "GST Number", icon: ShieldCheck }, { key: "pan", label: "PAN Number", icon: Lock },
-                    { key: "phone", label: "Phone", icon: Building2 }, { key: "email", label: "Email", icon: Mail },
-                    { key: "state", label: "State", icon: Building2 }, { key: "pincode", label: "Pincode", icon: Building2 },
+                    { key: "gst", label: "GST Number" }, { key: "pan", label: "PAN Number" },
+                    { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
+                    { key: "state", label: "State" }, { key: "pincode", label: "Pincode" },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-xs font-semibold text-zinc-400">{f.label}</label>
-                      <Input className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={company[f.key] || ""}
+                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
+                      <Input className="h-10 bg-muted/30 border-border" value={company[f.key] || ""}
                         onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} />
                     </div>
                   ))}
                 </div>
               </div>
-              <Separator className="bg-zinc-800" />
+
+              <Separator className="bg-muted" />
+              
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Settlement & Banking Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    { key: "bankName", label: "Bank Name" }, { key: "bankBranch", label: "Branch Name" },
+                    { key: "accountNumber", label: "Account Number" }, { key: "ifscCode", label: "IFSC Code" },
+                    { key: "accountName", label: "Account Name / Beneficiary" }
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
+                      <Input className="h-10 bg-muted/30 border-border" value={company[f.key] || ""}
+                        onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator className="bg-muted" />
+
               <div className="flex justify-end pt-2">
-                <Button size="sm" className="gap-1.5 shadow-lg shadow-primary/20" onClick={handleSave} disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  Update Profile
+                <Button size="sm" className="h-10 px-6 font-bold shadow-lg shadow-primary/20" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Update Core Profile
                 </Button>
               </div>
             </CardContent>
@@ -524,28 +561,34 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="employees">
-          <EmployeesManager />
+          <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+            <EmployeesManager />
+          </div>
         </TabsContent>
 
         <TabsContent value="roles">
-          <RolesManager />
+          <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+            <RolesManager />
+          </div>
         </TabsContent>
 
         <TabsContent value="qrs">
-          <PaymentQrManager />
+          <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+            <PaymentQrManager />
+          </div>
         </TabsContent>
 
         <TabsContent value="print">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base">Print Output Configuration</CardTitle>
+          <Card className="bg-white border-border shadow-sm">
+            <CardHeader className="pb-4 border-b border-muted/50 mb-4 bg-muted/5 rounded-t-xl">
+              <CardTitle className="text-base font-bold">Print Output Configuration</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">Default Document Layout</Label>
+            <CardContent className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Default Document Layout</Label>
                   <Select value={printConfig.defaultPaperSize} onValueChange={(v) => setPrintConfig({ ...printConfig, defaultPaperSize: v as "A4" | "thermal" })}>
-                    <SelectTrigger className="mt-1 h-10 bg-zinc-900/50 border-zinc-800">
+                    <SelectTrigger className="mt-1 h-11 bg-muted/30 border-border font-medium">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -557,53 +600,64 @@ export default function Settings() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                <div className="space-y-4 p-4 rounded-xl border border-zinc-800 bg-zinc-950/50">
-                  <Label className="text-sm font-bold flex items-center gap-2 text-primary">
+                <div className="space-y-4 p-6 rounded-2xl border border-border bg-muted/10 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Printer className="h-12 w-12" />
+                  </div>
+                  <Label className="text-sm font-black flex items-center gap-2 text-primary uppercase">
                     <Printer className="h-4 w-4" /> A4 Layout Settings
                   </Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Margins (mm)</Label>
-                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.a4Margin}
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Margins (mm)</Label>
+                      <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.a4Margin}
                         onChange={e => setPrintConfig({ ...printConfig, a4Margin: parseInt(e.target.value) })} />
                     </div>
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Font Base (px)</Label>
-                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.a4FontSize}
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Font Base (px)</Label>
+                      <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.a4FontSize}
                         onChange={e => setPrintConfig({ ...printConfig, a4FontSize: parseInt(e.target.value) })} />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4 p-4 rounded-xl border border-zinc-800 bg-zinc-950/50">
-                  <Label className="text-sm font-bold flex items-center gap-2 text-orange-500">
+                <div className="space-y-4 p-6 rounded-2xl border border-border bg-orange-50/30 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Printer className="h-12 w-12 text-orange-600" />
+                  </div>
+                  <Label className="text-sm font-black flex items-center gap-2 text-orange-600 uppercase">
                     <Printer className="h-4 w-4" /> Thermal POS Settings
                   </Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Width (mm)</Label>
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Width (mm)</Label>
                       <Select value={printConfig.thermalWidth} onValueChange={(v) => setPrintConfig({ ...printConfig, thermalWidth: v })}>
-                        <SelectTrigger className="mt-1 h-9 bg-zinc-900/50 border-zinc-800"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="mt-1.5 h-10 bg-white border-border shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent><SelectItem value="57">57mm</SelectItem><SelectItem value="58">58mm</SelectItem><SelectItem value="80">80mm</SelectItem></SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Font Size (px)</Label>
-                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.thermalFontSize}
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Font Size (px)</Label>
+                      <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.thermalFontSize}
                         onChange={e => setPrintConfig({ ...printConfig, thermalFontSize: parseInt(e.target.value) })} />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4 border-t border-zinc-800">
-                <Button size="sm" className="gap-1.5 shadow-lg shadow-primary/20" onClick={handlePrintSettingsSave} disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <div className="flex justify-end pt-6 border-t border-border mt-4">
+                <Button size="sm" className="h-11 px-8 font-bold shadow-lg shadow-primary/20" onClick={handlePrintSettingsSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                   Update Print Policy
                 </Button>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="rbac">
+          <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+             <RolesManager />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

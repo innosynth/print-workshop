@@ -93,18 +93,29 @@ export default function Accounting() {
         <p className="text-sm text-muted-foreground">Ledger, chart of accounts, and outstanding tracking</p>
       </div>
       <Tabs defaultValue="coa">
-        <TabsList className="h-9">
-          {["coa","ledger","receivable","payable"].map(t => (
-            <TabsTrigger key={t} value={t} className="text-xs px-3">
-              {t === "coa" ? "Chart of Accounts" : t.charAt(0).toUpperCase() + t.slice(1)}
+        <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1">
+          {[
+            { id: "coa", label: "Chart of Accounts" },
+            { id: "ledger", label: "General Ledger" },
+            { id: "contra", label: "Contra" },
+            { id: "debit", label: "Debit Notes" },
+            { id: "credit", label: "Credit Notes" },
+            { id: "receivable", label: "Receivables" },
+            { id: "payable", label: "Payables" }
+          ].map(t => (
+            <TabsTrigger key={t.id} value={t.id} className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">
+              {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
         <TabsContent value="coa" className="mt-4"><ChartOfAccountsTable /></TabsContent>
-        <TabsContent value="ledger" className="mt-4"><div className="p-4 text-muted-foreground">Ledger view coming soon with real transaction data.</div></TabsContent>
-        <TabsContent value="receivable" className="mt-4"><div className="p-4 text-muted-foreground">Receivables aging based on invoice data.</div></TabsContent>
-        <TabsContent value="payable" className="mt-4"><div className="p-4 text-muted-foreground">Payables aging based on purchase data.</div></TabsContent>
+        <TabsContent value="ledger" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">General ledger transaction history</div></TabsContent>
+        <TabsContent value="contra" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Bank-to-bank and cash transfers (Contra)</div></TabsContent>
+        <TabsContent value="debit" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Purchase returns and debit note adjustments</div></TabsContent>
+        <TabsContent value="credit" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Sales returns and credit note adjustments</div></TabsContent>
+        <TabsContent value="receivable" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Customer outstanding and receivables aging</div></TabsContent>
+        <TabsContent value="payable" className="mt-4"><div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Supplier outstanding and payables aging</div></TabsContent>
       </Tabs>
     </div>
   );

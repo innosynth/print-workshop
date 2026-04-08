@@ -117,20 +117,35 @@ export default function Inventory() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="inward">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <TabsList className="h-9">
-            {["inward", "outward", "grn", "dispatch"].map(t => (
-              <TabsTrigger key={t} value={t} className="text-xs px-3">
-                {t === "inward" ? "Stock Inward" : t === "outward" ? "Stock Outward" : t.toUpperCase()}
+          <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1">
+            {[
+              { id: "inward", label: "Inward" },
+              { id: "outward", label: "Outward" },
+              { id: "grn", label: "GRN" },
+              { id: "dispatch", label: "Dispatch" },
+              { id: "packing", label: "Packing List" },
+              { id: "adjustments", label: "Adjustments" }
+            ].map(t => (
+              <TabsTrigger key={t.id} value={t.id} className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">
+                {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button size="sm" className="h-9 gap-1"><Plus className="h-3.5 w-3.5" />New {activeTab.toUpperCase()}</Button>
+          <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+            <Plus className="h-3.5 w-3.5" />New {activeTab.slice(0, -1)}
+          </Button>
         </div>
 
         <TabsContent value="inward" className="mt-4"><MovementTable data={movements.filter((m: any) => m.type === "Inward")} isLoading={isLoading} /></TabsContent>
         <TabsContent value="outward" className="mt-4"><MovementTable data={movements.filter((m: any) => m.type === "Outward")} isLoading={isLoading} /></TabsContent>
         <TabsContent value="grn" className="mt-4"><MovementTable data={movements.filter((m: any) => m.type === "Inward")} isLoading={isLoading} /></TabsContent>
         <TabsContent value="dispatch" className="mt-4"><MovementTable data={movements.filter((m: any) => m.type === "Outward")} isLoading={isLoading} /></TabsContent>
+        <TabsContent value="packing" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Packing lists for dispatch and logistics</div>
+        </TabsContent>
+        <TabsContent value="adjustments" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Manual stock corrections and auditing</div>
+        </TabsContent>
       </Tabs>
     </div>
   );

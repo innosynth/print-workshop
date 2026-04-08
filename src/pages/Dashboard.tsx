@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX, Printer, Loader2 } from "lucide-react";
+import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX, Printer, Loader2, Gauge } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -260,7 +260,16 @@ export default function Dashboard() {
         <StatCard title="Today's Sales" value={fmt(stats?.todaySales || 0)} icon={IndianRupee} sub="+8.2% vs yesterday" trend="up" isLoading={statsLoading} />
         <StatCard title="Total Sales" value={fmt(stats?.totalSales || 0)} icon={TrendingUp} sub="Lifetime revenue" isLoading={statsLoading} />
         <StatCard title="Active Customers" value={String(stats?.activeCustomers || 0)} icon={Users} sub="Total registered" isLoading={statsLoading} />
-        <StatCard title="Low Stock Items" value={String(stats?.lowStockCount || 0)} icon={AlertTriangle} sub="Action needed" isLoading={statsLoading} />
+        <div className="p-5 rounded-xl bg-primary/10 border border-primary/20 flex flex-col justify-between group cursor-pointer hover:bg-primary/15 transition-all shadow-lg shadow-primary/5" onClick={() => window.location.href='/meter-readings'}>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Quick Action</p>
+            <Gauge className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="mt-2">
+            <p className="text-sm font-bold text-foreground">Log Meter Reading</p>
+            <p className="text-[10px] text-muted-foreground">Record daily machine counters</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

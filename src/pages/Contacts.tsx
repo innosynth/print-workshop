@@ -189,14 +189,13 @@ export default function Contacts() {
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-bold">Contacts</h1>
-        <p className="text-sm text-muted-foreground">Manage customers and suppliers</p>
-        <p className="text-sm text-muted-foreground">Manage customers and suppliers</p>
+        <p className="text-sm text-muted-foreground">Manage B2B/B2C customers and supplier partnerships</p>
       </div>
       <Tabs defaultValue="b2b">
-        <TabsList className="h-9">
-          <TabsTrigger value="b2b" className="text-xs px-4">B2B Customers</TabsTrigger>
-          <TabsTrigger value="b2c" className="text-xs px-4">B2C Customers</TabsTrigger>
-          <TabsTrigger value="suppliers" className="text-xs px-4">Suppliers</TabsTrigger>
+        <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1 mb-2">
+          <TabsTrigger value="b2b" className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">B2B Customers</TabsTrigger>
+          <TabsTrigger value="b2c" className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">B2C Customers</TabsTrigger>
+          <TabsTrigger value="suppliers" className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">Suppliers</TabsTrigger>
         </TabsList>
         <TabsContent value="b2b" className="mt-4">
           <ContactTable type="B2B" tabName="B2B" />

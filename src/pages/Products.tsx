@@ -197,34 +197,40 @@ export default function Products() {
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="products">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <TabsList className="h-9">
-            {["products", "categories", "brands"].map(t => (
-              <TabsTrigger key={t} value={t} className="text-xs px-3">
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+          <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1">
+            {[
+              { id: "products", label: "Products" },
+              { id: "categories", label: "Categories" },
+              { id: "brands", label: "Brands" },
+              { id: "pricelists", label: "Price Lists" }
+            ].map(t => (
+              <TabsTrigger key={t.id} value={t.id} className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">
+                {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          {activeTab === "products" && (
-            <CreateProductModal
-              tabName={activeTab}
-              products={products}
-              title={getNewButtonLabel(activeTab)}
-              trigger={
-                <Button size="sm" className="h-9 gap-1">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Product
-                </Button>
-              }
-            />
-          )}
+          <CreateProductModal
+            tabName={activeTab}
+            products={products}
+            title={getNewButtonLabel(activeTab)}
+            trigger={
+              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+                <Plus className="h-3.5 w-3.5" />
+                {getNewButtonLabel(activeTab)}
+              </Button>
+            }
+          />
         </div>
 
         <TabsContent value="products" className="mt-4"><ProductList /></TabsContent>
         <TabsContent value="categories" className="mt-4">
-           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Categories management coming soon with real data.</CardContent></Card>
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Product category classification and sub-groups</div>
         </TabsContent>
         <TabsContent value="brands" className="mt-4">
-           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Brands management coming soon with real data.</CardContent></Card>
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Brand master and manufacturer tracking</div>
+        </TabsContent>
+        <TabsContent value="pricelists" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Custom price lists for retail and wholesale contracts</div>
         </TabsContent>
       </Tabs>
     </div>

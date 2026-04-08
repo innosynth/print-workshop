@@ -10,31 +10,51 @@ export default async function handler(request: VercelRequest, response: VercelRe
   try {
     if (resource === 'meter_readings') {
       if (method === 'GET') {
-        const readings = await db.select({
+        const readingsData = await db.select({
           id: meterReadings.id,
           machineName: meterReadings.machineName,
           date: meterReadings.date,
-          startReading: meterReadings.startReading,
-          endReading: meterReadings.endReading,
-          diff: meterReadings.diff,
+          bwLarge: meterReadings.bwLarge,
+          bwSmall: meterReadings.bwSmall,
+          colorLarge: meterReadings.colorLarge,
+          colorSmall: meterReadings.colorSmall,
+          lsColor: meterReadings.lsColor,
+          lsMono: meterReadings.lsMono,
+          openingReading: meterReadings.openingReading,
+          closingReading: meterReadings.closingReading,
+          totalUsage: meterReadings.totalUsage,
           userName: users.name,
           createdAt: meterReadings.createdAt
         })
         .from(meterReadings)
         .leftJoin(users, eq(meterReadings.userId, users.id))
         .orderBy(desc(meterReadings.date), desc(meterReadings.createdAt));
-        return response.status(200).json(readings);
+        return response.status(200).json(readingsData);
       }
       if (method === 'POST') {
         const data = request.body;
+        const bwl = parseFloat(data.bwLarge || "0");
+        const bws = parseFloat(data.bwSmall || "0");
+        const cl = parseFloat(data.colorLarge || "0");
+        const cs = parseFloat(data.colorSmall || "0");
+        const lsc = parseFloat(data.lsColor || "0");
+        const lsm = parseFloat(data.lsMono || "0");
+        const op = parseFloat(data.openingReading || "0");
+
+        const closingReading = (bwl + bws + cl + cs + lsc + lsm).toString();
+        const totalUsage = (parseFloat(closingReading) - op).toString();
+
+        const payload = {
+          ...data,
+          closingReading,
+          totalUsage
+        };
+
         if (data.id) {
-          const start = parseFloat(data.startReading);
-          const end = data.endReading ? parseFloat(data.endReading) : null;
-          const diff = end ? (end - start).toString() : null;
-          const updated = await db.update(meterReadings).set({ ...data, diff }).where(eq(meterReadings.id, data.id)).returning();
+          const updated = await db.update(meterReadings).set(payload).where(eq(meterReadings.id, data.id)).returning();
           return response.status(200).json(updated[0]);
         } else {
-          const inserted = await db.insert(meterReadings).values(data).returning();
+          const inserted = await db.insert(meterReadings).values(payload).returning();
           return response.status(200).json(inserted[0]);
         }
       }

@@ -47,34 +47,34 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4 relative overflow-hidden">
-      {/* Dynamic Background Gradients */}
-      <div className="absolute top-0 left-0 w-full h-full">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 relative overflow-hidden">
+      {/* Soft Light Background Gradients */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px]" />
       </div>
 
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 backdrop-blur-xl relative z-10 shadow-2xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 border border-primary/20">
-            <Building2 className="w-6 h-6 text-primary" />
+      <Card className="w-full max-w-md bg-white border-border/50 relative z-10 shadow-xl ring-1 ring-black/5">
+        <CardHeader className="space-y-1 text-center pb-8 border-b border-muted/50 mb-6 bg-muted/10 rounded-t-xl">
+          <div className="mx-auto w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 border border-primary/20 shadow-inner">
+            <Building2 className="w-7 h-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Print Workshop</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Enter your credentials to access your workshop dashboard
+          <CardTitle className="text-2xl font-black tracking-tight text-foreground uppercase">InnoSynth</CardTitle>
+          <CardDescription className="text-primary font-bold tracking-widest text-[10px] uppercase">
+            Print Workshop
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-300">Email Address</Label>
+              <Label htmlFor="email" className="text-sm font-bold text-foreground/80">Email Address</Label>
               <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="name@company.com"
-                  className="bg-zinc-800/50 border-zinc-700 pl-10 focus:border-primary text-white h-11"
+                  className="bg-muted/30 border-muted-foreground/20 pl-10 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-all h-12"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -83,14 +83,15 @@ export default function Login() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-zinc-300">Password</Label>
+                <Label htmlFor="password" className="text-sm font-bold text-foreground/80">Access Code</Label>
               </div>
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-primary transition-colors" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="password"
                   type="password"
-                  className="bg-zinc-800/50 border-zinc-700 pl-10 focus:border-primary text-white h-11"
+                  placeholder="••••••••"
+                  className="bg-muted/30 border-muted-foreground/20 pl-10 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-all h-12"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -99,21 +100,23 @@ export default function Login() {
             </div>
             <Button
               type="submit"
-              className="w-full h-11 font-semibold text-base transition-all active:scale-[0.98]"
+              className="w-full h-12 font-bold text-base shadow-lg shadow-primary/20 transition-all active:scale-[0.98] mt-2 group"
               disabled={loading}
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Securing Session...
+                  Authenticating...
                 </>
               ) : (
-                "Sign In"
+                <span className="flex items-center gap-2">
+                  Sign In to Workshop
+                </span>
               )}
             </Button>
-            <div className="text-center">
-              <p className="text-xs text-zinc-500 mt-2">
-                Authorized access only. By signing in you agree to our terms of service.
+            <div className="text-center pt-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                Restricted System Access
               </p>
             </div>
           </form>

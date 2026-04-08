@@ -68,7 +68,10 @@ export default function Purchase() {
     { key: "purchaseNo", label: "Entry #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.purchaseNo}</span> },
     { key: "date", label: "Date" },
     { key: "supplierName", label: "Supplier", render: (r: any) => <span className="font-medium">{r.supplierName}</span> },
+    { key: "items", label: "Items", render: (r: any) => <span className="tabular-nums">{r.items || 0}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
+    { key: "tax", label: "GST", render: (r: any) => <span className="tabular-nums text-muted-foreground">₹{parseFloat(r.tax || (r.amount * 0.18)).toLocaleString("en-IN")}</span> },
+    { key: "total", label: "Total", render: (r: any) => <span className="tabular-nums font-bold">₹{parseFloat(r.total || (r.amount * 1.18)).toLocaleString("en-IN")}</span> },
     { key: "status", label: "Status", render: (r: any) => <StatusBadge status={r.status} /> },
   ];
 
@@ -91,24 +94,48 @@ export default function Purchase() {
 
   return (
     <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">Purchase</h1>
-        <p className="text-sm text-muted-foreground">Purchase entries, orders, and expense vouchers</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">Purchase</h1>
+          <p className="text-sm text-muted-foreground">Purchase entries, orders, returns and expense vouchers</p>
+        </div>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="entries">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <TabsList className="h-9">
-            {["entries", "orders", "expenses"].map(t => (
-              <TabsTrigger key={t} value={t} className="text-xs px-3">
-                {t === "entries" ? "Purchase Entries" : t === "orders" ? "Purchase Orders" : "Expense Vouchers"}
+          <TabsList className="h-12 flex-wrap bg-transparent gap-2 px-1">
+            {[
+              { id: "entries", label: "Purchase Entries" },
+              { id: "returns", label: "Returns" },
+              { id: "orders", label: "Orders" },
+              { id: "quotations", label: "Supplier Quotations" },
+              { id: "indents", label: "Material Indent" },
+              { id: "expenses", label: "Expense Vouchers" },
+              { id: "estimations", label: "Estimation" }
+            ].map(t => (
+              <TabsTrigger key={t.id} value={t.id} className="text-xs px-5 h-10 font-black uppercase tracking-tight data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-b-2 border-transparent data-[state=active]:border-primary transition-all">
+                {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button size="sm" className="h-9 gap-1"><Plus className="h-3.5 w-3.5" />New {activeTab.slice(0, -1)}</Button>
+          <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+            <Plus className="h-3.5 w-3.5" />New {activeTab === "entries" ? "Entry" : activeTab.slice(0, -1)}
+          </Button>
         </div>
 
         <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} /></TabsContent>
         <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} /></TabsContent>
+        <TabsContent value="returns" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No purchase returns recorded today</div>
+        </TabsContent>
+        <TabsContent value="quotations" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Active supplier quotations summary</div>
+        </TabsContent>
+        <TabsContent value="indents" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Pending material indents from production</div>
+        </TabsContent>
+        <TabsContent value="estimations" className="mt-4">
+          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Purchase estimations and pre-order costs</div>
+        </TabsContent>
         <TabsContent value="expenses" className="mt-4"><TxTable data={expenses} cols={expCols} isLoading={expensesLoading} /></TabsContent>
       </Tabs>
     </div>

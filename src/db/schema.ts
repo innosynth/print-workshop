@@ -141,10 +141,10 @@ export const expenses = pgTable("expenses", {
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
-// ─── Settings ─────────────────────────────────────────────────────────────────
 export const companyProfile = pgTable("companyProfile", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  slogan: text("slogan"),
   address: text("address"),
   gst: text("gst"),
   phone: text("phone"),
@@ -154,6 +154,11 @@ export const companyProfile = pgTable("companyProfile", {
   state: text("state"),
   pincode: text("pincode"),
   logoUrl: text("logoUrl"),
+  bankName: text("bankName"),
+  bankBranch: text("bankBranch"),
+  accountNumber: text("accountNumber"),
+  ifscCode: text("ifscCode"),
+  accountName: text("accountName"),
 });
 
 export const printSettings = pgTable("printSettings", {
@@ -198,9 +203,17 @@ export const meterReadings = pgTable("meterReadings", {
   id: serial("id").primaryKey(),
   machineName: text("machineName").notNull(),
   date: date("date").notNull().defaultNow(),
-  startReading: numeric("startReading").notNull(),
-  endReading: numeric("endReading"),
-  diff: numeric("diff"),
+  // Granular Closing Counters
+  bwLarge: numeric("bwLarge").default("0"),
+  bwSmall: numeric("bwSmall").default("0"),
+  colorLarge: numeric("colorLarge").default("0"),
+  colorSmall: numeric("colorSmall").default("0"),
+  lsColor: numeric("lsColor").default("0"),
+  lsMono: numeric("lsMono").default("0"),
+  // Derived/Aggregated Fields
+  openingReading: numeric("openingReading").notNull(),
+  closingReading: numeric("closingReading"),
+  totalUsage: numeric("totalUsage"),
   userId: integer("userId").references(() => users.id),
   createdAt: timestamp("createdAt").defaultNow(),
 });
