@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from '../src/db/index';
-import { contacts, products, companyProfile, printSettings, users, roles, paymentQrs } from '../src/db/schema';
+import { db } from '../db/index.js';
+import { contacts, products, companyProfile, printSettings, users, roles, paymentQrs } from '../db/schema.js';
 import { eq, desc, and, not } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
