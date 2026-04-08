@@ -1,451 +1,607 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { warehouses } from "@/lib/mockData";
-import { Building2, Users, Tag, Package, Save, Printer, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePrintSettings } from "@/lib/print-settings-context";
-import { Textarea } from "@/components/ui/textarea";
 
-function AddAgentModal() {
-  const [open, setOpen] = useState(false);
-  const [agentForm, setAgentForm] = useState({ name: "", mobile: "", email: "", commission: 0, active: true });
+type Permission = {
+  module: string;
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+  fullAccess: boolean;
+};
+
+const MODULES = [
+  "Dashboard", "Contacts", "Products", "Sales", "Purchase", "Accounting", "Inventory", "Meter Readings", "Reports", "Settings"
+];
+
+const INITIAL_PERMISSIONS: Permission[] = MODULES.map(m => ({
+  module: m, view: true, create: false, edit: false, delete: false, fullAccess: false
+}));
+
+function RolesManager() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [roleName, setRoleName] = useState("");
+  const [permissions, setPermissions] = useState<Permission[]>(INITIAL_PERMISSIONS);
+
+  const { data: roles = [], isLoading } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => fetch("/api/core?resource=roles").then(res => res.json())
+  });
+
+  const createRoleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/core?resource=roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setRoleName("");
+      setPermissions(INITIAL_PERMISSIONS);
+      toast({ title: "Role created", description: "The new role has been added." });
+    }
+  });
+
+  const handlePermissionChange = (moduleIndex: number, field: keyof Permission, value: boolean) => {
+    const newPerms = [...permissions];
+    const target = { ...newPerms[moduleIndex] };
+    
+    if (field === 'fullAccess') {
+      target.fullAccess = value;
+      target.view = value;
+      target.create = value;
+      target.edit = value;
+      target.delete = value;
+    } else {
+      (target as any)[field] = value;
+      if (!value) target.fullAccess = false;
+      if (target.view && target.create && target.edit && target.delete) {
+        target.fullAccess = true;
+      }
+    }
+    newPerms[moduleIndex] = target;
+    setPermissions(newPerms);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add Agent</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Add New Sales Agent</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-2">
-          <div>
-            <Label className="text-xs">Agent Name *</Label>
-            <Input className="mt-1 h-9" value={agentForm.name} onChange={e => setAgentForm({ ...agentForm, name: e.target.value })} placeholder="Enter agent name" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Mobile *</Label>
-              <Input className="mt-1 h-9" value={agentForm.mobile} onChange={e => setAgentForm({ ...agentForm, mobile: e.target.value })} placeholder="Mobile number" />
-            </div>
-            <div>
-              <Label className="text-xs">Email</Label>
-              <Input className="mt-1 h-9" value={agentForm.email} onChange={e => setAgentForm({ ...agentForm, email: e.target.value })} placeholder="Email address" />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Commission (%)</Label>
-            <Input type="number" className="mt-1 h-9" value={agentForm.commission} onChange={e => setAgentForm({ ...agentForm, commission: parseFloat(e.target.value) || 0 })} placeholder="Commission percentage" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={() => { console.log("Adding agent:", agentForm); setOpen(false); }}>Add Agent</Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-end gap-4 bg-muted/30 p-4 rounded-lg border border-border">
+        <div className="flex-1 space-y-1.5">
+          <Label>Role Name</Label>
+          <Input placeholder="e.g. Sales Manager" value={roleName} onChange={e => setRoleName(e.target.value)} className="h-9" />
         </div>
-      </DialogContent>
-    </Dialog>
+        <Button size="sm" onClick={() => createRoleMutation.mutate({ name: roleName, permissions })} disabled={!roleName || createRoleMutation.isPending}>
+          {createRoleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+          Create New Role
+        </Button>
+      </div>
+
+      <Card className="border-border">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" /> Permission Matrix
+          </CardTitle>
+          <CardDescription>Configure access levels for each system module</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 uppercase text-[10px] tracking-wider font-bold text-muted-foreground">
+                  <th className="text-left px-6 py-3">Module Name</th>
+                  <th className="px-4 py-3">Full Access</th>
+                  <th className="px-4 py-3">View</th>
+                  <th className="px-4 py-3">Create</th>
+                  <th className="px-4 py-3">Edit</th>
+                  <th className="px-4 py-3">Delete</th>
+                </tr>
+              </thead>
+              <tbody>
+                {permissions.map((p, i) => (
+                  <tr key={p.module} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-6 py-3 font-medium text-zinc-200">{p.module}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox checked={p.fullAccess} onCheckedChange={(v) => handlePermissionChange(i, 'fullAccess', !!v)} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox checked={p.view} onCheckedChange={(v) => handlePermissionChange(i, 'view', !!v)} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox checked={p.create} onCheckedChange={(v) => handlePermissionChange(i, 'create', !!v)} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox checked={p.edit} onCheckedChange={(v) => handlePermissionChange(i, 'edit', !!v)} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox checked={p.delete} onCheckedChange={(v) => handlePermissionChange(i, 'delete', !!v)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {roles.map((r: any) => (
+          <Card key={r.id} className="border-zinc-800 bg-zinc-900/50">
+            <CardHeader className="p-4 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm">{r.name}</CardTitle>
+                <CardDescription className="text-[10px]">Created {new Date(r.createdAt).toLocaleDateString()}</CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function AddHSNModal() {
+function EmployeesManager() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [hsnForm, setHsnForm] = useState({ hsn: "", description: "", gstRate: "18", category: "" });
+  const [formData, setFormData] = useState({ name: "", email: "", password: "", roleId: "" });
+
+  const { data: employees = [], isLoading: empLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => fetch("/api/core?resource=users").then(res => res.json())
+  });
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => fetch("/api/core?resource=roles").then(res => res.json())
+  });
+
+  const createEmpMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/core?resource=users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, roleId: data.roleId ? parseInt(data.roleId) : null }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setFormData({ name: "", email: "", password: "", roleId: "" });
+      setOpen(false);
+      toast({ title: "Employee added", description: "The employee profile has been created." });
+    }
+  });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add HSN</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Add HSN/SAC Code</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">HSN/SAC Code *</Label>
-              <Input className="mt-1 h-9" value={hsnForm.hsn} onChange={e => setHsnForm({ ...hsnForm, hsn: e.target.value })} placeholder="e.g., 3921" />
-            </div>
-            <div>
-              <Label className="text-xs">GST Rate (%)</Label>
-              <Select value={hsnForm.gstRate} onValueChange={(v) => setHsnForm({ ...hsnForm, gstRate: v })}>
-                <SelectTrigger className="mt-1 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">0%</SelectItem>
-                  <SelectItem value="5">5%</SelectItem>
-                  <SelectItem value="12">12%</SelectItem>
-                  <SelectItem value="18">18%</SelectItem>
-                  <SelectItem value="28">28%</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Description *</Label>
-            <Input className="mt-1 h-9" value={hsnForm.description} onChange={e => setHsnForm({ ...hsnForm, description: e.target.value })} placeholder="Description of goods/services" />
-          </div>
-          <div>
-            <Label className="text-xs">Category</Label>
-            <Input className="mt-1 h-9" value={hsnForm.category} onChange={e => setHsnForm({ ...hsnForm, category: e.target.value })} placeholder="Category name" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={() => { console.log("Adding HSN:", hsnForm); setOpen(false); }}>Add HSN</Button>
-          </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Workshop Staff</h3>
+          <p className="text-sm text-muted-foreground">Manage user accounts and assign roles</p>
         </div>
-      </DialogContent>
-    </Dialog>
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Add Employee
+        </Button>
+      </div>
+
+      {open && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input placeholder="Employee Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" placeholder="email@company.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned Role</Label>
+                <Select value={formData.roleId} onValueChange={v => setFormData({ ...formData, roleId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select Role" /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r: any) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2 flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button size="sm" onClick={() => createEmpMutation.mutate(formData)} disabled={createEmpMutation.isPending}>
+                  {createEmpMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Employee
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40 text-muted-foreground">
+                <th className="text-left px-4 py-3">Name</th>
+                <th className="text-left px-4 py-3">Email</th>
+                <th className="text-left px-4 py-3">Role</th>
+                <th className="text-left px-4 py-3">Status</th>
+                <th className="text-right px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((emp: any) => (
+                <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-3 font-medium">{emp.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{emp.email}</td>
+                  <td className="px-4 py-3">
+                    {roles.find((r: any) => r.id === emp.roleId)?.name || <span className="text-muted-foreground italic text-xs">Unassigned</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">{emp.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </td>
+                </tr>
+              ))}
+              {employees.length === 0 && !empLoading && (
+                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground italic">No employees found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-function AddWarehouseModal() {
-  const [open, setOpen] = useState(false);
-  const [warehouseForm, setWarehouseForm] = useState({ id: "", name: "", location: "", capacity: 0, incharge: "", phone: "", email: "" });
+function PaymentQrManager() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [qrName, setQrName] = useState("");
+  const [qrImage, setQrImage] = useState("");
+
+  const { data: qrs = [], isLoading } = useQuery({
+    queryKey: ["payment_qrs"],
+    queryFn: () => fetch("/api/core?resource=payment_qrs").then(res => res.json())
+  });
+
+  const createQrMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/core?resource=payment_qrs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment_qrs"] });
+      setQrName("");
+      setQrImage("");
+      toast({ title: "QR added", description: "Payment QR has been added." });
+    }
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/core?resource=payment_qrs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment_qrs"] });
+      toast({ title: "Updated", description: "QR status updated." });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/core?resource=payment_qrs&id=${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment_qrs"] });
+      toast({ title: "Deleted", description: "QR removed." });
+    }
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setQrImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 text-xs gap-1"><Plus className="h-3.5 w-3.5" />Add Warehouse</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Add New Warehouse</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Warehouse ID *</Label>
-              <Input className="mt-1 h-9" value={warehouseForm.id} onChange={e => setWarehouseForm({ ...warehouseForm, id: e.target.value })} placeholder="e.g., WH001" />
-            </div>
-            <div>
-              <Label className="text-xs">Warehouse Name *</Label>
-              <Input className="mt-1 h-9" value={warehouseForm.name} onChange={e => setWarehouseForm({ ...warehouseForm, name: e.target.value })} placeholder="Warehouse name" />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Location *</Label>
-            <Input className="mt-1 h-9" value={warehouseForm.location} onChange={e => setWarehouseForm({ ...warehouseForm, location: e.target.value })} placeholder="Full address" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Capacity (sqft)</Label>
-              <Input type="number" className="mt-1 h-9" value={warehouseForm.capacity} onChange={e => setWarehouseForm({ ...warehouseForm, capacity: parseInt(e.target.value) || 0 })} placeholder="Capacity in sqft" />
-            </div>
-            <div>
-              <Label className="text-xs">Incharge Person</Label>
-              <Input className="mt-1 h-9" value={warehouseForm.incharge} onChange={e => setWarehouseForm({ ...warehouseForm, incharge: e.target.value })} placeholder="Person in charge" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Phone</Label>
-              <Input className="mt-1 h-9" value={warehouseForm.phone} onChange={e => setWarehouseForm({ ...warehouseForm, phone: e.target.value })} placeholder="Contact phone" />
-            </div>
-            <div>
-              <Label className="text-xs">Email</Label>
-              <Input className="mt-1 h-9" value={warehouseForm.email} onChange={e => setWarehouseForm({ ...warehouseForm, email: e.target.value })} placeholder="Contact email" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={() => { console.log("Adding warehouse:", warehouseForm); setOpen(false); }}>Add Warehouse</Button>
-          </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Payment QR Codes</h3>
+          <p className="text-sm text-muted-foreground">Manage QR images for invoice and estimate payments</p>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="border-primary/20 bg-primary/5 h-fit">
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-2">
+              <Label>QR Name / Label</Label>
+              <Input placeholder="e.g. PhonePe - General" value={qrName} onChange={e => setQrName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>QR Image</Label>
+              <div className="border-2 border-dashed border-primary/20 rounded-lg p-4 text-center hover:bg-primary/10 transition-all cursor-pointer relative">
+                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleFileUpload} />
+                {qrImage ? (
+                  <img src={qrImage} className="h-32 mx-auto rounded shadow-lg" alt="Preview" />
+                ) : (
+                  <div className="py-4">
+                    <Plus className="h-8 w-8 mx-auto text-primary/50 mb-2" />
+                    <p className="text-xs text-primary/70 font-medium">Click to upload QR image</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button className="w-full" onClick={() => createQrMutation.mutate({ name: qrName, imageUrl: qrImage })} disabled={!qrName || !qrImage || createQrMutation.isPending}>
+              {createQrMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save QR Code
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-3 px-1 overflow-y-auto max-h-[500px]">
+          {qrs.map((qr: any) => (
+            <Card key={qr.id} className="border-zinc-800 bg-zinc-900/40">
+              <CardContent className="p-4 flex gap-4">
+                <img src={qr.imageUrl} className="h-20 w-20 rounded bg-white p-1" alt={qr.name} />
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-semibold text-sm">{qr.name}</h4>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteMutation.mutate(qr.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center space-x-2 bg-zinc-800/50 p-2 rounded-md border border-zinc-700/50">
+                      <Checkbox id={`inv-${qr.id}`} checked={qr.isActiveForInvoice} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForInvoice: !!v })} />
+                      <label htmlFor={`inv-${qr.id}`} className="text-[10px] uppercase font-bold text-zinc-400 cursor-pointer">Active for Invoice</label>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-zinc-800/50 p-2 rounded-md border border-zinc-700/50">
+                      <Checkbox id={`est-${qr.id}`} checked={qr.isActiveForEstimate} onCheckedChange={(v) => toggleMutation.mutate({ id: qr.id, isActiveForEstimate: !!v })} />
+                      <label htmlFor={`est-${qr.id}`} className="text-[10px] uppercase font-bold text-zinc-400 cursor-pointer">Active for Estimate</label>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {qrs.length === 0 && !isLoading && (
+            <div className="h-40 flex items-center justify-center border border-dashed rounded-lg text-muted-foreground text-sm italic">
+              No QR codes uploaded yet.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function Settings() {
-  const { settings: printSettings, setSettings: setPrintSettings } = usePrintSettings();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [company, setCompany] = useState({
-    name: "InnoSynth Print Workshop",
-    address: "Unit 4, Industrial Estate, Andheri East, Mumbai – 400 093",
-    gst: "27AABCC1234D1Z8",
-    phone: "022-28349876",
-    email: "info@innosynth.org",
-    website: "www.innosynth.org",
-    pan: "AABCC1234D",
-    state: "Maharashtra",
-    pincode: "400093",
+
+  const { data: settingsData, isLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/core?resource=settings");
+      if (!res.ok) throw new Error("Failed to fetch settings");
+      return res.json();
+    },
   });
 
-  const handleSave = () => {
-    toast({ title: "Settings saved", description: "Company profile updated successfully." });
-  };
+  const [company, setCompany] = useState<any>({
+    name: "", address: "", gst: "", phone: "", email: "", website: "", pan: "", state: "", pincode: "",
+  });
 
-  const handlePrintSettingsSave = () => {
-    toast({ title: "Print settings saved", description: "Print configuration updated successfully." });
-  };
+  const [printConfig, setPrintConfig] = useState<any>({
+    defaultPaperSize: "A4", a4Margin: 10, a4FontSize: 12, thermalWidth: "80", thermalHeight: "297", thermalMargin: 2, thermalFontSize: 10,
+  });
+
+  useEffect(() => {
+    if (settingsData) {
+      if (settingsData.profile) setCompany(settingsData.profile);
+      if (settingsData.settings) setPrintConfig(settingsData.settings);
+    }
+  }, [settingsData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: { type: string, payload: any }) => {
+      const res = await fetch("/api/core?resource=settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: data.type, ...data.payload }),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast({ title: "Settings saved", description: "Changes updated successfully." });
+    },
+  });
+
+  const handleSave = () => saveMutation.mutate({ type: "profile", payload: company });
+  const handlePrintSettingsSave = () => saveMutation.mutate({ type: "print", payload: printConfig });
+
+  if (isLoading) return (
+    <div className="h-full flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Configure company profile, agents, and system settings</p>
+        <h1 className="text-xl font-bold font-heading">Settings & Workshop Management</h1>
+        <p className="text-sm text-muted-foreground">Configure profile, users, roles and system behavior</p>
       </div>
 
       <Tabs defaultValue="company">
-        <TabsList className="h-9">
-          <TabsTrigger value="company" className="text-xs px-3 gap-1.5"><Building2 className="h-3.5 w-3.5" />Company</TabsTrigger>
+        <TabsList className="h-9 mb-4">
+          <TabsTrigger value="company" className="text-xs px-3 gap-1.5"><Building2 className="h-3.5 w-3.5" />Workshop Profile</TabsTrigger>
+          <TabsTrigger value="employees" className="text-xs px-3 gap-1.5"><Users className="h-3.5 w-3.5" />Staff Members</TabsTrigger>
+          <TabsTrigger value="roles" className="text-xs px-3 gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />RBAC Roles</TabsTrigger>
+          <TabsTrigger value="qrs" className="text-xs px-3 gap-1.5"><Save className="h-3.5 w-3.5" />Payment QRs</TabsTrigger>
           <TabsTrigger value="print" className="text-xs px-3 gap-1.5"><Printer className="h-3.5 w-3.5" />Print Config</TabsTrigger>
-          <TabsTrigger value="agents" className="text-xs px-3 gap-1.5"><Users className="h-3.5 w-3.5" />Agents</TabsTrigger>
-          <TabsTrigger value="hsn" className="text-xs px-3 gap-1.5"><Tag className="h-3.5 w-3.5" />HSN Config</TabsTrigger>
-          <TabsTrigger value="warehouses" className="text-xs px-3 gap-1.5"><Package className="h-3.5 w-3.5" />Warehouses</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="company" className="mt-4">
+        <TabsContent value="company" className="space-y-4">
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-base">Company Profile</CardTitle>
+              <CardTitle className="text-base">Workshop Identity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-6">
-                <div className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="h-24 w-24 rounded-xl border-2 border-dashed border-zinc-800 flex items-center justify-center bg-zinc-900/50 cursor-pointer hover:border-primary/50 transition-all">
                   <div className="text-center">
-                    <Building2 className="h-6 w-6 text-muted-foreground mx-auto" />
-                    <p className="text-[10px] text-muted-foreground mt-1">Upload Logo</p>
+                    <Building2 className="h-8 w-8 text-muted-foreground mx-auto" />
+                    <p className="text-[10px] text-muted-foreground mt-2 font-medium">LOGO</p>
                   </div>
                 </div>
-                <div className="flex-1 grid grid-cols-2 gap-3">
+                <div className="flex-1 grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground">Company Name</label>
-                    <Input className="mt-1 h-9" value={company.name}
-                      onChange={e => setCompany(p => ({ ...p, name: e.target.value }))} />
+                    <label className="text-xs font-semibold text-zinc-400">Workshop/Company Name</label>
+                    <Input className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={company.name}
+                      onChange={e => setCompany((p: any) => ({ ...p, name: e.target.value }))} />
                   </div>
                   {[
-                    { key: "gst", label: "GST Number" }, { key: "pan", label: "PAN Number" },
-                    { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
-                    { key: "website", label: "Website" }, { key: "state", label: "State" },
-                    { key: "pincode", label: "Pincode" },
+                    { key: "gst", label: "GST Number", icon: ShieldCheck }, { key: "pan", label: "PAN Number", icon: Lock },
+                    { key: "phone", label: "Phone", icon: Building2 }, { key: "email", label: "Email", icon: Mail },
+                    { key: "state", label: "State", icon: Building2 }, { key: "pincode", label: "Pincode", icon: Building2 },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
-                      <Input className="mt-1 h-9" value={(company as any)[f.key]}
-                        onChange={e => setCompany(p => ({ ...p, [f.key]: e.target.value }))} />
+                      <label className="text-xs font-semibold text-zinc-400">{f.label}</label>
+                      <Input className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={company[f.key] || ""}
+                        onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} />
                     </div>
                   ))}
-                  <div className="col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground">Registered Address</label>
-                    <Input className="mt-1 h-9" value={company.address}
-                      onChange={e => setCompany(p => ({ ...p, address: e.target.value }))} />
-                  </div>
                 </div>
               </div>
-              <Separator />
-              <div className="flex justify-end">
-                <Button size="sm" className="gap-1.5" onClick={handleSave}><Save className="h-3.5 w-3.5" />Save Changes</Button>
+              <Separator className="bg-zinc-800" />
+              <div className="flex justify-end pt-2">
+                <Button size="sm" className="gap-1.5 shadow-lg shadow-primary/20" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Update Profile
+                </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="print" className="mt-4">
+        <TabsContent value="employees">
+          <EmployeesManager />
+        </TabsContent>
+
+        <TabsContent value="roles">
+          <RolesManager />
+        </TabsContent>
+
+        <TabsContent value="qrs">
+          <PaymentQrManager />
+        </TabsContent>
+
+        <TabsContent value="print">
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-base">Print Configuration</CardTitle>
+              <CardTitle className="text-base">Print Output Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Default Paper Size */}
-              <div>
-                <Label className="text-sm font-medium">Default Paper Size</Label>
-                <Select value={printSettings.defaultPaperSize} onValueChange={(v) => setPrintSettings({ ...printSettings, defaultPaperSize: v as "A4" | "thermal" })}>
-                  <SelectTrigger className="mt-1 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A4">A4 (210mm x 297mm)</SelectItem>
-                    <SelectItem value="thermal">Thermal (80mm)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-zinc-400">Default Document Layout</Label>
+                  <Select value={printConfig.defaultPaperSize} onValueChange={(v) => setPrintConfig({ ...printConfig, defaultPaperSize: v as "A4" | "thermal" })}>
+                    <SelectTrigger className="mt-1 h-10 bg-zinc-900/50 border-zinc-800">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A4">Standard A4 (Enterprise)</SelectItem>
+                      <SelectItem value="thermal">Thermal POS (Small Format)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <Separator />
-
-              {/* A4 Settings */}
-              <div className="space-y-4">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <Printer className="h-4 w-4" />A4 Paper Settings
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Page Margin (mm)</Label>
-                    <Input type="number" className="mt-1 h-9" value={printSettings.a4Margin}
-                      onChange={e => setPrintSettings({ ...printSettings, a4Margin: e.target.value })} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                <div className="space-y-4 p-4 rounded-xl border border-zinc-800 bg-zinc-950/50">
+                  <Label className="text-sm font-bold flex items-center gap-2 text-primary">
+                    <Printer className="h-4 w-4" /> A4 Layout Settings
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Margins (mm)</Label>
+                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.a4Margin}
+                        onChange={e => setPrintConfig({ ...printConfig, a4Margin: parseInt(e.target.value) })} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Font Base (px)</Label>
+                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.a4FontSize}
+                        onChange={e => setPrintConfig({ ...printConfig, a4FontSize: parseInt(e.target.value) })} />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Font Size (px)</Label>
-                    <Input type="number" className="mt-1 h-9" value={printSettings.a4FontSize}
-                      onChange={e => setPrintSettings({ ...printSettings, a4FontSize: e.target.value })} />
+                </div>
+
+                <div className="space-y-4 p-4 rounded-xl border border-zinc-800 bg-zinc-950/50">
+                  <Label className="text-sm font-bold flex items-center gap-2 text-orange-500">
+                    <Printer className="h-4 w-4" /> Thermal POS Settings
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Width (mm)</Label>
+                      <Select value={printConfig.thermalWidth} onValueChange={(v) => setPrintConfig({ ...printConfig, thermalWidth: v })}>
+                        <SelectTrigger className="mt-1 h-9 bg-zinc-900/50 border-zinc-800"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="57">57mm</SelectItem><SelectItem value="58">58mm</SelectItem><SelectItem value="80">80mm</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Font Size (px)</Label>
+                      <Input type="number" className="mt-1 h-9 bg-zinc-900/50 border-zinc-800" value={printConfig.thermalFontSize}
+                        onChange={e => setPrintConfig({ ...printConfig, thermalFontSize: parseInt(e.target.value) })} />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Thermal Settings */}
-              <div className="space-y-4">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <Printer className="h-4 w-4" />Thermal Paper Settings
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Paper Width (mm)</Label>
-                    <Select value={printSettings.thermalWidth} onValueChange={(v) => setPrintSettings({ ...printSettings, thermalWidth: v })}>
-                      <SelectTrigger className="mt-1 h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="57">57mm</SelectItem>
-                        <SelectItem value="58">58mm</SelectItem>
-                        <SelectItem value="80">80mm</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Paper Height (mm)</Label>
-                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalHeight}
-                      onChange={e => setPrintSettings({ ...printSettings, thermalHeight: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Page Margin (mm)</Label>
-                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalMargin}
-                      onChange={e => setPrintSettings({ ...printSettings, thermalMargin: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Font Size (px)</Label>
-                    <Input type="number" className="mt-1 h-9" value={printSettings.thermalFontSize}
-                      onChange={e => setPrintSettings({ ...printSettings, thermalFontSize: e.target.value })} />
-                  </div>
-                </div>
+              <div className="flex justify-end pt-4 border-t border-zinc-800">
+                <Button size="sm" className="gap-1.5 shadow-lg shadow-primary/20" onClick={handlePrintSettingsSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Update Print Policy
+                </Button>
               </div>
-
-              <Separator />
-              <div className="flex justify-end">
-                <Button size="sm" className="gap-1.5" onClick={handlePrintSettingsSave}><Save className="h-3.5 w-3.5" />Save Print Settings</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="agents" className="mt-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Sales Agents</CardTitle>
-                <AddAgentModal />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    {["Name", "Mobile", "Email", "Commission %", "Active"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { name: "Arjun Kumar", mobile: "9823456789", email: "arjun.k@innosynth.org", commission: 3, active: true },
-                    { name: "Priya Singh", mobile: "9834567890", email: "priya.s@innosynth.org", commission: 2.5, active: true },
-                  ].map((a, i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-2.5 font-semibold">{a.name}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{a.mobile}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{a.email}</td>
-                      <td className="px-4 py-2.5 font-semibold text-primary">{a.commission}%</td>
-                      <td className="px-4 py-2.5">
-                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-primary/10 text-primary border-primary/20">Active</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="hsn" className="mt-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">HSN / SAC Configuration</CardTitle>
-                <AddHSNModal />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    {["HSN Code", "Description", "GST Rate", "Category"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { hsn: "3921", desc: "Flex banners & plastic sheets", gst: "18%", cat: "Flex & Vinyl" },
-                    { hsn: "3919", desc: "Self-adhesive vinyl & films", gst: "18%", cat: "Flex & Vinyl" },
-                    { hsn: "4810", desc: "Photo & art paper", gst: "12%", cat: "Paper & Board" },
-                    { hsn: "3215", desc: "Printing inks & chemicals", gst: "18%", cat: "Inks & Chemicals" },
-                    { hsn: "3920", desc: "Laminate films", gst: "18%", cat: "Laminates" },
-                    { hsn: "8443", desc: "Printer parts & hardware", gst: "18%", cat: "Hardware & Spares" },
-                    { hsn: "5407", desc: "Polyester fabric media", gst: "12%", cat: "Fabric Media" },
-                    { hsn: "4823", desc: "Dye sub transfer paper", gst: "12%", cat: "Fabric Media" },
-                  ].map((h, i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-2.5 font-mono text-xs font-semibold text-primary">{h.hsn}</td>
-                      <td className="px-4 py-2.5 font-medium">{h.desc}</td>
-                      <td className="px-4 py-2.5 font-semibold">{h.gst}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{h.cat}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="warehouses" className="mt-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Warehouses & Locations</CardTitle>
-                <AddWarehouseModal />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    {["ID", "Name", "Location", "Capacity", "Incharge", "Action"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {warehouses.map(w => (
-                    <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-2.5 font-mono text-xs">{w.id}</td>
-                      <td className="px-4 py-2.5 font-semibold">{w.name}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{w.location}</td>
-                      <td className="px-4 py-2.5 tabular-nums">{w.capacity.toLocaleString("en-IN")} sqft</td>
-                      <td className="px-4 py-2.5">{w.incharge}</td>
-                      <td className="px-4 py-2.5">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs">Edit</Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </CardContent>
           </Card>
         </TabsContent>

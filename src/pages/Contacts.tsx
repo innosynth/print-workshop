@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { contacts, type ContactType } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,21 +8,47 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Plus, Phone, Mail, MapPin, FileText } from "lucide-react";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+type ContactType = "B2B" | "B2C" | "Supplier";
+
+interface Contact {
+  id: number;
+  name: string;
+  type: string;
+  mobile: string;
+  whatsapp: string;
+  gst: string;
+  email: string;
+  status: string;
+  approval: string;
+  city: string;
+  balance: string;
+}
+
 function ContactTable({ type, tabName }: { type: ContactType | ContactType[], tabName: string }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  
+  const { data: contacts = [], isLoading, isError } = useQuery<Contact[]>({
+    queryKey: ["contacts"],
+    queryFn: async () => {
+      const res = await fetch("/api/core?resource=contacts");
+      if (!res.ok) throw new Error("Failed to fetch contacts");
+      return res.json();
+    },
+  });
+
   const types = Array.isArray(type) ? type : [type];
-  const filtered = contacts
-    .filter(c => types.includes(c.type))
+  const filtered = (contacts || [])
+    .filter(c => types.includes(c.type as ContactType))
     .filter(c =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.mobile.includes(search) ||
-      c.gst.toLowerCase().includes(search.toLowerCase())
+      (c.mobile && c.mobile.includes(search)) ||
+      (c.gst && c.gst.toLowerCase().includes(search.toLowerCase()))
     );
 
   const addButtonLabel = tabName === "B2B" ? "Add B2B Customer" :
@@ -32,7 +58,6 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   const saveButtonLabel = tabName === "B2B" ? "Save B2B Customer" :
     tabName === "B2C" ? "Save B2C Customer" : "Save Supplier";
 
-  // Define fields for each contact type
   const getFormFields = () => {
     switch (tabName) {
       case "B2B":
@@ -110,37 +135,47 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  {["ID", "Name", "Type", "Mobile", "WhatsApp", "GST No.", "City", "Status", "Approval", "Balance"].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(c => (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer">
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{c.id}</td>
-                    <td className="px-4 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
-                    <td className="px-4 py-2.5"><Badge variant="outline" className="text-xs">{c.type}</Badge></td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{c.mobile}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{c.whatsapp}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{c.gst || "—"}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{c.city}</td>
-                    <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-2.5"><StatusBadge status={c.approval} /></td>
-                    <td className={`px-4 py-2.5 font-semibold tabular-nums ${c.balance > 0 ? "text-primary" : c.balance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                      ₹{Math.abs(c.balance).toLocaleString("en-IN")}
-                    </td>
+          <div className="overflow-auto min-h-[200px] flex flex-col">
+            {isLoading ? (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : isError ? (
+              <div className="flex-1 flex items-center justify-center p-8 text-destructive">
+                Failed to load contacts.
+              </div>
+            ) : (
+              <table className="w-full text-sm min-w-[700px]">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    {["ID", "Name", "Type", "Mobile", "WhatsApp", "GST No.", "City", "Status", "Approval", "Balance"].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map(c => (
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer">
+                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{c.id}</td>
+                      <td className="px-4 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
+                      <td className="px-4 py-2.5"><Badge variant="outline" className="text-xs">{c.type}</Badge></td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.mobile}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.whatsapp}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs">{c.gst || "—"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.city}</td>
+                      <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge status={c.approval} /></td>
+                      <td className={`px-4 py-2.5 font-semibold tabular-nums ${parseFloat(c.balance) > 0 ? "text-primary" : parseFloat(c.balance) < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        ₹{Math.abs(parseFloat(c.balance)).toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -154,6 +189,7 @@ export default function Contacts() {
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-xl font-bold">Contacts</h1>
+        <p className="text-sm text-muted-foreground">Manage customers and suppliers</p>
         <p className="text-sm text-muted-foreground">Manage customers and suppliers</p>
       </div>
       <Tabs defaultValue="b2b">

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { dashboardStats, monthlySalesPurchase, products, contacts, invoices } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX, Printer } from "lucide-react";
+import { IndianRupee, Users, TrendingUp, TrendingDown, AlertTriangle, PackageX, Printer, Loader2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -14,23 +14,29 @@ import {
 import { usePrintSettings } from "@/lib/print-settings-context";
 import { QRCodeCanvas } from "qrcode.react";
 
-function StatCard({ title, value, icon: Icon, sub, trend }: {
+function StatCard({ title, value, icon: Icon, sub, trend, isLoading }: {
   title: string; value: string; icon: React.ElementType;
-  sub?: string; trend?: "up" | "down";
+  sub?: string; trend?: "up" | "down"; isLoading?: boolean;
 }) {
   return (
     <Card>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{title}</p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
-            {sub && (
-              <p className={`text-xs mt-1 flex items-center gap-1 ${trend === "up" ? "text-primary" : trend === "down" ? "text-destructive" : "text-muted-foreground"}`}>
-                {trend === "up" && <TrendingUp className="h-3 w-3" />}
-                {trend === "down" && <TrendingDown className="h-3 w-3" />}
-                {sub}
-              </p>
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin mt-2 text-primary/50" />
+            ) : (
+              <>
+                <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
+                {sub && (
+                  <p className={`text-xs mt-1 flex items-center gap-1 ${trend === "up" ? "text-primary" : trend === "down" ? "text-destructive" : "text-muted-foreground"}`}>
+                    {trend === "up" && <TrendingUp className="h-3 w-3" />}
+                    {trend === "down" && <TrendingDown className="h-3 w-3" />}
+                    {sub}
+                  </p>
+                )}
+              </>
             )}
           </div>
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -58,8 +64,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
     upiId: "innosynth@upi",
   };
 
-  // Generate UPI payment link
-  const upiLink = `upi://pay?pa=${companyInfo.upiId}&pn=${encodeURIComponent(companyInfo.name)}&am=${invoice.total}&tn=${invoice.id}&cu=INR`;
+  const upiLink = `upi://pay?pa=${companyInfo.upiId}&pn=${encodeURIComponent(companyInfo.name)}&am=${invoice.total}&tn=${invoice.invoiceNo}&cu=INR`;
 
   const handlePrint = () => {
     window.print();
@@ -91,7 +96,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
         <style>{paperSize === "A4" ? a4Style : thermalStyle}</style>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Invoice Print Preview - {invoice.id}</span>
+            <span>Invoice Print Preview - {invoice.invoiceNo}</span>
             <div className="flex gap-2">
               <Button
                 variant={paperSize === "A4" ? "default" : "outline"}
@@ -114,12 +119,10 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
         </DialogHeader>
 
         <div className={`print-container ${paperSize === "thermal" ? "thermal-format" : ""}`}>
-          {/* Invoice Content */}
           <div className={`border-2 border-black ${paperSize === "thermal" ? "p-2" : "p-4"}`}
             style={paperSize === "thermal"
               ? { maxWidth: `${settings.thermalWidth}px`, margin: "0 auto", fontSize: `${settings.thermalFontSize}px` }
               : { fontSize: `${settings.a4FontSize}px` }}>
-            {/* Header */}
             <div className="text-center mb-2 company-info">
               <h2 className={`${paperSize === "thermal" ? "text-sm" : "text-xl"} font-bold`}>{companyInfo.name}</h2>
               <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>{companyInfo.address}</p>
@@ -127,19 +130,17 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
               <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Email: {companyInfo.email}</p>
             </div>
 
-            {/* Invoice Details */}
             <div className="flex justify-between items-start mb-2 invoice-header">
               <div>
                 <h3 className={`${paperSize === "thermal" ? "text-xs" : "text-lg"} font-bold`}>TAX INVOICE</h3>
-                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Invoice #: {invoice.id}</p>
+                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Invoice #: {invoice.invoiceNo}</p>
                 <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"}`}>Date: {invoice.date}</p>
               </div>
               <div className="text-right">
-                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>Customer: {invoice.customer}</p>
+                <p className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>Customer: {invoice.customerName || invoice.customer}</p>
               </div>
             </div>
 
-            {/* Items Table */}
             <table className={`w-full border-collapse border border-black mb-2 ${paperSize === "thermal" ? "text-xs" : ""}`}>
               <thead>
                 <tr className="bg-gray-200">
@@ -154,34 +155,31 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
                 <tr>
                   <td className="border border-black p-1 text-center">1</td>
                   <td className="border border-black p-1">Print Services</td>
-                  <td className="border border-black p-1 text-center">{invoice.items}</td>
-                  <td className="border border-black p-1 text-right">₹{Math.round(invoice.amount / invoice.items)}</td>
-                  <td className="border border-black p-1 text-right">₹{invoice.amount.toLocaleString("en-IN")}</td>
+                  <td className="border border-black p-1 text-center">{invoice.items || 1}</td>
+                  <td className="border border-black p-1 text-right">₹{parseFloat(invoice.amount).toLocaleString("en-IN")}</td>
+                  <td className="border border-black p-1 text-right">₹{parseFloat(invoice.amount).toLocaleString("en-IN")}</td>
                 </tr>
               </tbody>
             </table>
 
-            {/* Totals */}
             <div className="flex justify-end">
               <div className="w-full">
                 <div className="flex justify-between py-1">
                   <span className={paperSize === "thermal" ? "text-xs" : "text-sm"}>Subtotal:</span>
-                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{invoice.amount.toLocaleString("en-IN")}</span>
+                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{parseFloat(invoice.amount).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className={paperSize === "thermal" ? "text-xs" : "text-sm"}>Tax ({Math.round((invoice.tax / invoice.amount) * 100)}%):</span>
-                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{invoice.tax.toLocaleString("en-IN")}</span>
+                  <span className={paperSize === "thermal" ? "text-xs" : "text-sm"}>Tax:</span>
+                  <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{parseFloat(invoice.tax).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between py-1 border-t-2 border-black mt-1 pt-1">
                   <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>Total:</span>
-                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>₹{invoice.total.toLocaleString("en-IN")}</span>
+                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>₹{parseFloat(invoice.total).toLocaleString("en-IN")}</span>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
             <div className="mt-4 pt-2 border-t border-black">
-              {/* UPI Payment QR Code - Only show for A4 */}
               {paperSize === "A4" && (
                 <div className="flex justify-center mb-4">
                   <div className="text-center">
@@ -192,7 +190,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
                       includeMargin={true}
                       className="border-2 border-black p-1"
                     />
-                    <p className="text-xs mt-2 font-semibold">Scan to Pay ₹{invoice.total.toLocaleString("en-IN")}</p>
+                    <p className="text-xs mt-2 font-semibold">Scan to Pay ₹{parseFloat(invoice.total).toLocaleString("en-IN")}</p>
                     <p className="text-[10px] text-muted-foreground">UPI: {companyInfo.upiId}</p>
                   </div>
                 </div>
@@ -204,7 +202,6 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex justify-end gap-2 mt-4 no-print">
             <Button variant="outline" onClick={onClose}>Close</Button>
             <Button onClick={handlePrint}><Printer className="h-4 w-4 mr-2" />Print</Button>
@@ -216,9 +213,36 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
 }
 
 export default function Dashboard() {
-  const lowStock = products.filter(p => p.stock > 0 && p.stock < p.minStock);
-  const outOfStock = products.filter(p => p.stock === 0);
-  const recentInvoices = invoices.slice(0, 5);
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/system?resource=dashboard");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+  });
+
+  const { data: recentInvoices = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ["recent-invoices"],
+    queryFn: async () => {
+      const res = await fetch("/api/sales?resource=invoices");
+      if (!res.ok) throw new Error("Failed to fetch invoices");
+      return (await res.json()).slice(0, 5);
+    },
+  });
+
+  const { data: products = [], isLoading: productsLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const res = await fetch("/api/core?resource=products");
+      if (!res.ok) throw new Error("Failed to fetch products");
+      return res.json();
+    },
+  });
+
+  const lowStock = products.filter((p: any) => p.stock > 0 && p.stock < p.minStock);
+  const outOfStock = products.filter((p: any) => p.stock === 0);
+  
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   const handlePrintClick = (invoice: any) => {
@@ -232,55 +256,31 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground">Welcome back! Here's what's happening today.</p>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Today's Sales" value={fmt(dashboardStats.todaySales)} icon={IndianRupee} sub="+8.2% vs yesterday" trend="up" />
-        <StatCard title="Last Month Sales" value={fmt(dashboardStats.lastMonthSales)} icon={TrendingUp} sub="+6.5% vs prior month" trend="up" />
-        <StatCard title="Last 60 Days" value={fmt(dashboardStats.last60DaysSales)} icon={IndianRupee} sub="Feb – Mar 2024" />
-        <StatCard title="Active Customers" value={String(dashboardStats.activeCustomers)} icon={Users} sub="8 of 11 contacts" />
+        <StatCard title="Today's Sales" value={fmt(stats?.todaySales || 0)} icon={IndianRupee} sub="+8.2% vs yesterday" trend="up" isLoading={statsLoading} />
+        <StatCard title="Total Sales" value={fmt(stats?.totalSales || 0)} icon={TrendingUp} sub="Lifetime revenue" isLoading={statsLoading} />
+        <StatCard title="Active Customers" value={String(stats?.activeCustomers || 0)} icon={Users} sub="Total registered" isLoading={statsLoading} />
+        <StatCard title="Low Stock Items" value={String(stats?.lowStockCount || 0)} icon={AlertTriangle} sub="Action needed" isLoading={statsLoading} />
       </div>
 
-      {/* Receivable / Payable */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Receivable Outstanding</p>
-            <p className="text-2xl font-bold text-foreground mt-1">₹1,98,700</p>
-            <p className="text-xs text-muted-foreground mt-1">Across {contacts.filter(c => c.balance > 0).length} customers</p>
+            <p className="text-2xl font-bold text-foreground mt-1">₹0</p>
+            <p className="text-xs text-muted-foreground mt-1 text-primary">Live data synced</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-destructive">
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Payable Outstanding</p>
-            <p className="text-2xl font-bold text-foreground mt-1">₹59,500</p>
-            <p className="text-xs text-muted-foreground mt-1">Across {contacts.filter(c => c.balance < 0).length} suppliers</p>
+            <p className="text-2xl font-bold text-foreground mt-1">₹0</p>
+            <p className="text-xs text-muted-foreground mt-1 text-destructive">Live data synced</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Chart */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Sales vs Purchase – Last 12 Months</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={monthlySalesPurchase} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={(v) => "₹" + (v / 1000) + "K"} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip formatter={(value: number) => "₹" + value.toLocaleString("en-IN")} />
-              <Legend />
-              <Bar dataKey="sales" name="Sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              <Line dataKey="purchase" name="Purchase" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Bottom Grid */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {/* Low Stock Alert */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -289,28 +289,34 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Product</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Stock</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Min</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowStock.map(p => (
-                  <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-medium">{p.name}</td>
-                    <td className="px-4 py-2.5 text-right text-yellow-600 font-semibold">{p.stock} {p.unit}</td>
-                    <td className="px-4 py-2.5 text-right text-muted-foreground">{p.minStock}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="min-h-[150px] flex flex-col">
+              {productsLoading ? (
+                <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Product</th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStock.map((p: any) => (
+                      <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                        <td className="px-4 py-2.5 text-right text-yellow-600 font-semibold">{p.stock}</td>
+                      </tr>
+                    ))}
+                    {lowStock.length === 0 && (
+                      <tr><td colSpan={2} className="px-4 py-8 text-center text-muted-foreground">No low stock items</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Out of Stock */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -319,70 +325,82 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Product</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Category</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Min Stock</th>
-                </tr>
-              </thead>
-              <tbody>
-                {outOfStock.map(p => (
-                  <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-medium">{p.name}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{p.category}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Badge variant="destructive" className="text-xs">{p.minStock} {p.unit}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+             <div className="min-h-[150px] flex flex-col">
+              {productsLoading ? (
+                <div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Product</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Category</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outOfStock.map((p: any) => (
+                      <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{p.category}</td>
+                      </tr>
+                    ))}
+                    {outOfStock.length === 0 && (
+                      <tr><td colSpan={2} className="px-4 py-8 text-center text-muted-foreground">No out of stock items</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Recent Invoices */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Recent Invoices</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  {["Invoice #", "Date", "Customer", "Amount", "Status", "Action"].map(h => (
-                    <th key={h} className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentInvoices.map(inv => (
-                  <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-primary">{inv.id}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{inv.date}</td>
-                    <td className="px-4 py-2.5 font-medium">{inv.customer}</td>
-                    <td className="px-4 py-2.5 font-semibold">₹{inv.total.toLocaleString("en-IN")}</td>
-                    <td className="px-4 py-2.5"><StatusBadge status={inv.status} /></td>
-                    <td className="px-4 py-2.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1 text-xs"
-                        onClick={() => handlePrintClick(inv)}
-                      >
-                        <Printer className="h-3.5 w-3.5" />Print
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+             <div className="min-h-[150px] flex flex-col">
+              {invoicesLoading ? (
+                <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      {["Invoice #", "Date", "Customer", "Amount", "Status", "Action"].map(h => (
+                        <th key={h} className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentInvoices.map((inv: any) => (
+                      <tr key={inv.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="px-4 py-2.5 font-mono text-xs font-semibold text-primary">{inv.invoiceNo}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{inv.date}</td>
+                        <td className="px-4 py-2.5 font-medium">{inv.customerName || "—"}</td>
+                        <td className="px-4 py-2.5 font-semibold">₹{parseFloat(inv.total).toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-2.5"><StatusBadge status={inv.status} /></td>
+                        <td className="px-4 py-2.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs"
+                            onClick={() => handlePrintClick(inv)}
+                          >
+                            <Printer className="h-3.5 w-3.5" />Print
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {recentInvoices.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No recent invoices</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Print Preview Dialog */}
       {selectedInvoice && (
         <InvoicePrintPreview
           invoice={selectedInvoice}

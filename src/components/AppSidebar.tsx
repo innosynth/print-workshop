@@ -2,13 +2,15 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, ShoppingCart, Package, BookOpen,
-  Warehouse, Tag, BarChart2, Settings, Building2,
+  Warehouse, Tag, BarChart2, Settings, Building2, Gauge
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, useSidebar,
 } from "@/components/ui/sidebar";
+
+import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -18,6 +20,7 @@ const navItems = [
   { title: "Accounting", url: "/accounting", icon: BookOpen },
   { title: "Inventory", url: "/inventory", icon: Warehouse },
   { title: "Products", url: "/products", icon: Tag },
+  { title: "Meter Readings", url: "/meter-readings", icon: Gauge },
   { title: "Reports", url: "/reports", icon: BarChart2 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
@@ -26,6 +29,9 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { hasPermission } = useAuth();
+
+  const filteredNavItems = navItems.filter(item => hasPermission(item.title, 'view'));
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -56,7 +62,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent className="px-2 pt-2">
             <SidebarMenu>
-              {navItems.map((item) => {
+              {filteredNavItems.map((item) => {
                 const isActive = item.url === "/"
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.url);
