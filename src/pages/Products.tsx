@@ -12,12 +12,16 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, Upload, Edit2, UserPlus, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Check, ChevronsUpDown, Search, Plus, Upload, Edit2, UserPlus, Loader2, Calendar, FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 
 
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
@@ -67,18 +71,9 @@ function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
   );
 }
 
-function ProductList() {
+function ProductList({ products, isLoading, isError }: { products: any[], isLoading: boolean, isError: boolean }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
-
-  const { data: products = [], isLoading, isError } = useQuery({
-    queryKey: ["products"],
-    queryFn: async () => {
-      const res = await fetch("/api/core?resource=products");
-      if (!res.ok) throw new Error("Failed to fetch products");
-      return res.json();
-    },
-  });
 
   const categories = Array.isArray(products) 
     ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
@@ -89,7 +84,8 @@ function ProductList() {
     .filter((p: any) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase()))
+      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
+      (p.hsnCode && p.hsnCode.toLowerCase().includes(search.toLowerCase()))
     );
 
   return (
@@ -99,59 +95,66 @@ function ProductList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search SKU, name, brand..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={catFilter} onValueChange={setCatFilter}>
-          <SelectTrigger className="h-9 w-44">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((c: any) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <FormCombobox 
+            label="Category" 
+            value={catFilter === "all" ? "" : catFilter} 
+            options={categories} 
+            onSelect={(v) => setCatFilter(v)} 
+          />
+          {catFilter !== 'all' && (
+            <Button variant="ghost" size="sm" onClick={() => setCatFilter('all')} className="h-9 text-xs">Clear</Button>
+          )}
+        </div>
         <div className="ml-auto">
-        <BulkImportModal 
-          trigger={<Button variant="outline" size="sm" className="h-9 gap-1"><Upload className="h-3.5 w-3.5" />Bulk Import</Button>}
-        />
+          <BulkImportModal 
+            trigger={<Button variant="outline" size="sm" className="h-9 gap-1"><Upload className="h-3.5 w-3.5" />Bulk Import</Button>}
+          />
         </div>
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto min-h-[200px] flex flex-col">
+          <div className="overflow-auto border rounded-lg h-[calc(100vh-280px)] relative bg-white shadow-inner">
             {isLoading ? (
-              <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              <div className="h-full flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : isError ? (
-              <div className="flex-1 flex items-center justify-center p-8 text-destructive">Failed to load products</div>
+              <div className="h-full flex items-center justify-center p-8 text-destructive">Failed to load products</div>
             ) : (
-              <table className="w-full text-sm min-w-[900px]">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    {["SKU", "Product Name", "Category", "Brand", "Sell Price", "Purchase", "Stock", "Unit", "Rack", "Status", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+              <table className="w-full text-sm min-w-[1700px] border-collapse">
+                <thead className="sticky top-0 z-20 bg-white shadow-sm">
+                  <tr className="border-b bg-muted/40 font-bold">
+                    {["SKU", "Product Name", "Category", "Sub Category", "Stock", "GST %", "Selling Price", "Brand Name", "Purchase Price", "HSN", "Rack", "Part No.", "Barcode", "Status", "Type", ""].map(h => (
+                      <th key={h} className="text-left px-4 py-4 text-[11px] uppercase tracking-wider font-black text-muted-foreground whitespace-nowrap border-b-2 border-muted">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-muted/50">
                   {filtered.map((p: any) => (
-                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{p.sku || "—"}</td>
-                      <td className="px-4 py-2.5 font-medium">{p.name}</td>
-                      <td className="px-4 py-2.5"><Badge variant="outline" className="text-xs">{p.category}</Badge></td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{p.brand}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-semibold">₹{p.sellPrice}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-muted-foreground">₹{p.purchasePrice}</td>
-                      <td className={`px-4 py-2.5 tabular-nums font-semibold ${p.stock === 0 ? "text-destructive" : p.stock < p.minStock ? "text-yellow-600" : "text-primary"
+                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors whitespace-nowrap group">
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku || "—"}</td>
+                      <td className="px-4 py-3 font-medium">{p.name}</td>
+                      <td className="px-4 py-3"><Badge variant="outline" className="text-[10px] font-bold uppercase">{p.category}</Badge></td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{p.subCategory || "—"}</td>
+                      <td className={`px-4 py-3 tabular-nums font-bold ${p.stock === 0 ? "text-destructive" : parseFloat(p.stock) < parseFloat(p.minStock) ? "text-yellow-600" : "text-primary"
                         }`}>{p.stock}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{p.unit}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs">{p.rack}</td>
-                      <td className="px-4 py-2.5"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="px-4 py-3 tabular-nums font-bold text-orange-600">{p.gstRate ? `${p.gstRate}%` : "—"}</td>
+                      <td className="px-4 py-3 tabular-nums font-black text-gray-900">₹{p.sellPrice}</td>
+                      <td className="px-4 py-3 text-muted-foreground font-medium">{p.brand || "—"}</td>
+                      <td className="px-4 py-3 tabular-nums text-muted-foreground">₹{p.purchasePrice}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-primary font-bold">{p.hsnCode || "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{p.rack || "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.partNo || "—"}</td>
+                      <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{p.barcode || "—"}</td>
+                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                      <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">SERVICE</td>
+                      <td className="px-4 py-3 text-right">
                         <CreateProductModal 
                           tabName="products" 
                           products={products}
                           initialData={p}
                           title="Edit Product"
                           trigger={
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-all opacity-0 group-hover:opacity-100">
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
                           }
@@ -159,8 +162,10 @@ function ProductList() {
                       </td>
                     </tr>
                   ))}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">No products found</td></tr>
+                  {isLoading ? (
+                    <tr><td colSpan={16} className="px-4 py-8 text-center text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" /> Loading products...</td></tr>
+                  ) : filtered.length === 0 && (
+                    <tr><td colSpan={16} className="px-4 py-12 text-center text-muted-foreground italic">No products found in the catalog</td></tr>
                   )}
                 </tbody>
               </table>
@@ -174,80 +179,307 @@ function ProductList() {
 }
 
 function CategoryList({ products, dbCategories }: { products: any[], dbCategories: any[] }) {
-  // Merge categories from products and the dedicated categories table for a complete view
+  const [search, setSearch] = useState("");
   const catNamesFromProducts = Array.isArray(products) 
     ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
     : [];
   
-  const allCategoryNames = Array.from(new Set([...catNamesFromProducts, ...dbCategories.map(c => c.name)]));
+  const allCategoryNames = Array.from(new Set([...catNamesFromProducts, ...dbCategories.map(c => c.name)]))
+    .filter(cat => cat.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {allCategoryNames.map(cat => {
-        const prodCount = products.filter(p => p.category === cat).length;
-        const totalStock = products.filter(p => p.category === cat).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
-        const dbCat = dbCategories.find(c => c.name === cat);
-        return (
-          <Card key={cat} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="space-y-1">
-                <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{cat}</h3>
-                <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
-                {dbCat?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbCat.description}</p>}
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
-                <div className="flex items-center justify-end gap-1.5 mt-1">
-                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                   <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+    <div className="space-y-4">
+      <div className="relative max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search categories..." 
+          className="pl-9 h-10 shadow-sm transition-all focus:ring-primary/20" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {allCategoryNames.map(cat => {
+          const prodCount = products.filter(p => p.category === cat).length;
+          const totalStock = products.filter(p => p.category === cat).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
+          const dbCat = dbCategories.find(c => c.name === cat);
+          return (
+            <Card key={cat} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{cat}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
+                  {dbCat?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbCat.description}</p>}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-      {allCategoryNames.length === 0 && (
-         <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30">No categories found in product master</div>
-      )}
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
+                  <div className="flex items-center justify-end gap-1.5 mt-1">
+                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                     <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {allCategoryNames.length === 0 && (
+           <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30 font-medium italic">No categories found matching your search</div>
+        )}
+      </div>
     </div>
   );
 }
 
 function BrandList({ products, dbBrands }: { products: any[], dbBrands: any[] }) {
+  const [search, setSearch] = useState("");
   const brandNamesFromProducts = Array.isArray(products) 
     ? Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean)
     : [];
-    
-  const allBrandNames = Array.from(new Set([...brandNamesFromProducts, ...dbBrands.map(b => b.name)]));
+  
+  const allBrandNames = Array.from(new Set([...brandNamesFromProducts, ...dbBrands.map(b => b.name)]))
+    .filter(brand => brand.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {allBrandNames.map(brand => {
-        const prodCount = products.filter(p => p.brand === brand).length;
-        const totalStock = products.filter(p => p.brand === brand).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
-        const dbBrand = dbBrands.find(b => b.name === brand);
-        return (
-          <Card key={brand} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="space-y-1">
-                <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{brand}</h3>
-                <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
-                {dbBrand?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbBrand.description}</p>}
+    <div className="space-y-4">
+      <div className="relative max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search brands..." 
+          className="pl-9 h-10 shadow-sm transition-all focus:ring-primary/20" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {allBrandNames.map(brand => {
+          const prodCount = products.filter(p => p.brand === brand).length;
+          const totalStock = products.filter(p => p.brand === brand).reduce((sum, p) => sum + (parseFloat(p.stock || 0)), 0);
+          const dbBrand = dbBrands.find(b => b.name === brand);
+          return (
+            <Card key={brand} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{brand}</h3>
+                  <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
+                  {dbBrand?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbBrand.description}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
+                  <div className="flex items-center justify-end gap-1.5 mt-1">
+                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                     <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {allBrandNames.length === 0 && (
+           <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30 font-medium italic">No brands found matching your search</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PriceListRatesModal({ priceList, products, trigger }: { priceList: any, products: any[], trigger: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  
+  const { data: rates = [], isLoading } = useQuery({
+    queryKey: ["pricelistitems", priceList.id],
+    queryFn: () => fetch(`/api/core?resource=pricelistitems&priceListId=${priceList.id}`).then(res => res.json()),
+    enabled: open
+  });
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(search.toLowerCase()) || 
+    (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const updateRate = async (productId: number, newPrice: string) => {
+    const existingRate = rates.find((r: any) => r.productId === productId);
+    try {
+      const res = await fetch(`/api/core?resource=pricelistitems`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: existingRate?.id,
+          priceListId: priceList.id,
+          productId,
+          customPrice: newPrice
+        })
+      });
+      if (!res.ok) throw new Error("Failed to update rate");
+      queryClient.invalidateQueries({ queryKey: ["pricelistitems", priceList.id] });
+      toast({ title: "Rate Updated", description: "The custom price has been saved." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: err.message });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 border-b">
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Rates for {priceList.name}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="p-4 border-b bg-gray-50/50">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search products to set rates..." 
+              className="pl-9 h-9 bg-white" 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-0">
+          <table className="w-full text-sm text-left">
+            <thead className="text-[10px] uppercase font-bold text-muted-foreground bg-gray-50 sticky top-0">
+              <tr>
+                <th className="px-6 py-3">Product Name</th>
+                <th className="px-6 py-3">Standard Price</th>
+                <th className="px-6 py-3 w-[200px]">Custom Rate (₹)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredProducts.map(p => {
+                const rate = rates.find((r: any) => r.productId === p.id);
+                return (
+                  <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-gray-900">{p.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.sku}</p>
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground font-medium">₹{p.sellPrice}</td>
+                    <td className="px-6 py-4">
+                      <Input 
+                        type="number" 
+                        defaultValue={rate?.customPrice || p.sellPrice} 
+                        className={`h-8 font-bold ${rate ? 'border-primary/50 bg-primary/5' : ''}`}
+                        onBlur={(e) => {
+                          if (e.target.value !== (rate?.customPrice || p.sellPrice)) {
+                            updateRate(p.id, e.target.value);
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="p-4 border-t flex justify-end">
+          <Button onClick={() => setOpen(false)}>Done</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PriceListView({ pricelists, isLoading, products }: { pricelists: any[], isLoading: boolean, products: any[] }) {
+  const [search, setSearch] = useState("");
+  
+  const filtered = (pricelists || []).filter((p: any) => 
+    p.name.toLowerCase().includes(search.toLowerCase()) || 
+    (p.description && p.description.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="relative max-w-xs">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search price lists..." 
+          className="pl-9 h-10 shadow-sm" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((pl: any) => (
+          <Card key={pl.id} className="overflow-hidden hover:border-primary/30 transition-all cursor-pointer group shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-2 bg-primary/5 rounded-lg">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <StatusBadge status={pl.status} />
               </div>
-              <div className="text-right">
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Inventory</p>
-                <div className="flex items-center justify-end gap-1.5 mt-1">
-                   <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
+              <div className="space-y-3">
+                <h3 className="font-bold text-base text-gray-900 group-hover:text-primary transition-colors">{pl.name}</h3>
+                {pl.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{pl.description}</p>}
+                
+                <div className="pt-3 border-t flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-medium">Starts: {pl.effectiveFrom ? new Date(pl.effectiveFrom).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <PriceListRatesModal 
+                    priceList={pl} 
+                    products={products}
+                    trigger={<Button variant="ghost" size="sm" className="h-7 text-[10px] uppercase font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">View Rates</Button>}
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
-        );
-      })}
-      {allBrandNames.length === 0 && (
-         <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30">No brand data recorded yet</div>
-      )}
+        ))}
+        {isLoading ? (
+           <div className="col-span-full p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+        ) : filtered.length === 0 && (
+           <div className="col-span-full p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-500 rounded-xl bg-gray-50/30 font-medium">No price lists found matching your search</div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function FormCombobox({ label, value, options, onSelect }: { label: string, value: string, options: string[], onSelect: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className="w-full mt-1 h-9 justify-between font-normal">
+          {value || `Select ${label.toLowerCase()}`}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]">
+        <Command>
+          <CommandInput placeholder={`Search ${label.toLowerCase()}...`} className="h-9" />
+          <CommandList>
+            <CommandEmpty>No {label.toLowerCase()} found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt: string) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
+                  {String(opt)}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -256,35 +488,30 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState<any>(initialData || {
+  const defaultValues = {
     sku: `SKU-${Date.now().toString().slice(-4)}`,
     name: "",
     category: "",
+    subCategory: "",
     brand: "",
+    type: "SERVICE",
     sellPrice: "0",
     purchasePrice: "0",
     stock: "0",
     minStock: "10",
-    unit: "PCS",
+    unit: "Nos.",
     rack: "",
+    partNo: "",
     barcode: "",
-    description: ""
-  });
+    hsnCode: "",
+    gstRate: "18",
+    description: "",
+    status: "Active"
+  };
 
-  const resetForm = () => setFormData(initialData || {
-    sku: `SKU-${Date.now().toString().slice(-4)}`,
-    name: "",
-    category: "",
-    brand: "",
-    sellPrice: "0",
-    purchasePrice: "0",
-    stock: "0",
-    minStock: "10",
-    unit: "PCS",
-    rack: "",
-    barcode: "",
-    description: ""
-  });
+  const [formData, setFormData] = useState<any>(initialData?.id ? initialData : { ...defaultValues, ...initialData });
+
+  const resetForm = () => setFormData(initialData?.id ? initialData : { ...defaultValues, ...initialData });
 
   const categories = Array.isArray(products) 
     ? Array.from(new Set([
@@ -307,7 +534,7 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
     setLoading(true);
     try {
       const { createdAt, ...saveData } = formData;
-      const resource = tabName === 'categories' ? 'categories' : tabName === 'brands' ? 'brands' : 'products';
+      const resource = tabName === 'categories' ? 'categories' : tabName === 'brands' ? 'brands' : tabName === 'pricelists' ? 'pricelists' : 'products';
       const res = await fetch(`/api/core?resource=${resource}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -315,8 +542,10 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
       });
       if (!res.ok) throw new Error(`Failed to save ${resource}`);
       toast({ title: "Success", description: `${title} saved successfully` });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: [resource] });
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["brands"] });
+      await queryClient.invalidateQueries({ queryKey: ["pricelists"] });
       setOpen(false);
       resetForm();
     } catch (error: any) {
@@ -333,14 +562,20 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
           { label: "SKU", key: "sku", span: false }, 
           { label: "Product Name", key: "name", span: true },
           { label: "Category", key: "category", span: false, isCategory: true }, 
+          { label: "Sub Category", key: "subCategory", span: false },
           { label: "Brand", key: "brand", span: false, isBrand: true },
+          { label: "Stock", key: "stock", span: false, type: "number" },
           { label: "Sell Price (₹)", key: "sellPrice", span: false, type: "number" }, 
           { label: "Purchase Price (₹)", key: "purchasePrice", span: false, type: "number" },
-          { label: "Stock", key: "stock", span: false, type: "number" },
+          { label: "HSN Code", key: "hsnCode", span: false },
+          { label: "GST Rate (%)", key: "gstRate", span: false, type: "number" },
           { label: "Min Stock", key: "minStock", span: false, type: "number" }, 
           { label: "Unit", key: "unit", span: false },
           { label: "Rack/Location", key: "rack", span: false }, 
+          { label: "Part No.", key: "partNo", span: false },
           { label: "Barcode", key: "barcode", span: false },
+          { label: "Type", key: "type", span: false, isToggle: true, options: ["PRODUCT", "SERVICE"] }, 
+          { label: "Status", key: "status", span: false, isToggle: true, options: ["Active", "Inactive"] }, 
           { label: "Description", key: "description", span: true, type: "textarea" },
         ];
       case "categories":
@@ -351,6 +586,13 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
       case "brands":
         return [
           { label: "Brand Name", key: "name", span: true },
+          { label: "Description", key: "description", span: true, type: "textarea" },
+        ];
+      case "pricelists":
+        return [
+          { label: "List Name", key: "name", span: true },
+          { label: "Effective From", key: "effectiveFrom", span: false, type: "date" },
+          { label: "Status", key: "status", span: false, isToggle: true, options: ["Active", "Inactive"] },
           { label: "Description", key: "description", span: true, type: "textarea" },
         ];
       default: return [];
@@ -369,23 +611,36 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
             <div key={f.label} className={f.span ? "col-span-2" : ""}>
               <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
               {f.isCategory ? (
-                <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v})}>
-                  <SelectTrigger className="mt-1 h-9">
-                    <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c: any) => <SelectItem key={c} value={c}>{String(c)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <FormCombobox 
+                  label={f.label} 
+                  value={formData.category} 
+                  options={categories} 
+                  onSelect={(v) => setFormData({ ...formData, category: v })} 
+                />
               ) : f.isBrand ? (
-                <Select value={formData.brand} onValueChange={(v) => setFormData({...formData, brand: v})}>
-                  <SelectTrigger className="mt-1 h-9">
-                    <SelectValue placeholder={`Select ${f.label.toLowerCase()}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brands.map((b: any) => <SelectItem key={b} value={b}>{String(b)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <FormCombobox 
+                  label={f.label} 
+                  value={formData.brand} 
+                  options={brands} 
+                  onSelect={(v) => setFormData({ ...formData, brand: v })} 
+                />
+              ) : f.isToggle ? (
+                <ToggleGroup 
+                  type="single" 
+                  className="justify-start mt-1 gap-0 border rounded-lg w-fit overflow-hidden h-9" 
+                  value={formData[f.key as string]} 
+                  onValueChange={(v) => v && setFormData({ ...formData, [f.key as string]: v })}
+                >
+                  {f.options?.map((opt: string) => (
+                    <ToggleGroupItem 
+                      key={opt} 
+                      value={opt} 
+                      className="px-4 text-[10px] font-bold uppercase tracking-tight rounded-none border-r last:border-0 data-[state=on]:bg-primary data-[state=on]:text-white h-full"
+                    >
+                      {opt}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               ) : f.type === "textarea" ? (
                 <Textarea className="mt-1 h-20" placeholder={f.label} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               ) : (
@@ -397,7 +652,7 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {formData.id ? "Update Product" : "Save Product"}
+              {formData.id ? `Update ${title.split(' ').pop()}` : `Save ${title.split(' ').pop()}`}
             </Button>
           </div>
         </div>
@@ -410,7 +665,7 @@ export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "products";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
-  const { data: products = [] } = useQuery({ 
+  const { data: products = [], isLoading: productsLoading, isError: productsError } = useQuery({ 
     queryKey: ["products"], 
     queryFn: () => fetch("/api/core?resource=products").then(res => {
       if (!res.ok) throw new Error("Failed to fetch products");
@@ -428,11 +683,17 @@ export default function Products() {
     queryFn: () => fetch("/api/core?resource=brands").then(res => res.ok ? res.json() : []) 
   });
 
+  const { data: pricelists = [], isLoading: pricelistsLoading } = useQuery({ 
+    queryKey: ["pricelists"], 
+    queryFn: () => fetch("/api/core?resource=pricelists").then(res => res.ok ? res.json() : []) 
+  });
+
   const getNewButtonLabel = (tab: string) => {
     switch (tab) {
       case "products": return "Add New Product";
       case "categories": return "Add New Category";
       case "brands": return "Add New Brand";
+      case "pricelists": return "Add New Price List";
       default: return "Add New";
     }
   };
@@ -440,7 +701,7 @@ export default function Products() {
   return (
     <div className="p-6 space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Products</h1>
+        <h1 className="text-xl font-bold">My Items</h1>
         <p className="text-sm text-muted-foreground">Product master, categories, and brands</p>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="products">
@@ -471,11 +732,11 @@ export default function Products() {
           />
         </div>
 
-        <TabsContent value="products" className="mt-4"><ProductList /></TabsContent>
+        <TabsContent value="products" className="mt-4"><ProductList products={products} isLoading={productsLoading} isError={productsError} /></TabsContent>
         <TabsContent value="categories" className="mt-4"><CategoryList products={products} dbCategories={dbCategories} /></TabsContent>
         <TabsContent value="brands" className="mt-4"><BrandList products={products} dbBrands={dbBrands} /></TabsContent>
         <TabsContent value="pricelists" className="mt-4">
-          <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Custom price lists for retail and wholesale contracts</div>
+          <PriceListView pricelists={pricelists} isLoading={pricelistsLoading} products={products} />
         </TabsContent>
       </Tabs>
     </div>

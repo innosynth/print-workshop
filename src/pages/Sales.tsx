@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -20,6 +20,46 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { usePrintSettings } from "@/lib/print-settings-context";
 import { QRCodeCanvas } from "qrcode.react";
+import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+
+function FormCombobox({ label, value, options, onSelect }: { label: string, value: string, options: string[], onSelect: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className="w-full mt-1 h-10 justify-between font-normal">
+          <span className="truncate">{value || `Select ${label.toLowerCase()}`}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]">
+        <Command>
+          <CommandInput placeholder={`Search ${label.toLowerCase()}...`} className="h-9" />
+          <CommandList>
+            <CommandEmpty>No {label.toLowerCase()} found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt: string) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
+                  {String(opt)}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onClose: () => void, docType?: string }) {
   const { settings } = usePrintSettings();
@@ -51,12 +91,23 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     ifscCode: "ICIC0007307"
   };
 
+  const { data: fullInvoice, isLoading: invoiceLoading } = useQuery({
+    queryKey: ["invoice", invoice.id, docType],
+    queryFn: () => fetch(`/api/sales?resource=${docType || 'invoices'}&id=${invoice.id}`).then(res => res.json()),
+    enabled: !!invoice.id
+  });
+
+  if (invoiceLoading) return <Dialog open onOpenChange={onClose}><DialogContent className="p-20 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></DialogContent></Dialog>;
+
+  const activeInvoice = fullInvoice || invoice;
   const isEstimate = docType === "estimates";
-  const amount = parseFloat(invoice.amount || 0);
-  const total = parseFloat(invoice.total || amount);
-  const taxRate = isEstimate ? 0 : 18;
-  const taxableAmount = isEstimate ? total : total / (1 + taxRate / 100);
-  const totalTax = total - taxableAmount;
+  const items = activeInvoice.items || [];
+  const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
+  const totalTax = items.reduce((sum: number, item: any) => {
+    const rate = parseFloat(item.gstRate || 0);
+    return sum + (parseFloat(item.amount || 0) * (rate / 100));
+  }, 0);
+  const total = taxableAmount + totalTax;
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
 
@@ -131,7 +182,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
         <style>{printStyles}</style>
         
         <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10">
-          <span className="font-bold">{docTitle} Preview - {invoice.invoiceNo || "Draft"}</span>
+          <span className="font-bold">{docTitle} Preview - {activeInvoice.invoiceNo || "Draft"}</span>
           <div className="flex gap-2">
             <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
             <Button variant={paperSize === "thermal" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("thermal")}>Thermal POS</Button>
@@ -172,19 +223,19 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <div className="grid grid-cols-2 gap-8 text-[11px]">
                 <div className="space-y-1">
                   <p className="font-bold text-gray-500 uppercase tracking-widest text-[9px]">To :</p>
-                  <p className="text-sm font-black">{invoice.customerName || "Walk-in Customer"}</p>
+                  <p className="text-sm font-black">{activeInvoice.customerName || "Walk-in Customer"}</p>
                   <p className="text-gray-600">COIMBATORE</p>
-                  <p className="mt-2 text-[10px] font-bold">GSTIN : {invoice.customerGst || "N/A"}</p>
+                  <p className="mt-2 text-[10px] font-bold">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
                   <p className="text-[10px] font-bold">State & Code:</p>
                 </div>
                 <div className="space-y-1 text-right">
                   <div className="flex justify-end gap-2">
                     <span className="text-gray-500 uppercase text-[9px] font-bold">Invoice No :</span>
-                    <span className="font-bold w-24 text-left">{invoice.invoiceNo || "DRAFT"}</span>
+                    <span className="font-bold w-24 text-left">{activeInvoice.invoiceNo || "DRAFT"}</span>
                   </div>
                   <div className="flex justify-end gap-2">
                     <span className="text-gray-500 uppercase text-[9px] font-bold">Invoice Date :</span>
-                    <span className="font-bold w-24 text-left">{invoice.date || new Date().toLocaleDateString()}</span>
+                    <span className="font-bold w-24 text-left">{activeInvoice.date || new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-end gap-2">
                     <span className="text-gray-500 uppercase text-[9px] font-bold">PO No :</span>
@@ -211,20 +262,26 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   </tr>
                 </thead>
                 <tbody className="font-medium">
-                  {invoice.items?.map((item: any, i: number) => (
-                    <tr key={i}>
-                      <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
-                      <td className="border border-black px-2 py-1 font-bold">{item.name || "Custom Service"}</td>
-                      <td className="border border-black px-1 py-1 text-center">4909</td>
-                      <td className="border border-black px-1 py-1 text-center">{item.qty || 1}.00</td>
-                      <td className="border border-black px-1 py-1 text-right">{(item.rate || 0).toFixed(2)}</td>
-                      <td className="border border-black px-1 py-1 text-center">9.00</td>
-                      <td className="border border-black px-1 py-1 text-right">{(item.amount * 0.09).toFixed(2)}</td>
-                      <td className="border border-black px-1 py-1 text-center">9.00</td>
-                      <td className="border border-black px-1 py-1 text-right">{(item.amount * 0.09).toFixed(2)}</td>
-                      <td className="border border-black px-2 py-1 text-right font-bold">{parseFloat(item.amount || 0).toFixed(2)}</td>
-                    </tr>
-                  )) || (
+                  {items.map((item: any, i: number) => {
+                    const itemRate = parseFloat(item.gstRate || 0);
+                    const itemAmount = parseFloat(item.amount || 0);
+                    const itemTax = itemAmount * (itemRate / 100);
+                    return (
+                      <tr key={i}>
+                        <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
+                        <td className="border border-black px-2 py-1 font-bold">{item.name || "Custom Service"}</td>
+                        <td className="border border-black px-1 py-1 text-center">{item.hsnCode || "4909"}</td>
+                        <td className="border border-black px-1 py-1 text-center">{item.qty || 1}.00</td>
+                        <td className="border border-black px-1 py-1 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                        <td className="border border-black px-1 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
+                        <td className="border border-black px-1 py-1 text-right">{(itemTax / 2).toFixed(2)}</td>
+                        <td className="border border-black px-1 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
+                        <td className="border border-black px-1 py-1 text-right">{(itemTax / 2).toFixed(2)}</td>
+                        <td className="border border-black px-2 py-1 text-right font-bold">{(itemAmount + itemTax).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                  {items.length === 0 && (
                     <tr className="min-h-[100px]">
                       <td className="border border-black px-1 py-6 text-center">1</td>
                       <td className="border border-black px-2 py-6 font-bold">DIGITAL PRINTING SERVICES</td>
@@ -239,7 +296,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     </tr>
                   )}
                   {/* Empty rows to maintain height */}
-                  {[...Array(5)].map((_, i) => (
+                  {[...Array(Math.max(0, 5 - items.length))].map((_, i) => (
                     <tr key={i} className="h-6">
                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
@@ -407,7 +464,10 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
 function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+  const [items, setItems] = useState([{ 
+    name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+    category: "", subCategory: "", sku: "" 
+  }]);
   const [customerId, setCustomerId] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -429,7 +489,10 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
     }) 
   });
 
-  const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
+  const addItem = () => setItems([...items, { 
+    name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+    category: "", subCategory: "", sku: "" 
+  }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...items];
@@ -440,7 +503,9 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
     setItems(newItems);
   };
 
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalTax = items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
+  const grandTotal = subtotal + (type === 'estimates' ? 0 : totalTax);
 
   const handleSave = async () => {
     if (!customerId) {
@@ -457,15 +522,17 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
           customerId: parseInt(customerId),
           [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: `${type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV'}-${Date.now().toString().slice(-6)}`,
           date: new Date().toISOString().split('T')[0],
-          amount: total.toFixed(2),
-          tax: type === 'estimates' ? "0" : (total * 0.18).toFixed(2),
-          total: type === 'estimates' ? total.toFixed(2) : (total * 1.18).toFixed(2),
+          amount: subtotal.toFixed(2),
+          tax: type === 'estimates' ? "0" : totalTax.toFixed(2),
+          total: grandTotal.toFixed(2),
           status: type === 'estimates' ? "Draft" : "Pending",
           items: items.map(item => ({
             ...item,
             qty: parseInt(item.qty.toString()),
             rate: item.rate.toFixed(2),
-            amount: item.amount.toFixed(2)
+            amount: item.amount.toFixed(2),
+            hsnCode: item.hsnCode,
+            gstRate: item.gstRate
           }))
         })
       });
@@ -476,7 +543,10 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       setOpen(false);
       // Reset form
-      setItems([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+      setItems([{ 
+        name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+        category: "", subCategory: "", sku: "" 
+      }]);
       setCustomerId("");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -488,7 +558,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[98vw] w-full max-h-[96vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
@@ -524,64 +594,100 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
               </Button>
             </div>
             
-            <div className="space-y-2">
-              {items.map((item, index) => (
-                <div key={index} className="flex gap-2 items-end">
-                  <div className="flex-[3] space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Description</Label>
-                    <Select 
-                      value={products.find((p: any) => p.name === item.name)?.id?.toString() || ""} 
-                      onValueChange={id => {
-                        const prod = products.find((p: any) => p.id.toString() === id);
-                        if (prod) {
-                          updateItem(index, "name", prod.name);
-                          updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select Product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.isArray(products) && products.map((p: any) => (
-                          <SelectItem key={p.id} value={p.id.toString()}>{p.name} (₹{p.sellPrice})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
-                    <Input 
-                      type="number" 
-                      value={item.qty} 
-                      onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Rate</Label>
-                    <Input 
-                      type="number" 
-                      value={item.rate} 
-                      onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Total</Label>
-                    <div className="h-10 flex items-center px-3 bg-muted rounded-md font-bold text-sm">
-                      ₹{item.amount.toFixed(2)}
+            <div className="space-y-1.5">
+              {items.map((item, index) => {
+                const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
+                const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
+                const filteredProducts = products.filter((p: any) => 
+                  (!item.category || p.category === item.category) && 
+                  (!item.subCategory || p.subCategory === item.subCategory)
+                );
+
+                return (
+                  <div key={index} className="flex gap-2 items-end p-3 border rounded-lg bg-gray-50/30 hover:bg-gray-50/50 transition-colors group">
+                    <div className="flex-[1.5] min-w-0 space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
+                      <FormCombobox 
+                        label="Category" 
+                        value={item.category} 
+                        options={uniqueCategories} 
+                        onSelect={(v) => {
+                          updateItem(index, "category", v);
+                          updateItem(index, "subCategory", "");
+                          updateItem(index, "name", "");
+                          updateItem(index, "sku", "");
+                        }} 
+                      />
                     </div>
+                    <div className="flex-[1.5] min-w-0 space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
+                      <FormCombobox 
+                        label="Sub Category" 
+                        value={item.subCategory} 
+                        options={subCategories} 
+                        onSelect={(v) => {
+                          updateItem(index, "subCategory", v);
+                          updateItem(index, "name", "");
+                          updateItem(index, "sku", "");
+                        }} 
+                      />
+                    </div>
+                    <div className="flex-[3] min-w-0 space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
+                      <FormCombobox 
+                        label="Product" 
+                        value={item.sku ? `${item.sku} - ${item.name}` : item.name} 
+                        options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)} 
+                        onSelect={(v) => {
+                          const [skuStr, namePart] = v.split(' | ');
+                          const prod = filteredProducts.find((p: any) => p.name === namePart && (p.sku || 'N/A') === skuStr);
+                          if (prod) {
+                            updateItem(index, "name", prod.name);
+                            updateItem(index, "sku", prod.sku || "");
+                            updateItem(index, "category", prod.category || "");
+                            updateItem(index, "subCategory", prod.subCategory || "");
+                            updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
+                            updateItem(index, "hsnCode", prod.hsnCode || "");
+                            updateItem(index, "gstRate", prod.gstRate || "0");
+                          }
+                        }} 
+                      />
+                    </div>
+                    <div className="w-[60px] space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
+                      <Input type="number" value={item.qty} className="h-10 font-bold px-1 text-center" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="w-[100px] space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Rate (₹)</Label>
+                      <Input type="number" value={item.rate} className="h-10 font-bold" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="w-[70px] space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
+                      <Input 
+                        type="number" 
+                        value={item.gstRate} 
+                        className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200" 
+                        onChange={e => updateItem(index, "gstRate", e.target.value)} 
+                      />
+                    </div>
+                    <div className="w-[120px] space-y-1">
+                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
+                      <div className="h-10 flex items-center px-2 bg-primary/5 border border-primary/20 rounded-md font-black text-xs text-primary overflow-hidden truncate">
+                        ₹{item.amount.toFixed(2)}
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0" 
+                      onClick={() => removeItem(index)}
+                      disabled={items.length === 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 text-destructive" 
-                    onClick={() => removeItem(index)}
-                    disabled={items.length === 1}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -591,18 +697,18 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
             <div className="w-1/3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-bold">₹{total.toFixed(2)}</span>
+                <span className="font-bold">₹{subtotal.toFixed(2)}</span>
               </div>
               {type !== 'estimates' && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax (18%):</span>
-                  <span className="font-bold">₹{(total * 0.18).toFixed(2)}</span>
+                  <span className="text-muted-foreground">GST:</span>
+                  <span className="font-bold">₹{totalTax.toFixed(2)}</span>
                 </div>
               )}
               <Separator />
               <div className="flex justify-between text-lg">
                 <span className="font-bold">Grand Total:</span>
-                <span className="font-black text-primary">₹{(total * (type === 'estimates' ? 1 : 1.18)).toFixed(2)}</span>
+                <span className="font-black text-primary">₹{grandTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>

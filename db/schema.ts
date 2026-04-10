@@ -23,6 +23,8 @@ export const products = pgTable("products", {
   sku: text("sku").unique(),
   name: text("name").notNull(),
   category: text("category"),
+  subCategory: text("subCategory"),
+  brand: text("brand"),
   type: text("type"), // Offset, Digital etc
   description: text("description"),
   gstRate: numeric("gstRate").default("18"),
@@ -32,6 +34,9 @@ export const products = pgTable("products", {
   sellPrice: numeric("sellPrice").default("0"),
   stock: numeric("stock").default("0"),
   minStock: numeric("minStock").default("10"),
+  rack: text("rack"),
+  partNo: text("partNo"),
+  barcode: text("barcode"),
   status: text("status").default("Active"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
@@ -56,6 +61,8 @@ export const invoiceItems = pgTable("invoiceItems", {
   qty: integer("qty").notNull(),
   rate: numeric("rate").notNull(),
   amount: numeric("amount").notNull(),
+  hsnCode: text("hsnCode"),
+  gstRate: numeric("gstRate").default("18"),
 });
 
 // ─── Quotations ───────────────────────────────────────────────────────────────
@@ -76,6 +83,8 @@ export const quotationItems = pgTable("quotationItems", {
   qty: numeric("qty"),
   rate: numeric("rate"),
   amount: numeric("amount"),
+  hsnCode: text("hsnCode"),
+  gstRate: numeric("gstRate").default("18"),
 });
 
 // ─── Sales Returns ────────────────────────────────────────────────────────────
@@ -246,5 +255,22 @@ export const meterReadings = pgTable("meterReadings", {
   closingReading: numeric("closingReading"),
   totalUsage: numeric("totalUsage"),
   userId: integer("userId").references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export const priceLists = pgTable("priceLists", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  effectiveFrom: date("effectiveFrom"),
+  status: text("status").default("Active"),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export const priceListItems = pgTable("priceListItems", {
+  id: serial("id").primaryKey(),
+  priceListId: integer("priceListId").references(() => priceLists.id),
+  productId: integer("productId").references(() => products.id),
+  customPrice: numeric("customPrice").notNull(),
   createdAt: timestamp("createdAt").defaultNow(),
 });

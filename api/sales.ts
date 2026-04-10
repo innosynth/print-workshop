@@ -10,6 +10,18 @@ export default async function handler(request: VercelRequest, response: VercelRe
   try {
     if (resource === 'invoices') {
       if (method === 'GET') {
+        const { id } = request.query;
+        if (id) {
+          const main = await db.select({
+            id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
+            amount: invoices.amount, tax: invoices.tax, total: invoices.total,
+            status: invoices.status, customerName: contacts.name, customerId: contacts.id,
+            customerGst: contacts.gst
+          }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).where(eq(invoices.id, parseInt(id as string))).limit(1);
+          if (main.length === 0) return response.status(404).json({ error: 'Invoice not found' });
+          const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, main[0].id));
+          return response.status(200).json({ ...main[0], items });
+        }
         const data = await db.select({
           id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
           amount: invoices.amount, tax: invoices.tax, total: invoices.total,

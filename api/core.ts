@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
-import { contacts, products, companyProfile, printSettings, users, roles, paymentQrs, productCategories, productBrands } from '../db/schema.js';
+import { contacts, products, companyProfile, printSettings, users, roles, paymentQrs, productCategories, productBrands, priceLists, priceListItems } from '../db/schema.js';
 import { eq, desc, and, not } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -192,6 +192,46 @@ export default async function handler(request: VercelRequest, response: VercelRe
         
         const role = user[0].roleId ? await db.select().from(roles).where(eq(roles.id, user[0].roleId)).limit(1) : null;
         return response.status(200).json({ user: user[0], role: role ? role[0] : null });
+      }
+    }
+
+    if (resource === 'pricelists') {
+      if (method === 'GET') {
+        const all = await db.select().from(priceLists).orderBy(desc(priceLists.createdAt));
+        return response.status(200).json(all);
+      }
+      if (method === 'POST') {
+        const data = request.body;
+        if (data.id) {
+          const updated = await db.update(priceLists).set(data).where(eq(priceLists.id, data.id)).returning();
+          return response.status(200).json(updated[0]);
+        } else {
+          const inserted = await db.insert(priceLists).values(data).returning();
+          return response.status(200).json(inserted[0]);
+        }
+      }
+    }
+
+    if (resource === 'pricelistitems') {
+      const priceListId = request.query.priceListId ? parseInt(request.query.priceListId as string) : null;
+      if (method === 'GET') {
+        const query = db.select().from(priceListItems);
+        if (priceListId) {
+          const items = await query.where(eq(priceListItems.priceListId, priceListId)).orderBy(desc(priceListItems.createdAt));
+          return response.status(200).json(items);
+        }
+        const all = await query.orderBy(desc(priceListItems.createdAt));
+        return response.status(200).json(all);
+      }
+      if (method === 'POST') {
+        const data = request.body;
+        if (data.id) {
+          const updated = await db.update(priceListItems).set(data).where(eq(priceListItems.id, data.id)).returning();
+          return response.status(200).json(updated[0]);
+        } else {
+          const inserted = await db.insert(priceListItems).values(data).returning();
+          return response.status(200).json(inserted[0]);
+        }
       }
     }
 
