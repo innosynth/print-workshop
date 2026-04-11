@@ -72,21 +72,31 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
 
   const a4Style = `
     @media print {
-      @page { size: A4; margin: ${settings.a4Margin}mm; }
+      @page { size: A4 landscape; margin: 10mm; }
       .no-print { display: none !important; }
-      .print-container { width: 100% !important; max-width: none !important; }
+      .print-container { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      /* Preserve logo colors */
+      .print-container .bg-black, .print-container .bg-black * {
+        background-color: black !important;
+        color: white !important;
+      }
     }
   `;
 
   const thermalStyle = `
     @media print {
-      @page { size: ${settings.thermalWidth}mm ${settings.thermalHeight}mm; margin: ${settings.thermalMargin}mm; }
+      @page { size: ${settings.thermalWidth}mm auto; margin: 5mm; }
       .no-print { display: none !important; }
-      .print-container { width: 100% !important; max-width: none !important; }
+      .print-container { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
       .thermal-format { font-size: ${settings.thermalFontSize}px !important; }
       .thermal-format table { font-size: calc(${settings.thermalFontSize}px - 1px) !important; }
       .thermal-format .company-info { font-size: calc(${settings.thermalFontSize}px - 1px) !important; }
       .thermal-format .invoice-header { font-size: calc(${settings.thermalFontSize}px + 1px) !important; }
+      /* Preserve logo colors */
+      .print-container .bg-black, .print-container .bg-black * {
+        background-color: black !important;
+        color: white !important;
+      }
     }
   `;
 

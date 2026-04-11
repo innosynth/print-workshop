@@ -19,7 +19,7 @@ const PrintSettingsContext = createContext<PrintSettingsContextType | undefined>
 
 export function PrintSettingsProvider({ children }: { children: ReactNode }) {
     const [settings, setSettings] = useState<PrintSettings>({
-        thermalWidth: "80",
+        thermalWidth: "58",
         thermalHeight: "200",
         thermalMargin: "5",
         thermalFontSize: "11",

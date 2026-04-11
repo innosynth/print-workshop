@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -64,6 +67,7 @@ function FormCombobox({ label, value, options, onSelect }: { label: string, valu
 function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onClose: () => void, docType?: string }) {
   const { settings } = usePrintSettings();
   const [paperSize, setPaperSize] = useState<"A4" | "thermal">(settings.defaultPaperSize);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const { data: settingsData } = useQuery({
     queryKey: ["settings"],
@@ -75,7 +79,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     queryFn: () => fetch("/api/core?resource=payment_qrs").then(res => res.json())
   });
 
-  const activeQr = qrs.find((qr: any) => 
+  const activeQr = qrs.find((qr: any) =>
     docType === "invoices" ? qr.isActiveForInvoice : qr.isActiveForEstimate
   );
 
@@ -115,89 +119,198 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     window.print();
   };
 
-  const printStyles = `
-    @media print {
-      @page { 
-        size: ${paperSize === "A4" ? "A4" : `${settingsData?.settings?.thermalWidth || settings.thermalWidth}mm auto`}; 
-        margin: ${paperSize === "A4" ? (settingsData?.settings?.a4Margin || settings.a4Margin) : (settingsData?.settings?.thermalMargin || settings.thermalMargin)}mm; 
-      }
-      body { 
-        -webkit-print-color-adjust: exact; 
-        background: white !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-      #root, header, aside, footer, .no-print, [role="dialog"] > :not(.print-container) { 
-        display: none !important; 
-      }
-      [data-radix-portal] {
-        position: static !important;
-      }
-      [data-radix-portal] > div {
-        position: static !important;
-        transform: none !important;
-        background: white !important;
-        width: 100% !important;
-        max-width: none !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        display: block !important;
-      }
-      .print-container { 
-        width: 100% !important; 
-        max-width: none !important; 
-        margin: 0 !important;
-        padding: ${paperSize === "A4" ? '0' : '0'} !important;
-        display: block !important;
-        color: black !important; 
-      }
-      .thermal-format { 
-        font-size: ${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px !important; 
-      }
-      /* Ensure text is black for printing */
-      * {
-        color: black !important;
-        border-color: black !important;
-      }
-      .text-primary, .text-muted-foreground {
-        color: black !important;
-      }
-      .bg-primary, .bg-muted {
-        background-color: transparent !important;
-        border: 1px solid black !important;
-      }
-    }
-  `;
+  const handleDownload = async () => {
+    if (!printRef.current) return;
 
+    // Use a fixed scale for consistency, scale 2 is usually enough and more stable
+    const canvas = await html2canvas(printRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      windowWidth: paperSize === "A4" ? 1122 : 302, // 297mm and 80mm in px at 96dpi
+      onclone: (document) => {
+        // Ensure the cloned element is visible and has correct styles
+        const el = document.querySelector('.print-container') as HTMLElement;
+        if (el) el.style.overflow = 'visible';
+      }
+    });
+
+    const imgData = canvas.toDataURL(paperSize === "A4" ? 'image/png' : 'image/jpeg', 1.0);
+    const pdf = new jsPDF({
+      orientation: paperSize === "A4" ? "l" : "p",
+      unit: "mm",
+      format: paperSize === "A4" ? "a4" : [80, (canvas.height * 80) / canvas.width]
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, paperSize === "A4" ? 'PNG' : 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`${activeInvoice.invoiceNo || 'Document'}.pdf`);
+  };
+
+  const printStyles = `
+  @media print {
+    @page {
+      size: ${paperSize === "A4" ? "A4 landscape" : "80mm auto"};
+      margin: 0;
+    }
+    
+    html,
+    body {
+      width: ${paperSize === "A4" ? "auto" : "80mm"} !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      display: block !important;
+    }
+
+    #root,
+    header,
+    aside,
+    footer,
+    .no-print {
+      display: none !important;
+    }
+
+    /* Hide any modal close controls that may still appear in print */
+    button[aria-label="Close"],
+    button[aria-label="close"],
+    [data-radix-portal] button[aria-label="Close"],
+    [data-radix-portal] button[aria-label="close"],
+    [data-radix-portal] svg.lucide-x,
+    [data-radix-portal] .lucide-x {
+      display: none !important;
+    }
+
+    ::-webkit-scrollbar {
+      display: none !important;
+    }
+    * {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
+    }
+
+    [data-radix-portal] {
+      position: static !important;
+      width: 100% !important;
+      background: white !important;
+    }
+
+    [data-radix-portal] > div {
+      position: static !important;
+      transform: none !important;
+      width: 100% !important;
+      height: auto !important;
+      max-width: none !important;
+      max-height: none !important;
+      overflow: visible !important;
+      background: white !important;
+      box-shadow: none !important;
+      border: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+    }
+
+    .print-container {
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      justify-content: ${paperSize === "A4" ? "center" : "flex-start"} !important;
+      align-items: flex-start !important;
+      overflow: visible !important;
+      background: white !important;
+      color: black !important;
+    }
+
+    .invoice-page {
+      width: 100% !important;
+      max-width: 285mm !important;
+      min-height: calc(210mm - 12mm) !important;
+      box-sizing: border-box !important;
+      margin: 0 auto !important;
+      padding: 4mm 6mm !important;
+      background: white !important;
+      color: black !important;
+      overflow: visible !important;
+    }
+
+    .thermal-format {
+      font-size: ${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px !important;
+      line-height: 1.2 !important;
+      width: 80mm !important;   /* 👈 change to 58mm if needed */
+      max-width: 80mm !important;
+      margin: 0 auto !important;
+      padding: 2mm !important;
+      box-sizing: border-box !important;
+    }
+
+    .print-container * {
+      color: #000 !important;
+    }
+
+    .print-container .bg-black,
+    .print-container .bg-black * {
+      background-color: #000 !important;
+      color: #fff !important;
+    }
+
+    .bg-primary,
+    .bg-muted {
+      background-color: transparent !important;
+      border-color: #000 !important;
+    }
+
+    .text-primary,
+    .text-muted-foreground {
+      color: #000 !important;
+    }
+
+    img,
+    svg {
+      max-width: 100% !important;
+    }
+  }
+`;
   const docTitle = docType === "estimates" ? "ESTIMATE" : docType === "quotations" ? "QUOTATION" : "TAX INVOICE";
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-white p-0">
         <style>{printStyles}</style>
-        
-        <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10">
+
+        <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm">
           <span className="font-bold">{docTitle} Preview - {activeInvoice.invoiceNo || "Draft"}</span>
           <div className="flex gap-2">
             <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
             <Button variant={paperSize === "thermal" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("thermal")}>Thermal POS</Button>
             <Separator orientation="vertical" className="h-8 mx-2" />
             <Button onClick={handlePrint} className="gap-2"><Printer className="h-4 w-4" /> Print Document</Button>
+            <Button variant="outline" onClick={handleDownload} className="gap-2"><Download className="h-4 w-4" /> Download PDF</Button>
           </div>
         </div>
 
-        <div className={`print-container p-8 mx-auto ${paperSize === "thermal" ? "thermal-format p-4" : ""}`}>
+        <div 
+          ref={printRef}
+          className={`print-container p-2 mx-auto overflow-auto ${paperSize === "thermal" ? "thermal-format p-2" : ""}`}
+        >
           {paperSize === "A4" ? (
-            <div className="space-y-6" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
+            <div className="invoice-page space-y-3" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
               {/* A4 Header */}
               <div className="flex justify-between items-start border-b-2 border-black pb-4">
-                <div className="flex gap-4 items-center">
-                  <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl">PW</div>
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-4 shrink-0">PW</div>
                   <div>
                     <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">{profile.name}</h1>
                     <p className="text-[10px] font-bold text-gray-600 uppercase mt-1 italic">{profile.slogan}</p>
@@ -208,7 +321,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">📞</span> {profile.phone}</p>
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">✉️</span> {profile.email}</p>
                   <div className="flex justify-end gap-2 items-start max-w-[200px] mt-1 leading-tight">
-                    <span className="text-gray-500">📍</span> 
+                    <span className="text-gray-500">📍</span>
                     <span>{profile.address}</span>
                   </div>
                 </div>
@@ -313,25 +426,25 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   <div className="text-[10px]">
                     <p className="font-black border-b border-black mb-1 w-fit uppercase">Bank Details</p>
                     <div className="grid grid-cols-2 gap-x-2">
-                       <span className="text-gray-500">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span>
-                       <span className="text-gray-500">Bank</span><span className="font-bold">: {profile.bankName}</span>
-                       <span className="text-gray-500">Branch</span><span className="font-bold">: {profile.bankBranch}</span>
-                       <span className="text-gray-500">A/C No</span><span className="font-bold">: {profile.accountNumber}</span>
-                       <span className="text-gray-500">IFSC Code</span><span className="font-bold">: {profile.ifscCode}</span>
+                      <span className="text-gray-500">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span>
+                      <span className="text-gray-500">Bank</span><span className="font-bold">: {profile.bankName}</span>
+                      <span className="text-gray-500">Branch</span><span className="font-bold">: {profile.bankBranch}</span>
+                      <span className="text-gray-500">A/C No</span><span className="font-bold">: {profile.accountNumber}</span>
+                      <span className="text-gray-500">IFSC Code</span><span className="font-bold">: {profile.ifscCode}</span>
                     </div>
                   </div>
                   <p className="text-[10px] font-black uppercase mt-4">THANK YOU FOR YOUR BUSINESS</p>
                 </div>
 
                 <div className="col-span-4 flex flex-col items-center justify-center">
-                   {activeQr ? (
-                      <div className="text-center">
-                        <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1" alt="Payment QR" />
-                        <p className="text-[9px] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
-                      </div>
-                   ) : (
-                      <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-[8px] text-gray-400 text-center">QR CODE<br/>PENDING</div>
-                   )}
+                  {activeQr ? (
+                    <div className="text-center">
+                      <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1" alt="Payment QR" />
+                      <p className="text-[9px] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-[8px] text-gray-400 text-center">QR CODE<br />PENDING</div>
+                  )}
                 </div>
 
                 <div className="col-span-4">
@@ -374,7 +487,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 <p className="text-[10px]"><span className="font-bold">Mail :</span> {profile.email}</p>
                 <h2 className="text-xs font-bold mt-1 uppercase underline">{docTitle}</h2>
               </div>
-              
+
               <div className="text-[10px] py-0.5 border-t border-dashed border-black">
                 <div className="flex justify-between font-bold">
                   <span>No.{invoice.invoiceNo || "7118"}</span>
@@ -404,54 +517,54 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="text-right py-1">{item.amount.toFixed(2)}</td>
                       </tr>
                     )) || (
-                      <>
-                        <tr className="align-top">
-                          <td className="text-left py-1 uppercase font-bold">SYNTHETIC</td>
-                          <td className="text-right py-1">1</td>
-                          <td className="text-right py-1">30</td>
-                          <td className="text-right py-1">30.00</td>
-                        </tr>
-                        <tr className="align-top">
-                          <td className="text-left py-1 uppercase font-bold">LASER B/W PRINT</td>
-                          <td className="text-right py-1">7</td>
-                          <td className="text-right py-1">2</td>
-                          <td className="text-right py-1">14.00</td>
-                        </tr>
-                      </>
-                    )}
+                        <>
+                          <tr className="align-top">
+                            <td className="text-left py-1 uppercase font-bold">SYNTHETIC</td>
+                            <td className="text-right py-1">1</td>
+                            <td className="text-right py-1">30</td>
+                            <td className="text-right py-1">30.00</td>
+                          </tr>
+                          <tr className="align-top">
+                            <td className="text-left py-1 uppercase font-bold">LASER B/W PRINT</td>
+                            <td className="text-right py-1">7</td>
+                            <td className="text-right py-1">2</td>
+                            <td className="text-right py-1">14.00</td>
+                          </tr>
+                        </>
+                      )}
                   </tbody>
                 </table>
               </div>
 
               <div className="border-t border-dashed border-black py-2 space-y-1">
                 <div className="text-left font-bold text-[11px]">
-                   <p>Total Items : {invoice.items?.length || 2}</p>
-                   <div className="flex justify-between items-center">
-                     <span>Total Qty : {invoice.items?.reduce((a:any, b:any)=> a + b.qty, 0) || 8}</span>
-                     <span className="text-sm font-black">Total: {total.toFixed(2)}</span>
-                   </div>
+                  <p>Total Items : {invoice.items?.length || 2}</p>
+                  <div className="flex justify-between items-center">
+                    <span>Total Qty : {invoice.items?.reduce((a: any, b: any) => a + b.qty, 0) || 8}</span>
+                    <span className="text-sm font-black">Total: {total.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 
               <div className="border-t border-dashed border-black pt-2 flex flex-col items-center gap-1">
                 {/* Barcode Placeholder */}
                 <div className="w-32 h-8 bg-zinc-200 flex items-center justify-center relative overflow-hidden">
-                   <div className="flex gap-[1px] w-full h-full p-2 bg-white">
-                     {[...Array(20)].map((_, i) => (
-                       <div key={i} className="flex-1 bg-black" style={{ width: `${Math.random() * 2 + 1}px` }}></div>
-                     ))}
-                   </div>
+                  <div className="flex gap-[1px] w-full h-full p-2 bg-white">
+                    {[...Array(20)].map((_, i) => (
+                      <div key={i} className="flex-1 bg-black" style={{ width: `${Math.random() * 2 + 1}px` }}></div>
+                    ))}
+                  </div>
                 </div>
                 <div className="w-full text-left font-bold text-[9px] space-y-0.5 mt-1">
-                   <p>File :</p>
-                   <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/:/g, '.')}</p>
+                  <p>File :</p>
+                  <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/:/g, '.')}</p>
                 </div>
                 <div className="space-y-0.5">
-                   <p className="font-bold text-[10px]">{profile.website}</p>
-                   <p className="font-black text-[11px] uppercase">Thank For Your Business</p>
+                  <p className="font-bold text-[10px]">{profile.website}</p>
+                  <p className="font-black text-[11px] uppercase">Thank For Your Business</p>
                 </div>
                 {activeQr && (
-                   <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1 mt-1" alt="QA" />
+                  <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1 mt-1" alt="QA" />
                 )}
               </div>
             </div>
@@ -464,34 +577,34 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
 function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState([{ 
+  const [items, setItems] = useState([{
     name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-    category: "", subCategory: "", sku: "" 
+    category: "", subCategory: "", sku: ""
   }]);
   const [customerId, setCustomerId] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: contacts = [], isError: contactsError } = useQuery({ 
-    queryKey: ["contacts"], 
+  const { data: contacts = [], isError: contactsError } = useQuery({
+    queryKey: ["contacts"],
     queryFn: () => fetch("/api/core?resource=contacts").then(res => {
       if (!res.ok) throw new Error("Failed to fetch contacts");
       return res.json();
-    }) 
+    })
   });
 
-  const { data: products = [] } = useQuery({ 
-    queryKey: ["products"], 
+  const { data: products = [] } = useQuery({
+    queryKey: ["products"],
     queryFn: () => fetch("/api/core?resource=products").then(res => {
       if (!res.ok) throw new Error("Failed to fetch products");
       return res.json();
-    }) 
+    })
   });
 
-  const addItem = () => setItems([...items, { 
+  const addItem = () => setItems([...items, {
     name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-    category: "", subCategory: "", sku: "" 
+    category: "", subCategory: "", sku: ""
   }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
@@ -543,9 +656,9 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       setOpen(false);
       // Reset form
-      setItems([{ 
+      setItems([{
         name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-        category: "", subCategory: "", sku: "" 
+        category: "", subCategory: "", sku: ""
       }]);
       setCustomerId("");
     } catch (error: any) {
@@ -585,7 +698,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
           </div>
 
           <Separator />
-          
+
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label className="text-sm font-bold">Line Items</Label>
@@ -593,13 +706,13 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                 <Plus className="h-3.5 w-3.5" /> Add Item
               </Button>
             </div>
-            
+
             <div className="space-y-1.5">
               {items.map((item, index) => {
                 const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
                 const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
-                const filteredProducts = products.filter((p: any) => 
-                  (!item.category || p.category === item.category) && 
+                const filteredProducts = products.filter((p: any) =>
+                  (!item.category || p.category === item.category) &&
                   (!item.subCategory || p.subCategory === item.subCategory)
                 );
 
@@ -607,37 +720,37 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                   <div key={index} className="flex gap-2 items-end p-3 border rounded-lg bg-gray-50/30 hover:bg-gray-50/50 transition-colors group">
                     <div className="flex-[1.5] min-w-0 space-y-1">
                       <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
-                      <FormCombobox 
-                        label="Category" 
-                        value={item.category} 
-                        options={uniqueCategories} 
+                      <FormCombobox
+                        label="Category"
+                        value={item.category}
+                        options={uniqueCategories}
                         onSelect={(v) => {
                           updateItem(index, "category", v);
                           updateItem(index, "subCategory", "");
                           updateItem(index, "name", "");
                           updateItem(index, "sku", "");
-                        }} 
+                        }}
                       />
                     </div>
                     <div className="flex-[1.5] min-w-0 space-y-1">
                       <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
-                      <FormCombobox 
-                        label="Sub Category" 
-                        value={item.subCategory} 
-                        options={subCategories} 
+                      <FormCombobox
+                        label="Sub Category"
+                        value={item.subCategory}
+                        options={subCategories}
                         onSelect={(v) => {
                           updateItem(index, "subCategory", v);
                           updateItem(index, "name", "");
                           updateItem(index, "sku", "");
-                        }} 
+                        }}
                       />
                     </div>
                     <div className="flex-[3] min-w-0 space-y-1">
                       <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
-                      <FormCombobox 
-                        label="Product" 
-                        value={item.sku ? `${item.sku} - ${item.name}` : item.name} 
-                        options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)} 
+                      <FormCombobox
+                        label="Product"
+                        value={item.sku ? `${item.sku} - ${item.name}` : item.name}
+                        options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)}
                         onSelect={(v) => {
                           const [skuStr, namePart] = v.split(' | ');
                           const prod = filteredProducts.find((p: any) => p.name === namePart && (p.sku || 'N/A') === skuStr);
@@ -650,7 +763,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                             updateItem(index, "hsnCode", prod.hsnCode || "");
                             updateItem(index, "gstRate", prod.gstRate || "0");
                           }
-                        }} 
+                        }}
                       />
                     </div>
                     <div className="w-[60px] space-y-1">
@@ -663,11 +776,11 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                     </div>
                     <div className="w-[70px] space-y-1">
                       <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
-                      <Input 
-                        type="number" 
-                        value={item.gstRate} 
-                        className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200" 
-                        onChange={e => updateItem(index, "gstRate", e.target.value)} 
+                      <Input
+                        type="number"
+                        value={item.gstRate}
+                        className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200"
+                        onChange={e => updateItem(index, "gstRate", e.target.value)}
                       />
                     </div>
                     <div className="w-[120px] space-y-1">
@@ -676,10 +789,10 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                         ₹{item.amount.toFixed(2)}
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0"
                       onClick={() => removeItem(index)}
                       disabled={items.length === 1}
                     >
@@ -726,20 +839,20 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId }: { 
-  data: any[]; 
-  cols: any[]; 
-  isLoading?: boolean, 
-  onPrint?: (r: any) => void, 
-  onConvert?: (r: any) => void, 
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId }: {
+  data: any[];
+  cols: any[];
+  isLoading?: boolean,
+  onPrint?: (r: any) => void,
+  onConvert?: (r: any) => void,
   onToggleStatus?: (r: any) => void,
-  loadingId?: number | null 
+  loadingId?: number | null
 }) {
   const [search, setSearch] = useState("");
   const filtered = (data || []).filter(row =>
     Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
   );
-  
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -780,10 +893,10 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                               </Button>
                             )}
                             {onConvert && row.status !== 'Invoiced' && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                className="h-7 gap-1 text-xs" 
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="h-7 gap-1 text-xs"
                                 onClick={() => onConvert(row)}
                                 disabled={loadingId === row.id}
                               >
@@ -833,13 +946,13 @@ export default function Sales() {
       toast({ title: "Already Invoiced", description: "This quotation has already been converted." });
       return;
     }
-    
+
     setConvertingId(quotation.id);
     try {
       const qtRes = await fetch(`/api/sales?resource=quotations&id=${quotation.id}`);
       if (!qtRes.ok) throw new Error("Failed to fetch quotation details");
       const qtDetail = await qtRes.json();
-      
+
       const invBody = {
         customerId: qtDetail.customerId,
         invoiceNo: `INV-QT-${qtDetail.quotationNo.split('-').pop()}`,
@@ -855,20 +968,20 @@ export default function Sales() {
           amount: parseFloat(item.amount).toFixed(2)
         }))
       };
-      
+
       const invRes = await fetch("/api/sales?resource=invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(invBody)
       });
       if (!invRes.ok) throw new Error("Failed to create invoice from quotation");
-      
+
       await fetch(`/api/sales?resource=quotations&id=${quotation.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Invoiced" })
       });
-      
+
       toast({ title: "Success", description: "Quotation converted to invoice successfully" });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -896,7 +1009,7 @@ export default function Sales() {
   };
 
   const invCols = [
-    { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.invoiceNo}</span> },
+    { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "invoices" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
@@ -905,7 +1018,7 @@ export default function Sales() {
   ];
 
   const qtCols = [
-    { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.quotationNo}</span> },
+    { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "quotations" })}>{r.quotationNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
@@ -949,26 +1062,26 @@ export default function Sales() {
         </div>
 
         <TabsContent value="invoices" className="mt-4">
-          <TxTable 
-            data={invoices.filter((i:any) => i.status !== 'Draft')} 
-            cols={invCols} 
-            isLoading={invLoading} 
-            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })} 
+          <TxTable
+            data={invoices.filter((i: any) => i.status !== 'Draft')}
+            cols={invCols}
+            isLoading={invLoading}
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })}
             onToggleStatus={handleToggleStatus}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
-          <TxTable 
-            data={quotations} 
-            cols={qtCols} 
-            isLoading={qtLoading} 
+          <TxTable
+            data={quotations}
+            cols={qtCols}
+            isLoading={qtLoading}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })}
             onConvert={handleConvertQuotation}
             loadingId={convertingId}
           />
         </TabsContent>
         <TabsContent value="estimates" className="mt-4">
-          <TxTable data={invoices.filter((i:any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} />
+          <TxTable data={invoices.filter((i: any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">
           <TxTable data={returns} cols={qtCols} isLoading={srLoading} />
