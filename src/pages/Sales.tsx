@@ -1,18 +1,19 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
-function FormCombobox({ label, value, options, onSelect }: { label: string, value: string, options: string[], onSelect: (v: string) => void }) {
+function FormCombobox({ label, value, options, onSelect, action }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -37,7 +38,7 @@ function FormCombobox({ label, value, options, onSelect }: { label: string, valu
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
         <Command>
           <CommandInput placeholder={`Search ${label.toLowerCase()}...`} className="h-9" />
           <CommandList>
@@ -57,6 +58,14 @@ function FormCombobox({ label, value, options, onSelect }: { label: string, valu
                 </CommandItem>
               ))}
             </CommandGroup>
+            {action && (
+              <>
+                <Separator />
+                <div className="p-1">
+                  {action}
+                </div>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -583,8 +592,22 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   }]);
   const [customerId, setCustomerId] = useState("");
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const [gstEnabled, setGstEnabled] = useState(true);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Reset form when opening or when type changes
+  useEffect(() => {
+    if (open) {
+      setItems([{
+        name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+        category: "", subCategory: "", sku: ""
+      }]);
+      setCustomerId("");
+      setGstEnabled(type !== 'estimates');
+    }
+  }, [open, type]);
 
   const { data: contacts = [], isError: contactsError } = useQuery({
     queryKey: ["contacts"],
@@ -617,10 +640,19 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const totalTax = items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
-  const grandTotal = subtotal + (type === 'estimates' ? 0 : totalTax);
+  const totalTax = gstEnabled ? items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0) : 0;
+  const grandTotal = subtotal + (type === 'estimates' || !gstEnabled ? 0 : totalTax);
 
-  const handleSave = async () => {
+  const resetForm = () => {
+    setItems([{
+      name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+      category: "", subCategory: "", sku: ""
+    }]);
+    setCustomerId("");
+    setGstEnabled(type !== 'estimates');
+  };
+
+  const handleSave = async (stayOpen: boolean = false) => {
     if (!customerId) {
       toast({ variant: "destructive", title: "Missing information", description: "Please select a customer" });
       return;
@@ -654,13 +686,13 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["returns"] });
-      setOpen(false);
-      // Reset form
-      setItems([{
-        name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-        category: "", subCategory: "", sku: ""
-      }]);
-      setCustomerId("");
+      
+      if (stayOpen) {
+        resetForm();
+      } else {
+        setOpen(false);
+        resetForm();
+      }
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
@@ -671,171 +703,313 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-[98vw] w-full max-h-[96vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Select Customer</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(contacts) && contacts.filter((c: any) => c.status !== "Inactive").map((c: any) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
-                  {(!Array.isArray(contacts) || contacts.length === 0) && (
-                    <SelectItem value="none" disabled>No customers available</SelectItem>
+      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
+        <div className="flex flex-col h-full bg-white relative">
+          <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0 pr-12">
+            <DialogTitle>{title}</DialogTitle>
+            {items.length > 5 && (
+              <div className="flex items-center gap-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
+                  <p className="text-xs font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
+                {type !== 'estimates' && (
+                  <div className="text-right">
+                    <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">GST</p>
+                    <p className="text-xs font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                )}
+                <div className="h-8 w-px bg-border mx-1" />
+                <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
+                  <p className="text-[9px] font-black text-green-800 uppercase leading-none">Grand Total</p>
+                  <p className="text-sm font-black text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+            )}
+          </DialogHeader>
+
+          <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+            {/* Header info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Select Customer</Label>
+                <FormCombobox
+                  label="Customer"
+                  value={contacts.find((c: any) => c.id.toString() === customerId)?.name || ""}
+                  options={Array.isArray(contacts) ? contacts.filter((c: any) => c.status !== "Inactive").map((c: any) => c.name) : []}
+                  onSelect={(v) => {
+                    const contact = contacts.find((c: any) => c.name === v);
+                    if (contact) setCustomerId(contact.id.toString());
+                  }}
+                  action={
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-primary h-8 px-2 text-xs gap-2 hover:bg-primary/5" 
+                      onClick={() => navigate("/contacts?tab=b2b&action=add")}
+                    >
+                      <Plus className="h-3 w-3" /> Add New Customer
+                    </Button>
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Line Items Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md">
+                <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground ml-2">Line Items</Label>
+                <div className="flex items-center gap-3">
+                  {type !== 'estimates' && (
+                    <div className="flex items-center space-x-2 bg-white/50 px-3 py-1 rounded-full border border-primary/10 transition-all hover:bg-white">
+                      <Checkbox
+                        id="enable-gst"
+                        checked={gstEnabled}
+                        onCheckedChange={(checked) => setGstEnabled(checked as boolean)}
+                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-4 w-4"
+                      />
+                      <label 
+                        htmlFor="enable-gst" 
+                        className="text-[10px] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-green-700"
+                        data-enabled={gstEnabled}
+                      >
+                        Enable GST
+                      </label>
+                    </div>
                   )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-            </div>
-          </div>
+                  <Button variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 border-primary/20 hover:bg-primary/5">
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </Button>
+                </div>
+              </div>
 
-          <Separator />
+              <div className="space-y-3">
+                {items.map((item, index) => {
+                  const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
+                  const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
+                  const filteredProducts = products.filter((p: any) =>
+                    (!item.category || p.category === item.category) &&
+                    (!item.subCategory || p.subCategory === item.subCategory)
+                  );
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-sm font-bold">Line Items</Label>
-              <Button variant="outline" size="sm" onClick={addItem} className="h-7 gap-1">
-                <Plus className="h-3.5 w-3.5" /> Add Item
-              </Button>
-            </div>
+                  return (
+                    <div key={index} className="relative p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10">
+                      {/* Responsive Grid Layout */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end">
+                        {/* Row 1/Top section on mobile, Left section on desktop */}
+                        <div className="md:col-span-2 space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
+                          <FormCombobox
+                            label="Category"
+                            value={item.category}
+                            options={uniqueCategories}
+                            onSelect={(v) => {
+                              updateItem(index, "category", v);
+                              updateItem(index, "subCategory", "");
+                              updateItem(index, "name", "");
+                              updateItem(index, "sku", "");
+                            }}
+                          />
+                        </div>
+                        <div className="md:col-span-2 space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
+                          <FormCombobox
+                            label="Sub Category"
+                            value={item.subCategory}
+                            options={subCategories}
+                            onSelect={(v) => {
+                              updateItem(index, "subCategory", v);
+                              updateItem(index, "name", "");
+                              updateItem(index, "sku", "");
+                            }}
+                          />
+                        </div>
+                        <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
+                          <FormCombobox
+                            label="Product"
+                            value={item.sku ? `${item.sku} - ${item.name}` : item.name}
+                            options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)}
+                            onSelect={(v) => {
+                              const [skuStr, namePart] = v.split(' | ');
+                              const prod = filteredProducts.find((p: any) => p.name === namePart && (p.sku || 'N/A') === skuStr);
+                              if (prod) {
+                                updateItem(index, "name", prod.name);
+                                updateItem(index, "sku", prod.sku || "");
+                                updateItem(index, "category", prod.category || "");
+                                updateItem(index, "subCategory", prod.subCategory || "");
+                                updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
+                                updateItem(index, "hsnCode", prod.hsnCode || "");
+                                updateItem(index, "gstRate", prod.gstRate || "0");
+                              }
+                            }}
+                          />
+                        </div>
 
-            <div className="space-y-1.5">
-              {items.map((item, index) => {
-                const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
-                const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
-                const filteredProducts = products.filter((p: any) =>
-                  (!item.category || p.category === item.category) &&
-                  (!item.subCategory || p.subCategory === item.subCategory)
-                );
+                        {/* Financials Row */}
+                        <div className={cn("grid gap-2 items-end md:col-span-4", (type === 'estimates' || !gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
+                            <Input type="number" value={item.qty} className="h-10 font-bold px-1 text-center" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
+                            <Input type="number" value={item.rate} className="h-10 font-bold" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
+                          </div>
+                          {(type !== 'estimates' && gstEnabled) && (
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
+                              <Input
+                                type="number"
+                                value={item.gstRate}
+                                className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200"
+                                onChange={e => updateItem(index, "gstRate", e.target.value)}
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
+                            <div className="h-10 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[11px] text-primary overflow-hidden truncate">
+                              ₹{item.amount.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
 
-                return (
-                  <div key={index} className="flex gap-2 items-end p-3 border rounded-lg bg-gray-50/30 hover:bg-gray-50/50 transition-colors group">
-                    <div className="flex-[1.5] min-w-0 space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
-                      <FormCombobox
-                        label="Category"
-                        value={item.category}
-                        options={uniqueCategories}
-                        onSelect={(v) => {
-                          updateItem(index, "category", v);
-                          updateItem(index, "subCategory", "");
-                          updateItem(index, "name", "");
-                          updateItem(index, "sku", "");
-                        }}
-                      />
-                    </div>
-                    <div className="flex-[1.5] min-w-0 space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
-                      <FormCombobox
-                        label="Sub Category"
-                        value={item.subCategory}
-                        options={subCategories}
-                        onSelect={(v) => {
-                          updateItem(index, "subCategory", v);
-                          updateItem(index, "name", "");
-                          updateItem(index, "sku", "");
-                        }}
-                      />
-                    </div>
-                    <div className="flex-[3] min-w-0 space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
-                      <FormCombobox
-                        label="Product"
-                        value={item.sku ? `${item.sku} - ${item.name}` : item.name}
-                        options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)}
-                        onSelect={(v) => {
-                          const [skuStr, namePart] = v.split(' | ');
-                          const prod = filteredProducts.find((p: any) => p.name === namePart && (p.sku || 'N/A') === skuStr);
-                          if (prod) {
-                            updateItem(index, "name", prod.name);
-                            updateItem(index, "sku", prod.sku || "");
-                            updateItem(index, "category", prod.category || "");
-                            updateItem(index, "subCategory", prod.subCategory || "");
-                            updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
-                            updateItem(index, "hsnCode", prod.hsnCode || "");
-                            updateItem(index, "gstRate", prod.gstRate || "0");
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="w-[60px] space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
-                      <Input type="number" value={item.qty} className="h-10 font-bold px-1 text-center" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="w-[100px] space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Rate (₹)</Label>
-                      <Input type="number" value={item.rate} className="h-10 font-bold" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="w-[70px] space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
-                      <Input
-                        type="number"
-                        value={item.gstRate}
-                        className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200"
-                        onChange={e => updateItem(index, "gstRate", e.target.value)}
-                      />
-                    </div>
-                    <div className="w-[120px] space-y-1">
-                      <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
-                      <div className="h-10 flex items-center px-2 bg-primary/5 border border-primary/20 rounded-md font-black text-xs text-primary overflow-hidden truncate">
-                        ₹{item.amount.toFixed(2)}
+                        <div className="md:col-span-1 flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0"
+                            onClick={() => removeItem(index)}
+                            disabled={items.length === 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0"
-                      onClick={() => removeItem(index)}
-                      disabled={items.length === 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex justify-end">
-            <div className="w-1/3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-bold">₹{subtotal.toFixed(2)}</span>
+                  );
+                })}
               </div>
-              {type !== 'estimates' && (
+            </div>
+
+            <Separator />
+
+            {/* Footer Summary Section */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+              <div className="flex-1 invisible">
+                {/* Spacer / For future left-side footer content like notes */}
+              </div>
+              <div className="w-full sm:w-[320px] bg-muted/20 p-4 rounded-xl space-y-3 border shadow-inner">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">GST:</span>
-                  <span className="font-bold">₹{totalTax.toFixed(2)}</span>
+                  <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
+                  <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
-              )}
-              <Separator />
-              <div className="flex justify-between text-lg">
-                <span className="font-bold">Grand Total:</span>
-                <span className="font-black text-primary">₹{grandTotal.toFixed(2)}</span>
+                {type !== 'estimates' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">GST Amount</span>
+                    <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <Separator className="bg-muted-foreground/20" />
+                <div className="flex justify-between items-center text-lg">
+                  <span className="font-black text-xs uppercase tracking-widest text-muted-foreground">Grand Total</span>
+                  <span className="font-black text-xl text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save {type.slice(0, -1)}
+          <div className="p-4 border-t bg-muted/30 flex justify-end gap-3 shrink-0">
+            <Button variant="outline" size="lg" className="px-8" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="secondary" size="lg" className="px-4 gap-2 border-primary/10" onClick={() => handleSave(true)} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Save & Create Another
+            </Button>
+            <Button size="lg" className="px-8 shadow-lg shadow-primary/20 gap-2" onClick={() => handleSave(false)} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save {type.endsWith('s') ? type.slice(0, -1) : type}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ColumnFilter({ label, column, filters, setFilters, options }: any) {
+  const [open, setOpen] = useState(false);
+  const currentFilter = filters[column] || "";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className={cn("h-5 w-5 ml-auto p-0 hover:bg-muted-foreground/10", currentFilter && "text-primary bg-primary/5")}>
+          <Filter className={cn("h-2.5 w-2.5", currentFilter && "fill-current")} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3 shadow-xl border-primary/10 z-[110]" align="end">
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
+            {currentFilter && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-5 px-1.5 text-[9px] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
+                onClick={() => {
+                  const newFilters = { ...filters };
+                  delete newFilters[column];
+                  setFilters(newFilters);
+                  setOpen(false);
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {options ? (
+             <Select value={currentFilter} onValueChange={(v) => { 
+                if (v === "all") {
+                  const newFilters = { ...filters };
+                  delete newFilters[column];
+                  setFilters(newFilters);
+                } else {
+                  setFilters({...filters, [column]: v}); 
+                }
+                setOpen(false); 
+             }}>
+               <SelectTrigger className="h-8 text-xs">
+                 <SelectValue placeholder={`Select ${label}...`} />
+               </SelectTrigger>
+               <SelectContent className="z-[120]">
+                 <SelectItem value="all">All {label}s</SelectItem>
+                 {options.map((opt: any) => (
+                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+          ) : (
+             <Input 
+               placeholder={`Search ${label}...`} 
+               value={currentFilter} 
+               onChange={(e) => setFilters({...filters, [column]: e.target.value})}
+               className="h-8 text-xs font-medium focus-visible:ring-primary/20"
+               autoFocus
+             />
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -849,17 +1023,42 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   loadingId?: number | null
 }) {
   const [search, setSearch] = useState("");
-  const filtered = (data || []).filter(row =>
-    Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
-  );
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  
+  const filtered = (data || []).filter(row => {
+    // Global search
+    const matchesSearch = Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()));
+    
+    // Column specific filters
+    const matchesColumnFilters = Object.entries(columnFilters).every(([col, val]) => {
+      if (!val) return true;
+      const rowValue = row[col];
+      if (col.toLowerCase() === "status") {
+        return String(rowValue).toLowerCase() === val.toLowerCase();
+      }
+      return String(rowValue).toLowerCase().includes(val.toLowerCase());
+    });
+
+    return matchesSearch && matchesColumnFilters;
+  });
+
+  const clearFilters = () => {
+    setSearch("");
+    setColumnFilters({});
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="Search records..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        {(search || Object.keys(columnFilters).length > 0) && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
+            Clear Filters
+          </Button>
+        )}
       </div>
       <Card>
         <CardContent className="p-0">
@@ -871,7 +1070,18 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                 <thead>
                   <tr className="border-b bg-muted/40">
                     {cols.map(c => (
-                      <th key={c.key} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{c.label}</th>
+                      <th key={c.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        <div className="flex items-center group">
+                          <span className="uppercase tracking-widest font-black text-[9px]">{c.label}</span>
+                          <ColumnFilter 
+                            label={c.label} 
+                            column={c.key} 
+                            filters={columnFilters} 
+                            setFilters={setColumnFilters}
+                            options={c.filterOptions}
+                          />
+                        </div>
+                      </th>
                     ))}
                     {(onPrint || onConvert) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
                   </tr>

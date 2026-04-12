@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Filter } from "lucide-react";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -35,8 +38,76 @@ interface Contact {
   balance: string;
 }
 
+function ColumnFilter({ label, column, filters, setFilters, options }: any) {
+  const [open, setOpen] = useState(false);
+  const currentFilter = filters[column] || "";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className={cn("h-5 w-5 ml-auto p-0 hover:bg-muted-foreground/10", currentFilter && "text-primary bg-primary/5")}>
+          <Filter className={cn("h-2.5 w-2.5", currentFilter && "fill-current")} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3 shadow-xl border-primary/10 z-[110]" align="end">
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
+            {currentFilter && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-5 px-1.5 text-[9px] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
+                onClick={() => {
+                  const newFilters = { ...filters };
+                  delete newFilters[column];
+                  setFilters(newFilters);
+                  setOpen(false);
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {options ? (
+             <Select value={currentFilter} onValueChange={(v) => { 
+                if (v === "all") {
+                  const newFilters = { ...filters };
+                  delete newFilters[column];
+                  setFilters(newFilters);
+                } else {
+                  setFilters({...filters, [column]: v}); 
+                }
+                setOpen(false); 
+             }}>
+               <SelectTrigger className="h-8 text-xs">
+                 <SelectValue placeholder={`Select ${label}...`} />
+               </SelectTrigger>
+               <SelectContent className="z-[120]">
+                 <SelectItem value="all">All {label}s</SelectItem>
+                 {options.map((opt: any) => (
+                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+          ) : (
+             <Input 
+               placeholder={`Search ${label}...`} 
+               value={currentFilter} 
+               onChange={(e) => setFilters({...filters, [column]: e.target.value})}
+               className="h-8 text-xs font-medium focus-visible:ring-primary/20"
+               autoFocus
+             />
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ContactTable({ type, tabName }: { type: ContactType | ContactType[], tabName: string }) {
   const [search, setSearch] = useState("");
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -54,17 +125,45 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     },
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "add") {
+      setOpen(true);
+      // Clean up the URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("action");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, []);
+
   const types = Array.isArray(type) ? type : [type];
   const allContactsInTab = Array.isArray(contacts) ? contacts.filter(c => types.includes(c.type as ContactType)) : [];
   const activeCount = allContactsInTab.filter(c => c.status !== "Inactive").length;
   const inactiveCount = allContactsInTab.filter(c => c.status === "Inactive").length;
 
   const filtered = allContactsInTab
-    .filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.mobile && c.mobile.includes(search)) ||
-      (c.gst && c.gst.toLowerCase().includes(search.toLowerCase()))
-    );
+    .filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
+        (c.mobile && c.mobile.includes(search)) ||
+        (c.gst && c.gst.toLowerCase().includes(search.toLowerCase()));
+      
+      const matchesColumnFilters = Object.entries(columnFilters).every(([col, val]) => {
+        if (!val) return true;
+        const rowValue = (c as any)[col.toLowerCase()] || (c as any)[col];
+        if (col.toLowerCase() === "status" || col.toLowerCase() === "type") {
+          return String(rowValue).toLowerCase() === val.toLowerCase();
+        }
+        return String(rowValue).toLowerCase().includes(val.toLowerCase());
+      });
+
+      return matchesSearch && matchesColumnFilters;
+    });
+
+  const clearFilters = () => {
+    setSearch("");
+    setColumnFilters({});
+  };
 
   const addButtonLabel = tabName === "B2B" ? "Add B2B Customer" :
     tabName === "B2C" ? "Add B2C Customer" : "Add Supplier";
@@ -172,6 +271,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search contacts..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        {(search || Object.keys(columnFilters).length > 0) && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
+            Clear Filters
+          </Button>
+        )}
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
@@ -247,9 +351,39 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {["ID", "Name", "Type", "Mobile", "WhatsApp", "GST No.", "City", "Status", "Approval", "Balance", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                    {[
+                      { label: "ID", key: "id" },
+                      { label: "Name", key: "name" },
+                      { label: "Type", key: "type" },
+                      { label: "Mobile", key: "mobile" },
+                      { label: "WhatsApp", key: "whatsapp" },
+                      { label: "GST No.", key: "gst" },
+                      { label: "City", key: "city" },
+                      { label: "Status", key: "status" },
+                      { label: "Approval", key: "approval" },
+                      { label: "Balance", key: "balance" }
+                    ].map(h => (
+                      <th key={h.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        <div className="flex items-center group">
+                          <span className="uppercase tracking-widest font-black text-[9px]">{h.label}</span>
+                          <ColumnFilter 
+                            label={h.label} 
+                            column={h.key} 
+                            filters={columnFilters} 
+                            setFilters={setColumnFilters}
+                            options={h.key === "status" ? [
+                              { label: "Active", value: "Active" },
+                              { label: "Inactive", value: "Inactive" }
+                            ] : h.key === "type" ? [
+                              { label: "B2B", value: "B2B" },
+                              { label: "B2C", value: "B2C" },
+                              { label: "Supplier", value: "Supplier" }
+                            ] : undefined}
+                          />
+                        </div>
+                      </th>
                     ))}
+                    <th className="px-4 py-2.5"></th>
                   </tr>
                 </thead>
                 <tbody>
