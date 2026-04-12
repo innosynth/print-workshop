@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock } from "lucide-react";
+import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
@@ -474,6 +474,7 @@ export default function Settings() {
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [showBankDetails, setShowBankDetails] = useState(false);
 
   const { data: settingsData, isLoading } = useQuery({
     queryKey: ["settings"],
@@ -519,6 +520,15 @@ export default function Settings() {
   const handleSave = () => saveMutation.mutate({ type: "profile", payload: company });
   const handlePrintSettingsSave = () => saveMutation.mutate({ type: "print", payload: printConfig });
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setCompany((p: any) => ({ ...p, logoUrl: reader.result as string }));
+      reader.readAsDataURL(file);
+    }
+  };
+
   if (isLoading) return (
     <div className="h-full flex items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -548,11 +558,37 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-8">
               <div className="flex flex-col lg:flex-row items-start gap-8">
-                <div className="h-28 w-28 shrink-0 rounded-2xl border-2 border-dashed border-border flex items-center justify-center bg-muted/20 cursor-pointer hover:border-primary/50 transition-all group overflow-hidden shadow-inner">
-                  <div className="text-center group-hover:scale-105 transition-transform">
-                    <Building2 className="h-8 w-8 text-muted-foreground/50 mx-auto" />
-                    <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">LOGO</p>
-                  </div>
+                <div 
+                  className="h-28 w-28 shrink-0 rounded-2xl border-2 border-dashed border-border flex items-center justify-center bg-muted/20 cursor-pointer hover:border-primary/50 transition-all group overflow-hidden shadow-inner relative"
+                  onClick={() => document.getElementById('logo-upload')?.click()}
+                >
+                  <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                  {company.logoUrl ? (
+                    <div className="relative h-full w-full group/logo flex flex-col items-center justify-center">
+                      <img src={company.logoUrl} className="h-full w-full object-contain p-2" alt="Logo" />
+                      <Button 
+                        variant="destructive" 
+                        size="icon" 
+                        className="absolute top-1 right-1 h-7 w-7 rounded-full shadow-lg z-20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCompany((p: any) => ({ ...p, logoUrl: "" }));
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-center group-hover:scale-105 transition-transform">
+                        <Building2 className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+                        <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">UPLOAD LOGO</p>
+                      </div>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Plus className="h-6 w-6 text-white" />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                   <div className="md:col-span-2 lg:col-span-2">
@@ -591,13 +627,30 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[
                     { key: "bankName", label: "Bank Name" }, { key: "bankBranch", label: "Branch Name" },
-                    { key: "accountNumber", label: "Account Number" }, { key: "ifscCode", label: "IFSC Code" },
+                    { key: "accountNumber", label: "Account Number", sensitive: true }, 
+                    { key: "ifscCode", label: "IFSC Code", sensitive: true },
                     { key: "accountName", label: "Account Name / Beneficiary" }
                   ].map(f => (
                     <div key={f.key}>
                       <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
-                      <Input className="h-10 bg-muted/30 border-border" value={company[f.key] || ""}
-                        onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} />
+                      <div className="relative">
+                        <Input 
+                          type={(f as any).sensitive && !showBankDetails ? "password" : "text"}
+                          className="h-10 bg-muted/30 border-border pr-10" 
+                          value={company[f.key] || ""}
+                          onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} 
+                        />
+                        {(f as any).sensitive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-10 w-10 hover:bg-transparent text-muted-foreground"
+                            onClick={() => setShowBankDetails(!showBankDetails)}
+                          >
+                            {showBankDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

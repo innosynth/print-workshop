@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -27,6 +27,12 @@ import { QRCodeCanvas } from "qrcode.react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.549 4.142 1.594 5.945L0 24l4.374-1.146a11.81 11.81 0 0 0 5.645 1.438h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+  </svg>
+);
 
 function FormCombobox({ label, value, options, onSelect, action }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -93,15 +99,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   );
 
   const profile = settingsData?.profile || {
-    name: "Print Workshop",
-    slogan: "Innovation in Impression",
-    address: "No.68, Sarojini Road, Sidhapudur, Coimbatore-44",
-    gst: "33AAZFP8345G1ZN",
-    phone: "+91 84352 66666",
-    email: "aprintworkshop@gmail.com",
-    bankName: "ICICI Bank",
-    accountNumber: "730705000264",
-    ifscCode: "ICIC0007307"
+    name: "", slogan: "", address: "", gst: "", phone: "", email: "",
+    bankName: "", accountNumber: "", ifscCode: "", bankBranch: "", accountName: "",
+    logoUrl: ""
   };
 
   const { data: fullInvoice, isLoading: invoiceLoading } = useQuery({
@@ -319,9 +319,13 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               {/* A4 Header */}
               <div className="flex justify-between items-start border-b-2 border-black pb-4">
                 <div className="flex items-center">
-                  <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-4 shrink-0">PW</div>
+                  {profile.logoUrl ? (
+                    <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-4 shrink-0" alt="Logo" />
+                  ) : (
+                    <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-4 shrink-0">PW</div>
+                  )}
                   <div>
-                    <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">{profile.name}</h1>
+                    <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">{profile.name || "PRINT WORKSHOP"}</h1>
                     <p className="text-[10px] font-bold text-gray-600 uppercase mt-1 italic">{profile.slogan}</p>
                     <p className="text-[10px] font-bold text-black uppercase">DIGITAL PRINTING</p>
                   </div>
@@ -489,6 +493,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
             <div className="space-y-1 text-center font-sans tracking-tight leading-tight" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px` }}>
               {/* Thermal Format Header */}
               <div className="mb-2">
+                {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-1 object-contain" alt="Logo" />}
                 <h1 className="text-2xl font-black">{profile.name}</h1>
                 <p className="text-[10px] font-medium leading-none">( {profile.slogan} )</p>
                 <p className="text-[10px] mt-1">{profile.address}</p>
@@ -1013,14 +1018,15 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
   onPrint?: (r: any) => void,
   onConvert?: (r: any) => void,
   onToggleStatus?: (r: any) => void,
-  loadingId?: number | null
+  loadingId?: number | null,
+  onWhatsApp?: (r: any) => void
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -1115,8 +1121,13 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                               </Button>
                             )}
                             {onToggleStatus && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Unpaid" : "Mark as Paid"}>
-                                {row.status === "Paid" ? <Banknote className="h-4 w-4 text-green-600" /> : <Ban className="h-4 w-4 text-orange-500" />}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Pending" : "Mark as Paid"}>
+                                {row.status === "Paid" ? <Clock className="h-4 w-4 text-orange-500" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                              </Button>
+                            )}
+                            {onWhatsApp && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0 hover:bg-green-50" onClick={() => onWhatsApp(row)} title="Send via WhatsApp">
+                                <WhatsAppIcon className="h-4 w-4 text-[#25D366]" />
                               </Button>
                             )}
                           </div>
@@ -1143,7 +1154,20 @@ export default function Sales() {
   const activeTab = searchParams.get("tab") || "invoices";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const [selectedInvoice, setSelectedInvoice] = useState<any>({ data: null, type: "invoices" });
+  const [waDialog, setWaDialog] = useState<{ open: boolean, data: any, contact: any }>({ open: false, data: null, contact: null });
 
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => fetch("/api/core?resource=settings").then(res => res.json())
+  });
+
+  const profile = settingsData?.profile || {
+    name: "", slogan: "", address: "", gst: "", phone: "", email: "",
+    bankName: "", bankBranch: "", accountNumber: "", ifscCode: "", accountName: "",
+    logoUrl: ""
+  };
+
+  const { data: contacts = [] } = useQuery({ queryKey: ["contacts"], queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) });
   const { data: invoices = [], isLoading: invLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
   const { data: quotations = [], isLoading: qtLoading } = useQuery({ queryKey: ["quotations"], queryFn: () => fetch("/api/sales?resource=quotations").then(res => res.json()) });
   const { data: returns = [], isLoading: srLoading } = useQuery({ queryKey: ["returns"], queryFn: () => fetch("/api/sales?resource=returns").then(res => res.json()) });
@@ -1200,6 +1224,83 @@ export default function Sales() {
     } finally {
       setConvertingId(null);
     }
+  };
+
+  const handleWhatsApp = async (row: any) => {
+    const resource = row.invoiceNo ? 'invoices' : row.quotationNo ? 'quotations' : 'returns';
+    try {
+      const res = await fetch(`/api/sales?resource=${resource}&id=${row.id}`);
+      if (!res.ok) throw new Error("Failed to fetch details");
+      const fullData = await res.json();
+      const contact = contacts.find((c: any) => c.id === fullData.customerId);
+      setWaDialog({ open: true, data: fullData, contact });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: "Could not fetch document details for WhatsApp sharing." });
+    }
+  };
+
+  const confirmSendWhatsApp = () => {
+    if (!waDialog.contact?.whatsapp && !waDialog.contact?.mobile) {
+      toast({ variant: "destructive", title: "No Number", description: "This customer has no WhatsApp/Mobile number saved." });
+      return;
+    }
+    const number = waDialog.contact.whatsapp || waDialog.contact.mobile;
+    const cleanNumber = number.replace(/\D/g, '');
+    
+    const docType = waDialog.data.invoiceNo ? "TAX INVOICE" : waDialog.data.quotationNo ? "QUOTATION" : "ESTIMATE";
+    const docNo = waDialog.data.invoiceNo || waDialog.data.quotationNo || waDialog.data.estimateNo;
+    const p = profile;
+    
+    let msg = `*${p.name}*\n${p.slogan || ''}\n\n`;
+    msg += `📞 ${p.phone}\n`;
+    msg += `✉️ ${p.email}\n`;
+    msg += `📍 ${p.address}\n\n`;
+    msg += `*${docType}*\n`;
+    msg += `--------------------------\n`;
+    msg += `*To:* ${waDialog.contact.name}\n`;
+    msg += `*City:* ${waDialog.contact.city || '—'}\n`;
+    msg += `*GSTIN:* ${waDialog.contact.gst || 'N/A'}\n`;
+    msg += `--------------------------\n`;
+    msg += `*Invoice No:* ${docNo}\n`;
+    msg += `*Date:* ${waDialog.data.date}\n`;
+    msg += `*Status:* ${waDialog.data.status === 'Paid' ? 'Paid' : 'Yet to Pay'}\n`;
+    msg += `*GSTIN:* ${p.gst}\n\n`;
+    
+    msg += `*S.No | Description | QTY | RATE | AMOUNT*\n`;
+    msg += `--------------------------\n`;
+    
+    waDialog.data.items?.forEach((item: any, idx: number) => {
+      msg += `${idx + 1}. ${item.name} | ${item.qty} | ₹${item.rate} | *₹${item.amount}*\n`;
+    });
+    
+    msg += `--------------------------\n`;
+
+    if (waDialog.data.status !== 'Paid') {
+      msg += `*Bank Details*\n`;
+      msg += `Acc Name: *${p.accountName || p.name}*\n`;
+      msg += `Bank: *${p.bankName}*\n`;
+      msg += `Branch: *${p.bankBranch}*\n`;
+      msg += `A/C No: *${p.accountNumber}*\n`;
+      msg += `IFSC: *${p.ifscCode}*\n\n`;
+    }
+    
+    msg += `*Sub Total:* ₹${parseFloat(waDialog.data.amount || 0).toLocaleString('en-IN')}\n`;
+    const tax = parseFloat(waDialog.data.tax || 0);
+    if (tax > 0) {
+      // Find the first item with a GST rate to identify the percentage (e.g., 18% -> 9% CGST + 9% SGST)
+      const firstGstItem = waDialog.data.items?.find((i: any) => parseFloat(i.gstRate || 0) > 0);
+      const rate = firstGstItem ? (parseFloat(firstGstItem.gstRate) / 2) : 9;
+      msg += `*CGST ${rate}%:* ₹${(tax/2).toLocaleString('en-IN')}\n`;
+      msg += `*SGST ${rate}%:* ₹${(tax/2).toLocaleString('en-IN')}\n`;
+    }
+    msg += `*Grand Total: ₹${parseFloat(waDialog.data.total || 0).toLocaleString('en-IN')}*\n`;
+    msg += `--------------------------\n`;
+    msg += `*THANK YOU FOR YOUR BUSINESS*\n`;
+    msg += `_This is computer generated document signature not required_`;
+
+    const message = encodeURIComponent(msg);
+    window.open(`https://wa.me/91${cleanNumber}?text=${message}`, '_blank');
+    setWaDialog({ open: false, data: null, contact: null });
   };
 
   const handleToggleStatus = async (invoice: any) => {
@@ -1278,6 +1379,7 @@ export default function Sales() {
             isLoading={invLoading}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })}
             onToggleStatus={handleToggleStatus}
+            onWhatsApp={handleWhatsApp}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
@@ -1288,10 +1390,11 @@ export default function Sales() {
             onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })}
             onConvert={handleConvertQuotation}
             loadingId={convertingId}
+            onWhatsApp={handleWhatsApp}
           />
         </TabsContent>
         <TabsContent value="estimates" className="mt-4">
-          <TxTable data={invoices.filter((i: any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} />
+          <TxTable data={invoices.filter((i: any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} onWhatsApp={handleWhatsApp} />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">
           <TxTable data={returns} cols={qtCols} isLoading={srLoading} />
@@ -1309,6 +1412,38 @@ export default function Sales() {
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Special customer pricing matrix</div>
         </TabsContent>
       </Tabs>
+
+      {/* WhatsApp Confirmation Dialog */}
+      <Dialog open={waDialog.open} onOpenChange={(v) => setWaDialog(prev => ({ ...prev, open: v }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <WhatsAppIcon className="h-5 w-5 text-[#25D366]" />
+              Send to WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="p-4 bg-muted/30 rounded-lg space-y-2 border border-border/50">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Customer Details</p>
+              <p className="font-bold text-lg">{waDialog.contact?.name || "Unknown Customer"}</p>
+              <div className="flex items-center gap-2 text-primary font-black">
+                <p className="text-xl">
+                  {waDialog.contact?.whatsapp || waDialog.contact?.mobile || "No Number Linked"}
+                </p>
+              </div>
+            </div>
+            <div className="text-sm text-balance text-muted-foreground">
+              Confirm sending {waDialog.data?.invoiceNo || waDialog.data?.quotationNo || "document"} details to this number. This will open WhatsApp in a new tab.
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setWaDialog({ open: false, data: null, contact: null })}>Cancel</Button>
+            <Button className="bg-green-600 hover:bg-green-700 gap-2 shadow-lg shadow-green-600/20" onClick={confirmSendWhatsApp}>
+              Confirm & Send
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {selectedInvoice.data && (
         <InvoicePrintPreview
