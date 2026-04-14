@@ -695,12 +695,13 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Default Document Layout</Label>
-                  <Select value={printConfig.defaultPaperSize} onValueChange={(v) => setPrintConfig({ ...printConfig, defaultPaperSize: v as "A4" | "thermal" })}>
+                  <Select value={printConfig.defaultPaperSize} onValueChange={(v) => setPrintConfig({ ...printConfig, defaultPaperSize: v as "A4" | "A5" | "thermal" })}>
                     <SelectTrigger className="mt-1 h-11 bg-muted/30 border-border font-medium">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A4">Standard A4 (Enterprise)</SelectItem>
+                      <SelectItem value="A5">Standard A5 (Half Sheet)</SelectItem>
                       <SelectItem value="thermal">Thermal POS (Small Format)</SelectItem>
                     </SelectContent>
                   </Select>

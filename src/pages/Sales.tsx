@@ -142,13 +142,13 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
                   <span className="text-muted-foreground italic">-- Skip / None --</span>
                 </CommandItem>
               )}
-              {options.map((opt: string) => (
+              {Array.from(new Set(options)).map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
-                  onSelect={(v) => {
+                  onSelect={() => {
                     justClosed.current = true;
-                    onSelect(v);
+                    onSelect(opt);
                     setOpen(false);
                   }}
                 >
@@ -174,7 +174,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
 
 function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onClose: () => void, docType?: string }) {
   const { settings } = usePrintSettings();
-  const [paperSize, setPaperSize] = useState<"A4" | "thermal">(docType === "estimates" ? "thermal" : settings.defaultPaperSize);
+  const [paperSize, setPaperSize] = useState<"A4" | "A5" | "thermal">("A4");
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data: settingsData } = useQuery({
@@ -206,9 +206,30 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     refetchOnMount: "always"
   });
 
-  if (invoiceLoading) return <Dialog open onOpenChange={onClose}><DialogContent className="p-20 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></DialogContent></Dialog>;
-
   const activeInvoice = fullInvoice || invoice;
+
+  useEffect(() => {
+    if (docType === "estimates") {
+      setPaperSize("thermal");
+    } else if (activeInvoice?.items) {
+      if (activeInvoice.items.length <= 5) {
+        setPaperSize("A5");
+      } else {
+        setPaperSize("A4");
+      }
+    }
+  }, [activeInvoice?.id, docType]);
+
+  if (invoiceLoading) return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="p-20 flex items-center justify-center">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Loading Document</DialogTitle>
+        </DialogHeader>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </DialogContent>
+    </Dialog>
+  );
   const isEstimate = docType === "estimates";
   const items = activeInvoice.items || [];
   const isIgst = activeInvoice.isIgst === true;
@@ -235,7 +256,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
-      windowWidth: paperSize === "A4" ? 1122 : 302, // 297mm and 80mm in px at 96dpi
+      windowWidth: paperSize === "A4" ? 1122 : paperSize === "A5" ? 794 : 302, // 297mm, 210mm and 80mm in px at 96dpi
       onclone: (document) => {
         // Ensure the cloned element is visible and has correct styles
         const el = document.querySelector('.print-container') as HTMLElement;
@@ -243,11 +264,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       }
     });
 
-    const imgData = canvas.toDataURL(paperSize === "A4" ? 'image/png' : 'image/jpeg', 1.0);
+    const imgData = canvas.toDataURL(paperSize === "thermal" ? 'image/jpeg' : 'image/png', 1.0);
     const pdf = new jsPDF({
-      orientation: paperSize === "A4" ? "l" : "p",
+      orientation: paperSize === "thermal" ? "p" : "l",
       unit: "mm",
-      format: paperSize === "A4" ? "a4" : [80, (canvas.height * 80) / canvas.width]
+      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? "a5" : [80, (canvas.height * 80) / canvas.width]
     });
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -262,7 +283,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const printStyles = `
   @media print {
     @page {
-      size: ${paperSize === "A4" ? "A4 landscape" : "80mm auto"};
+      size: ${paperSize === "A4" ? "A4 landscape" : paperSize === "A5" ? "A5 landscape" : "80mm auto"};
       margin: 0;
     }
     
@@ -345,8 +366,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
     .invoice-page {
       width: 100% !important;
-      max-width: 285mm !important;
-      min-height: calc(210mm - 12mm) !important;
+      max-width: ${paperSize === "A4" ? "285mm" : "195mm"} !important;
+      min-height: ${paperSize === "A4" ? "calc(210mm - 12mm)" : "calc(148mm - 12mm)"} !important;
       box-sizing: border-box !important;
       margin: 0 auto !important;
       padding: 4mm 6mm !important;
@@ -397,6 +418,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-white p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Print Preview - {docTitle}</DialogTitle>
+        </DialogHeader>
         <style>{printStyles}</style>
 
         <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm">
@@ -404,8 +428,20 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
             { (activeInvoice.invoiceNo || activeInvoice.quotationNo || invoice.invoiceNo || invoice.quotationNo || "Draft") }_{ (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').length > 15 ? (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').substring(0, 15) + "..." : (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_') }
           </span>
           <div className="flex gap-2">
-            <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
-            <Button variant={paperSize === "thermal" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("thermal")}>Thermal POS</Button>
+            {isEstimate ? (
+              <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">Thermal POS Only</Button>
+            ) : (
+              <>
+                {items.length > 5 ? (
+                  <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">A4 Paper Only</Button>
+                ) : (
+                  <>
+                    <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
+                    <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")}>A5 Paper</Button>
+                  </>
+                )}
+              </>
+            )}
             <Separator orientation="vertical" className="h-8 mx-2" />
             <Button onClick={handlePrint} className="gap-2"><Printer className="h-4 w-4" /> Print Document</Button>
             <Button variant="outline" onClick={handleDownload} className="gap-2"><Download className="h-4 w-4" /> Download PDF</Button>
@@ -416,7 +452,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           ref={printRef}
           className={`print-container p-2 mx-auto overflow-auto ${paperSize === "thermal" ? "thermal-format p-2" : ""}`}
         >
-          {paperSize === "A4" ? (
+          {paperSize === "A4" || paperSize === "A5" ? (
             <div className="invoice-page space-y-3" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
               {/* A4 Header */}
               <div className="flex justify-between items-start border-b-2 border-black pb-4">
@@ -772,7 +808,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     })
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: allProducts = [] } = useQuery({
     queryKey: ["products"],
     queryFn: () => fetch("/api/core?resource=products").then(res => {
       if (!res.ok) throw new Error("Failed to fetch products");
@@ -780,17 +816,30 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     })
   });
 
+  const products = allProducts.filter((p: any) => p.status === "Active" || !p.status);
+
 
 
   // Reset form when opening or when type/initialData changes
-  useEffect(() => {
-    if (open) {
-      if (initialData) {
-        // Use fullDetails if available, fallback to initialData
-        const source = fullDetails || initialData;
+  const initialFocusDone = useRef(false);
+  const formInitialized = useRef(false);
 
+  // Reset initialization state when modal closes
+  useEffect(() => {
+    if (!open) {
+      formInitialized.current = false;
+      initialFocusDone.current = false;
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (open && !formInitialized.current) {
+      if (initialData) {
+        // If we have initialData but are waiting for fullDetails, wait
+        if (!fullDetails) return;
+
+        const source = fullDetails || initialData;
         const mappedItems = (source.items || []).map((item: any) => {
-          // If category is missing, attempt to find it from products list
           let category = item.category;
           let subCategory = item.subCategory;
 
@@ -819,7 +868,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(source.date || new Date().toISOString().split('T')[0]);
         setGstEnabled(parseFloat(source.tax || 0) > 0 || type !== 'estimates');
         setIsIgst(source.isIgst === true);
+        formInitialized.current = true;
       } else {
+        // Create new mode
         setItems([{
           name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
           category: "", subCategory: "", sku: ""
@@ -830,14 +881,19 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(new Date().toISOString().split('T')[0]);
         setGstEnabled(type !== 'estimates');
         setIsIgst(false);
+        formInitialized.current = true;
       }
     }
   }, [open, type, initialData, fullDetails, products]);
 
   // Focus customer select on open
   useEffect(() => {
-    if (open) {
-      setTimeout(() => customerRef.current?.focus(), 100);
+    if (open && !initialFocusDone.current) {
+      const timer = setTimeout(() => {
+        customerRef.current?.focus();
+        initialFocusDone.current = true;
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -850,12 +906,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
-    const newItems = [...items];
-    (newItems[index] as any)[field] = value;
-    if (field === "qty" || field === "rate") {
-      newItems[index].amount = newItems[index].qty * newItems[index].rate;
-    }
-    setItems(newItems);
+    setItems(prev => {
+      const newItems = [...prev];
+      if (!newItems[index]) return prev;
+      const updated = { ...newItems[index], [field]: value };
+      if (field === "qty" || field === "rate") {
+        updated.amount = (Number(updated.qty || 0)) * (Number(updated.rate || 0));
+      }
+      newItems[index] = updated;
+      return newItems;
+    });
   };
 
   const validItems = items.filter(i => i.name && i.name.trim() !== "");
@@ -976,9 +1036,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   allowCustom
                   label="Customer"
                   value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
-                  options={Array.isArray(contacts) ? contacts.filter((c: any) => c.status !== "Inactive").map((c: any) => c.name) : []}
+                  options={Array.from(new Set(contacts.filter((c: any) => c.status !== "Inactive" && (c.type === "B2B" || c.type === "B2C")).map((c: any) => c.name)))}
                   onSelect={(v) => {
-                    const contact = contacts.find((c: any) => c.name === v);
+                    const contact = contacts.find((c: any) => c.name === v && (c.type === "B2B" || c.type === "B2C"));
                     if (contact) {
                       setCustomerId(contact.id.toString());
                       setCustomerName("");
@@ -1054,11 +1114,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               <div className="space-y-3">
                 {items.map((item, index) => {
                   const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
-                  const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
-                  const filteredProducts = products.filter((p: any) =>
-                    (!item.category || p.category === item.category) &&
-                    (!item.subCategory || p.subCategory === item.subCategory)
-                  );
+                  const productNames = Array.from(new Set(products.filter((p: any) => !item.category || p.category === item.category).map((p: any) => p.name))).filter(Boolean) as string[];
+                  const subCategories = Array.from(new Set(products.filter((p: any) => 
+                    (!item.category || p.category === item.category) && 
+                    (!item.name || p.name === item.name)
+                  ).map((p: any) => p.subCategory))).filter(Boolean) as string[];
 
                   return (
                     <div key={index} className="relative p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10">
@@ -1069,7 +1129,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => categoryRefs.current[index] = el}
-                            onKeyDown={(e) => handleEnter(e, subCategoryRefs.current[index])}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !item.category) {
+                                e.preventDefault();
+                                saveBtnRef.current?.focus();
+                              } else {
+                                handleEnter(e, productRefs.current[index]);
+                              }
+                            }}
                             openOnFocus
                             label="Category"
                             value={item.category}
@@ -1080,8 +1147,25 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                                 return;
                               }
                               updateItem(index, "category", v);
-                              updateItem(index, "subCategory", "");
                               updateItem(index, "name", "");
+                              updateItem(index, "subCategory", "");
+                              updateItem(index, "sku", "");
+                              setTimeout(() => productRefs.current[index]?.focus(), 150);
+                            }}
+                          />
+                        </div>
+                        <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product</Label>
+                          <FormCombobox
+                            triggerRef={(el: any) => productRefs.current[index] = el}
+                            onKeyDown={(e) => handleEnter(e, subCategoryRefs.current[index])}
+                            openOnFocus
+                            label="Product"
+                            value={item.name}
+                            options={productNames}
+                            onSelect={(v) => {
+                              updateItem(index, "name", v);
+                              updateItem(index, "subCategory", "");
                               updateItem(index, "sku", "");
                               setTimeout(() => subCategoryRefs.current[index]?.focus(), 150);
                             }}
@@ -1091,41 +1175,31 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => subCategoryRefs.current[index] = el}
-                            onKeyDown={(e) => handleEnter(e, productRefs.current[index])}
+                            onKeyDown={(e) => handleEnter(e, qtyRefs.current[index])}
                             openOnFocus
                             label="Sub Category"
                             value={item.subCategory}
                             options={subCategories}
                             onSelect={(v) => {
                               updateItem(index, "subCategory", v);
-                              updateItem(index, "name", "");
-                              updateItem(index, "sku", "");
-                              setTimeout(() => productRefs.current[index]?.focus(), 150);
-                            }}
-                          />
-                        </div>
-                        <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
-                          <FormCombobox
-                            triggerRef={(el: any) => productRefs.current[index] = el}
-                            onKeyDown={(e) => handleEnter(e, qtyRefs.current[index])}
-                            openOnFocus
-                            label="Product"
-                            value={item.sku ? `${item.sku} - ${item.name}` : item.name}
-                            options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)}
-                            onSelect={(v) => {
-                              const [skuStr, namePart] = v.split(' | ');
-                              const prod = filteredProducts.find((p: any) => p.name === namePart && (p.sku || 'N/A') === skuStr);
-                              if (prod) {
-                                updateItem(index, "name", prod.name);
-                                updateItem(index, "sku", prod.sku || "");
-                                updateItem(index, "category", prod.category || "");
-                                updateItem(index, "subCategory", prod.subCategory || "");
-                                updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
-                                updateItem(index, "hsnCode", prod.hsnCode || "");
-                                updateItem(index, "gstRate", prod.gstRate || "0");
-                                setTimeout(() => qtyRefs.current[index]?.focus(), 100);
+                              
+                              // Once sub-category is selected, pick the exact product record
+                              const exactProd = products.find((p: any) => 
+                                p.name === item.name && 
+                                p.subCategory === v && 
+                                (!item.category || p.category === item.category)
+                              );
+                              
+                              if (exactProd) {
+                                updateItem(index, "sku", exactProd.sku || "");
+                                updateItem(index, "rate", parseFloat(exactProd.sellPrice || 0));
+                                updateItem(index, "hsnCode", exactProd.hsnCode || "");
+                                updateItem(index, "gstRate", exactProd.gstRate || "0");
+                                if (exactProd.category && !item.category) {
+                                  updateItem(index, "category", exactProd.category);
+                                }
                               }
+                              setTimeout(() => qtyRefs.current[index]?.focus(), 150);
                             }}
                           />
                         </div>

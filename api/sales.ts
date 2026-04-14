@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
-import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, contacts } from '../db/schema.js';
+import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, purchaseItems, contacts } from '../db/schema.js';
 import { eq, desc, sql } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -137,29 +137,91 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     if (resource === 'purchases') {
       if (method === 'GET') {
+        const { id } = request.query;
+        if (id) {
+          const table = type === 'orders' ? purchaseOrders : purchaseEntries;
+          const main = await db.select({
+            id: table.id,
+            date: table.date,
+            dueDate: table.dueDate,
+            supplierId: table.supplierId,
+            invNo: table.invNo,
+            orderNo: table.orderNo,
+            ourPoNo: table.ourPoNo,
+            ourDcNo: table.ourDcNo,
+            isIgst: table.isIgst,
+            amount: table.amount,
+            tax: table.tax,
+            total: table.total,
+            status: table.status,
+            ...(type === 'entries' ? { receivedAmount: purchaseEntries.receivedAmount } : {}),
+            supplierName: contacts.name
+          }).from(table).leftJoin(contacts, eq(table.supplierId, contacts.id)).where(eq(table.id, parseInt(id as string))).limit(1);
+          
+          if (main.length === 0) return response.status(404).json({ error: 'Purchase record not found' });
+          const items = await db.select().from(purchaseItems).where(
+            type === 'orders' ? eq(purchaseItems.purchaseOrderId, main[0].id) : eq(purchaseItems.purchaseId, main[0].id)
+          );
+          return response.status(200).json({ ...main[0], items });
+        }
+
         if (type === 'orders') {
           const data = await db.select({
             id: purchaseOrders.id, orderNo: purchaseOrders.orderNo, date: purchaseOrders.date,
             amount: purchaseOrders.amount, status: purchaseOrders.status, supplierName: contacts.name,
+            tax: purchaseOrders.tax, total: purchaseOrders.total
           }).from(purchaseOrders).leftJoin(contacts, eq(purchaseOrders.supplierId, contacts.id)).orderBy(desc(purchaseOrders.createdAt));
           return response.status(200).json(data);
         } else {
           const data = await db.select({
             id: purchaseEntries.id, purchaseNo: purchaseEntries.purchaseNo, date: purchaseEntries.date,
             amount: purchaseEntries.amount, status: purchaseEntries.status, supplierName: contacts.name,
+            tax: purchaseEntries.tax, total: purchaseEntries.total
           }).from(purchaseEntries).leftJoin(contacts, eq(purchaseEntries.supplierId, contacts.id)).orderBy(desc(purchaseEntries.createdAt));
           return response.status(200).json(data);
         }
       }
       if (method === 'POST') {
-        const data = request.body;
+        const { items, ...data } = request.body;
         if (type === 'orders') {
+          // Auto-generate orderNo if missing
+          if (!data.orderNo && !data.id) data.orderNo = `PO-${Date.now().toString().slice(-6)}`;
           const newOrder = await db.insert(purchaseOrders).values(data).returning();
+          if (items?.length > 0) {
+            const itemsWithId = items.map((item: any) => ({
+              name: item.name,
+              sku: item.sku,
+              qty: item.qty.toString(),
+              rate: item.rate.toString(),
+              amount: item.amount.toString(),
+              hsnCode: item.hsn,
+              gstRate: item.gstRate.toString(),
+              packing: item.packing,
+              unit: item.unit,
+              purchaseOrderId: newOrder[0].id
+            }));
+            await db.insert(purchaseItems).values(itemsWithId);
+          }
           return response.status(200).json(newOrder[0]);
         } else {
-          // Flatten items into description or summary if items table doesn't exist for purchases
-          const { items, ...entryData } = data;
-          const newEntry = await db.insert(purchaseEntries).values(entryData).returning();
+          // Auto-generate purchaseNo if missing
+          if (!data.purchaseNo && !data.id) data.purchaseNo = `PUR-${Date.now().toString().slice(-6)}`;
+          const newEntry = await db.insert(purchaseEntries).values(data).returning();
+          if (items?.length > 0) {
+            const itemsWithId = items.map((item: any) => ({
+              name: item.name,
+              sku: item.sku,
+              qty: item.qty.toString(),
+              rate: item.rate.toString(),
+              amount: item.amount.toString(),
+              hsnCode: item.hsn,
+              gstRate: item.gstRate.toString(),
+              packing: item.packing,
+              unit: item.unit,
+              purchaseId: newEntry[0].id
+            }));
+            await db.insert(purchaseItems).values(itemsWithId);
+          }
           return response.status(200).json(newEntry[0]);
         }
       }

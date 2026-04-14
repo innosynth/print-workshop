@@ -7,7 +7,7 @@ export interface PrintSettings {
     thermalFontSize: string;
     a4Margin: string;
     a4FontSize: string;
-    defaultPaperSize: "A4" | "thermal";
+    defaultPaperSize: "A4" | "A5" | "thermal";
 }
 
 interface PrintSettingsContextType {

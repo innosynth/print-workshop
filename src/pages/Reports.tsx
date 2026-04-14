@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer, RotateCcw, ArrowLeft } from "lucide-react";
+import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer, RotateCcw, ArrowLeft, Gauge } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,6 +19,7 @@ const reportTypes = [
   { key: "expense", icon: Receipt, title: "Expense Summary", desc: "Category-wise expense breakdown and trends" },
   { key: "outstanding", icon: TrendingUp, title: "Outstanding Report", desc: "Receivable and payable aging analysis" },
   { key: "transaction", icon: History, title: "Transaction History", desc: "Complete transaction log across all modules" },
+  { key: "meter-reading", icon: Gauge, title: "Meter Analysis", desc: "Cumulative machine consumption and click tracking" },
 ];
 
 const exportToExcel = (data: any[], filename: string) => {
@@ -840,6 +841,94 @@ function InvoiceLedgerReport({ onRegisterExport }: { onRegisterExport: (fn: () =
   );
 }
 
+function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
+  const [dateRange, setDateRange] = useState("This Month");
+  const { data: readings = [], isLoading } = useQuery({ 
+    queryKey: ["meter_readings"], 
+    queryFn: () => fetch("/api/system?resource=meter_readings").then(res => res.json()) 
+  });
+
+  const filtered = readings.filter((r: any) => {
+    // Basic date filtering for demo, in real app would be more robust
+    const d = new Date(r.date);
+    const now = new Date();
+    if (dateRange === "This Month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return true;
+  });
+
+  useEffect(() => {
+    onRegisterExport(() => exportToCSV(filtered, `Meter_Analysis_${new Date().toISOString().split('T')[0]}`));
+  }, [filtered]);
+
+  const totalUsage = filtered.reduce((acc: number, r: any) => acc + parseFloat(r.totalUsage || 0), 0);
+  const totalBW = filtered.reduce((acc: number, r: any) => acc + parseFloat(r.bwLarge || 0), 0);
+  const totalColor = filtered.reduce((acc: number, r: any) => acc + (parseFloat(r.colorLarge || 0) + parseFloat(r.colorSmall || 0)), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform"><Gauge className="h-24 w-24 text-primary" /></div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Total Print Volume</p>
+          <p className="text-4xl font-black tabular-nums">{totalUsage.toLocaleString()}</p>
+          <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full uppercase">
+             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Cumulative
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border-2 border-blue-50 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-2">B&W Consumption</p>
+          <p className="text-4xl font-black tabular-nums text-blue-900">{totalBW.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl border-2 border-orange-50 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400 mb-2">Color Consumption</p>
+          <p className="text-4xl font-black tabular-nums text-orange-900">{totalColor.toLocaleString()}</p>
+        </div>
+      </div>
+
+      <Card className="border-gray-200 shadow-xl overflow-hidden rounded-2xl">
+        <CardHeader className="bg-gray-50 border-b pb-4">
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500">Machine-wise Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-100/50 text-gray-400 font-bold uppercase text-[9px]">
+                <th className="px-6 py-4 text-left">Machine Name</th>
+                <th className="px-6 py-4 text-center">Last Opening</th>
+                <th className="px-6 py-4 text-center">Last Closing</th>
+                <th className="px-6 py-4 text-right bg-primary/5 text-primary">Total Clicks</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {isLoading ? (
+                <tr><td colSpan={4} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={4} className="p-20 text-center font-bold text-gray-400 uppercase italic">No readings found for the selected period.</td></tr>
+              ) : (
+                // Group by machine and show sums
+                Object.values(filtered.reduce((acc: any, curr: any) => {
+                  if (!acc[curr.machineName]) acc[curr.machineName] = { name: curr.machineName, usage: 0, open: curr.openingReading, close: curr.closingReading };
+                  acc[curr.machineName].usage += parseFloat(curr.totalUsage || 0);
+                  acc[curr.machineName].open = Math.min(acc[curr.machineName].open, curr.openingReading);
+                  acc[curr.machineName].close = Math.max(acc[curr.machineName].close, curr.closingReading);
+                  return acc;
+                }, {})).map((m: any) => (
+                  <tr key={m.name} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-black uppercase text-gray-900">{m.name}</td>
+                    <td className="px-6 py-4 text-center tabular-nums font-bold text-gray-400">{parseFloat(m.open).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center tabular-nums font-bold text-gray-600">{parseFloat(m.close).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right tabular-nums font-black text-sm bg-primary/5 text-primary">{m.usage.toLocaleString()}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Reports() {
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active");
@@ -892,8 +981,9 @@ export default function Reports() {
           {active === "expense" && <ExpenseReport onRegisterExport={(fn) => exportRef.current = fn} />}
           {active === "outstanding" && <OutstandingReport onRegisterExport={(fn) => exportRef.current = fn} />}
           {active === "transaction" && <TransactionHistoryReport onRegisterExport={(fn) => exportRef.current = fn} />}
+          {active === "meter-reading" && <MeterReadingReport onRegisterExport={(fn) => exportRef.current = fn} />}
           
-          {!["gst","invoice-ledger","daily-sales","inventory","expense","outstanding","transaction"].includes(active) && (
+          {!["gst","invoice-ledger","daily-sales","inventory","expense","outstanding","transaction","meter-reading"].includes(active) && (
             <div className="p-20 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem]">
               <report.icon className="h-16 w-16 text-gray-200 mx-auto mb-6" />
               <h3 className="text-xl font-black uppercase text-gray-400">Section Under Sync</h3>

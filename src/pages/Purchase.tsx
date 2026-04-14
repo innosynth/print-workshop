@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Trash2 } from "lucide-react";
+import { Search, Plus, Loader2, Trash2, RefreshCw, Check, ChevronsUpDown, Calendar } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,112 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
+
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpen, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpen?: boolean, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState("");
+  const [search, setSearch] = useState("");
+  const justClosed = useRef(false);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (autoOpen) {
+      const timer = setTimeout(() => setOpen(true), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpen]);
+
+  useEffect(() => {
+    if (open) {
+      setHighlighted("___hidden_default___");
+      setSearch("");
+      const timer = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          variant="outline"
+          role="combobox"
+          className={cn("w-full mt-1 h-10 justify-between font-normal", className)}
+          onFocus={() => {
+            if (openOnFocus && !justClosed.current) {
+              setOpen(true);
+            }
+            justClosed.current = false;
+          }}
+          onKeyDown={onKeyDown}
+        >
+          <span className="truncate">{value || `Select ${label.toLowerCase()}`}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
+        <Command value={highlighted} onValueChange={setHighlighted}>
+          <CommandInput
+            ref={inputRef}
+            placeholder={`Search ${label.toLowerCase()}...`}
+            className="h-9"
+            onValueChange={setSearch}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const hasMatches = options.some(opt => opt.toLowerCase().includes(search.toLowerCase()));
+                if (!hasMatches && allowCustom && search) {
+                  justClosed.current = true;
+                  onSelect(search);
+                  setOpen(false);
+                  if (onKeyDown) setTimeout(() => onKeyDown(e), 100);
+                  return;
+                }
+                if (onKeyDown && (search || highlighted)) {
+                  setTimeout(() => onKeyDown(e), 100);
+                }
+              }
+            }}
+          />
+          <CommandList>
+            <CommandEmpty className="p-0 text-xs p-4 text-center">No {label.toLowerCase()} found.</CommandEmpty>
+            <CommandGroup className="p-0 h-0 overflow-hidden">
+              <CommandItem value="___hidden_default___" onSelect={() => { justClosed.current = true; setOpen(false); onSelect(""); }} />
+            </CommandGroup>
+            <CommandGroup>
+              {Array.from(new Set(options)).map((opt: string) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={() => {
+                    justClosed.current = true;
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
+                  {opt}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            {action && (
+              <>
+                <Separator />
+                <div className="p-1">{action}</div>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
   const [open, setOpen] = useState(false);
@@ -20,56 +125,150 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [items, setItems] = useState([{ name: "", qty: 1, rate: 0, amount: 0 }]);
+
+  // Form States
   const [supplierId, setSupplierId] = useState("");
+  const [isIgst, setIsIgst] = useState(false);
+  const [orderNo, setOrderNo] = useState("");
+  const [invNo, setInvNo] = useState("");
+  const [createDate, setCreateDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [ourPoNo, setOurPoNo] = useState("");
+  const [ourDcNo, setOurDcNo] = useState("");
+  const [receivedAmount, setReceivedAmount] = useState("0");
+
+  const [items, setItems] = useState<any[]>([{ 
+    category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", 
+    gstRate: "18", disPct: 0, unit: "Nos" 
+  }]);
+
+  // Navigation Refs
+  const supplierRef = useRef<HTMLButtonElement>(null);
+  const createDateRef = useRef<HTMLInputElement>(null);
+  const dueDateRef = useRef<HTMLInputElement>(null);
+  const invNoRef = useRef<HTMLInputElement>(null);
+  const orderRef = useRef<HTMLInputElement>(null);
+  const poRef = useRef<HTMLInputElement>(null);
+  const dcRef = useRef<HTMLInputElement>(null);
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+  
+  const categoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const subCategoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const itemProductRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const itemQtyRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const itemRateRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleEnter = (e: React.KeyboardEvent, nextRef: any) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (nextRef?.current) nextRef.current.focus();
+      else if (nextRef?.focus) nextRef.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => supplierRef.current?.focus(), 150);
+    }
+  }, [open]);
 
   const { data: contacts = [] } = useQuery({ 
     queryKey: ["contacts-suppliers"], 
     queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) 
   });
-  const suppliers = contacts.filter((c: any) => c.type === "Supplier" || c.type === "Employee");
+  const { data: allProducts = [] } = useQuery({ 
+    queryKey: ["products"], 
+    queryFn: () => fetch("/api/core?resource=products").then(res => res.json()) 
+  });
 
-  const addItem = () => setItems([...items, { name: "", qty: 1, rate: 0, amount: 0 }]);
+  const suppliers = contacts.filter((c: any) => c.type === "Supplier" && c.status !== "Inactive");
+  const products = allProducts.filter((p: any) => p.status === "Active" || !p.status);
+
+  const addItem = () => setItems([...items, { 
+    category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", 
+    gstRate: "18", disPct: 0, unit: "Nos" 
+  }]);
+
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+
   const updateItem = (index: number, field: string, value: any) => {
-    const newItems = [...items];
-    (newItems[index] as any)[field] = value;
-    if (field === "qty" || field === "rate") {
-      newItems[index].amount = newItems[index].qty * newItems[index].rate;
-    }
-    setItems(newItems);
+    setItems(prev => {
+      const newItems = [...prev];
+      if (!newItems[index]) return prev;
+
+      newItems[index] = { ...newItems[index], [field]: value };
+      
+      const item = newItems[index];
+      if (field === "category") {
+        item.subCategory = "";
+        item.name = "";
+        item.sku = "";
+      } else if (field === "subCategory") {
+        item.name = "";
+        item.sku = "";
+      } else if (field === "name") {
+        const match = products.find((p: any) => p.name === value);
+        if (match) {
+          item.sku = match.sku || "";
+          item.category = match.category || item.category;
+          item.subCategory = match.subCategory || item.subCategory;
+          item.rate = parseFloat(match.purchasePrice) || 0;
+          item.gstRate = match.gstRate || "18";
+          item.hsn = match.hsnCode || "";
+          item.unit = match.unit || "Nos";
+        }
+      }
+
+      const qty = Number(item.qty || 0);
+      const rate = Number(item.rate || 0);
+      const disPct = Number(item.disPct || 0);
+      
+      const baseAmount = qty * rate;
+      const discount = (baseAmount * (disPct / 100));
+      item.amount = baseAmount - discount;
+      
+      return newItems;
+    });
   };
 
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const calculateTotals = () => {
+    const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const totalTax = items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate) / 100)), 0);
+    const total = subTotal + totalTax;
+    
+    const cgst = isIgst ? 0 : totalTax / 2;
+    const sgst = isIgst ? 0 : totalTax / 2;
+    const igst = isIgst ? totalTax : 0;
+
+    return { subTotal, totalTax, total, cgst, sgst, igst };
+  };
+
+  const { subTotal, totalTax, total, cgst, sgst, igst } = calculateTotals();
 
   const handleSave = async () => {
     if (!supplierId) {
-      toast({ variant: "destructive", title: "Error", description: "Please select a supplier/payee" });
+      toast({ variant: "destructive", title: "Error", description: "Please select a supplier" });
       return;
     }
     setLoading(true);
     try {
-      const resource = type === 'expenses' ? 'expenses' : 'purchases';
-      const endpoint = type === 'expenses' ? '/api/system?resource=expenses' : `/api/sales?resource=purchases&type=${type}`;
-      
-      const payload = type === 'expenses' ? {
-        category: "General",
-        description: items[0].name,
-        amount: total.toString(),
-        payTo: suppliers.find((s: any) => s.id.toString() === supplierId)?.name || "",
-        date: new Date().toISOString().split('T')[0]
-      } : {
+      const payload = {
         supplierId: parseInt(supplierId),
-        [type === 'entries' ? 'purchaseNo' : 'orderNo']: `${type === 'entries' ? 'PUR' : 'PO'}-${Date.now().toString().slice(-6)}`,
-        date: new Date().toISOString().split('T')[0],
-        amount: total.toString(),
-        tax: (total * 0.18).toString(),
-        total: (total * 1.18).toString(),
-        status: "Paid",
-        items: items
+        date: createDate,
+        dueDate: dueDate,
+        invNo: invNo,
+        orderNo: orderNo,
+        ourPoNo: ourPoNo,
+        ourDcNo: ourDcNo,
+        isIgst: isIgst,
+        amount: subTotal.toString(),
+        tax: totalTax.toString(),
+        total: Math.round(total).toString(),
+        receivedAmount: receivedAmount,
+        items: items.filter(i => i.name.trim() !== "")
       };
 
-      const res = await fetch(endpoint, {
+      const res = await fetch(`/api/sales?resource=purchases&type=${type === 'expenses' ? 'expenses' : type === 'entry' ? 'entries' : type}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -78,7 +277,6 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
       toast({ title: "Success", description: `${title} created successfully` });
       queryClient.invalidateQueries({ queryKey: ["purchase-entries"] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setOpen(false);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -88,66 +286,300 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) { 
+      setItems([{ category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", gstRate: "18", disPct: 0, unit: "Nos" }]);
+      setSupplierId(""); setInvNo(""); setOrderNo(""); setOurPoNo(""); setOurDcNo("");
+    }}}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{type === 'expenses' ? 'Pay To' : 'Supplier'}</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                <SelectContent>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start text-xs font-bold text-primary gap-2 h-9 px-2 hover:text-primary hover:bg-primary/5 border-b rounded-none"
-                    onClick={() => {
-                       setOpen(false);
-                       navigate("/contacts?tab=suppliers");
-                    }}
-                  >
-                    <Plus className="h-3.5 w-3.5" /> ADD NEW SUPPLIER
+      <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col transition-all duration-300">
+        <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0 pr-12">
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5 text-primary" /> {title}
+          </DialogTitle>
+          <div className="flex gap-4">
+             <div className="text-right">
+                <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70 leading-none">Grand Total</p>
+                <p className="text-sm font-black text-green-600 tabular-nums">₹{Math.round(total).toLocaleString()}</p>
+             </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+          {/* Header Section */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="col-span-2 space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Supplier (From)*</Label>
+              <FormCombobox
+                triggerRef={supplierRef}
+                autoOpen={true}
+                openOnFocus={true}
+                onKeyDown={(e) => handleEnter(e, invNoRef)}
+                label="Supplier"
+                value={suppliers.find((s: any) => s.id.toString() === supplierId)?.name || ""}
+                options={suppliers.map((s: any) => s.name)}
+                onSelect={(v) => {
+                   const s = suppliers.find((s: any) => s.name === v);
+                   if (s) setSupplierId(s.id.toString());
+                }}
+                action={
+                  <Button variant="ghost" className="w-full justify-start text-xs font-bold text-primary gap-2 h-9 px-2 hover:bg-primary/5 border-b rounded-none" onClick={() => { setOpen(false); navigate("/contacts?tab=suppliers&action=add"); }}>
+                    <Plus className="h-3 w-3" /> ADD NEW SUPPLIER
                   </Button>
-                  {suppliers.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                }
+              />
             </div>
             <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Invoice No.</Label>
+              <Input 
+                ref={invNoRef}
+                value={invNo} 
+                onChange={e => setInvNo(e.target.value)} 
+                onKeyDown={e => handleEnter(e, createDateRef)}
+                placeholder="INV-XXX"
+                className="h-10 border-muted-foreground/20 focus-visible:ring-primary/20"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
+              <Input 
+                ref={createDateRef}
+                type="date" 
+                value={createDate} 
+                onChange={e => setCreateDate(e.target.value)} 
+                onKeyDown={e => handleEnter(e, dueDateRef)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Due Date</Label>
+              <Input 
+                ref={dueDateRef}
+                type="date" 
+                value={dueDate} 
+                onChange={e => setDueDate(e.target.value)} 
+                onKeyDown={e => handleEnter(e, orderRef)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order No.</Label>
+              <Input 
+                ref={orderRef}
+                value={orderNo} 
+                onChange={e => setOrderNo(e.target.value)} 
+                onKeyDown={e => handleEnter(e, poRef)}
+                placeholder="PO-XXX"
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Our PO #</Label>
+              <Input 
+                ref={poRef}
+                value={ourPoNo} 
+                onChange={e => setOurPoNo(e.target.value)} 
+                onKeyDown={e => handleEnter(e, dcRef)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Our DC #</Label>
+              <Input 
+                ref={dcRef}
+                value={ourDcNo} 
+                onChange={e => setOurDcNo(e.target.value)} 
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    categoryRefs.current[0]?.focus();
+                  }
+                }}
+                className="h-10"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-6">
+              <Checkbox id="isIgst" checked={isIgst} onCheckedChange={(v) => setIsIgst(!!v)} />
+              <Label htmlFor="isIgst" className="text-xs font-black uppercase tracking-tighter">IGST (Interstate)</Label>
             </div>
           </div>
 
           <Separator />
           
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label className="font-bold">Items/Details</Label>
-              <Button variant="outline" size="sm" onClick={addItem} className="h-7"><Plus className="h-3 w-3 mr-1" />Add Row</Button>
+          {/* Items Section */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Items & Procurement Details</Label>
+              <Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-[10px] font-bold text-primary gap-1 hover:bg-primary/5">
+                <Plus className="h-3 w-3" /> Add New Row
+              </Button>
             </div>
-            {items.map((item, i) => (
-              <div key={i} className="flex gap-2">
-                <Input placeholder="Description" className="flex-[3]" value={item.name} onChange={e => updateItem(i, "name", e.target.value)} />
-                <Input type="number" placeholder="Qty" className="flex-1" value={item.qty} onChange={e => updateItem(i, "qty", parseFloat(e.target.value) || 0)} />
-                <Input type="number" placeholder="Rate" className="flex-1" value={item.rate} onChange={e => updateItem(i, "rate", parseFloat(e.target.value) || 0)} />
-                <Button variant="ghost" size="icon" onClick={() => removeItem(i)} disabled={items.length === 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
-            ))}
-          </div>
 
-          <div className="flex justify-end pt-4 font-bold text-lg">
-            Total: ₹{(total * 1.18).toFixed(2)}
-          </div>
+            <div className="space-y-3">
+              {items.map((item, i) => {
+                const categories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
+                const subCategories = Array.from(new Set(products.filter((p: any) => p.category === item.category).map((p: any) => p.subCategory))).filter(Boolean) as string[];
+                const filteredProducts = products.filter((p: any) => 
+                  (!item.category || p.category === item.category) && 
+                  (!item.subCategory || p.subCategory === item.subCategory)
+                );
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save {type.slice(0, -1)}
-            </Button>
+                return (
+                  <div key={i} className="relative p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10 bg-muted/5">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                      
+                      {/* Category & Sub Category */}
+                      <div className="md:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
+                        <FormCombobox
+                          triggerRef={(el: any) => categoryRefs.current[i] = el}
+                          openOnFocus={true}
+                          label="Category"
+                          className="h-9 mt-0 bg-white"
+                          value={item.category}
+                          options={categories}
+                          onSelect={(v) => {
+                            updateItem(i, "category", v);
+                            setTimeout(() => subCategoryRefs.current[i]?.focus(), 100);
+                          }}
+                          onKeyDown={(e) => {
+                             if (e.key === "Enter" && !item.category) {
+                                e.preventDefault();
+                                saveBtnRef.current?.focus();
+                             } else {
+                                handleEnter(e, subCategoryRefs.current[i]);
+                             }
+                          }}
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
+                        <FormCombobox
+                          triggerRef={(el: any) => subCategoryRefs.current[i] = el}
+                          openOnFocus={true}
+                          label="Sub Category"
+                          className="h-9 mt-0 bg-white"
+                          value={item.subCategory}
+                          options={subCategories}
+                          onSelect={(v) => {
+                            updateItem(i, "subCategory", v);
+                            setTimeout(() => itemProductRefs.current[i]?.focus(), 100);
+                          }}
+                          onKeyDown={(e) => handleEnter(e, itemProductRefs.current[i])}
+                        />
+                      </div>
+
+                      {/* Product */}
+                      <div className="md:col-span-3 space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
+                        <FormCombobox
+                          triggerRef={(el: any) => itemProductRefs.current[i] = el}
+                          openOnFocus={true}
+                          label="Product"
+                          className="h-9 mt-0 bg-white"
+                          value={item.name}
+                          options={filteredProducts.map((p: any) => p.name)}
+                          onSelect={(v) => updateItem(i, "name", v)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (!item.name) {
+                                e.preventDefault();
+                                saveBtnRef.current?.focus();
+                              } else {
+                                handleEnter(e, itemQtyRefs.current[i]);
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Financials: Qty, Rate, GST, Disc */}
+                      <div className="md:col-span-4 grid grid-cols-4 gap-2">
+                         <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
+                          <Input ref={el => itemQtyRefs.current[i] = el} type="number" value={item.qty} onChange={e => updateItem(i, "qty", e.target.value)} onKeyDown={e => handleEnter(e, itemRateRefs.current[i])} className="h-9 text-xs text-center font-bold bg-white" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
+                          <Input ref={el => itemRateRefs.current[i] = el} type="number" value={item.rate} onChange={e => updateItem(i, "rate", e.target.value)} onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (i === items.length - 1) {
+                                addItem();
+                                setTimeout(() => categoryRefs.current[i+1]?.focus(), 100);
+                              } else {
+                                categoryRefs.current[i+1]?.focus();
+                              }
+                            }
+                          }} className="h-9 text-xs font-bold px-1 bg-white" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST%</Label>
+                          <Input type="number" value={item.gstRate} onChange={e => updateItem(i, "gstRate", e.target.value)} className="h-9 text-xs text-center px-1 bg-white" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Disc%</Label>
+                          <Input type="number" value={item.disPct} onChange={e => updateItem(i, "disPct", e.target.value)} className="h-9 text-xs text-center px-1 bg-white" placeholder="0" />
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-1 flex items-center justify-end gap-1">
+                         <div className="text-right flex-1 bg-primary/5 p-1 rounded-md border border-primary/10 overflow-hidden">
+                            <p className="text-[7px] font-black text-muted-foreground uppercase opacity-70 leading-tight">Total</p>
+                            <p className="text-[10px] font-black text-primary tabular-nums truncate">₹{item.amount.toFixed(0)}</p>
+                         </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => removeItem(i)} disabled={items.length === 1}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer with Totals */}
+        <div className="p-6 bg-muted/40 border-t mt-auto">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-6">
+             <div className="flex gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Received Amount</Label>
+                  <div className="relative w-40">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">₹</span>
+                    <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} className="pl-7 h-10 font-bold bg-white" />
+                  </div>
+                </div>
+             </div>
+
+             <div className="flex gap-12 text-right">
+                <div className="space-y-0.5">
+                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">Subtotal</p>
+                   <p className="text-sm font-bold tabular-nums">₹{subTotal.toFixed(2)}</p>
+                </div>
+                <div className="space-y-0.5">
+                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">{isIgst ? 'IGST' : 'CGST + SGST'}</p>
+                   <p className="text-sm font-bold tabular-nums text-orange-600">₹{totalTax.toFixed(2)}</p>
+                </div>
+                <div className="space-y-0.5">
+                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">Grand Total</p>
+                   <p className="text-xl font-black text-primary tabular-nums tracking-tighter">₹{Math.round(total).toLocaleString()}</p>
+                </div>
+             </div>
+
+             <div className="flex gap-2">
+                <Button variant="outline" className="h-11 px-8 font-bold text-xs uppercase tracking-widest" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button 
+                   ref={saveBtnRef}
+                  disabled={loading} 
+                  className="h-11 px-10 font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20"
+                  onClick={handleSave}
+                >
+                  {loading && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                  Save Purchase Record
+                </Button>
+             </div>
           </div>
         </div>
       </DialogContent>

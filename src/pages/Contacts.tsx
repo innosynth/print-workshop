@@ -255,15 +255,17 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       return;
     }
 
-    // Duplicate Check
+    // Duplicate Check - Now respects Type
+    const currentType = Array.isArray(type) ? type[0] : type;
     const existing = contacts.find(c => 
       c.name.trim().toLowerCase() === formData.name?.trim().toLowerCase() && 
+      c.type === currentType &&
       c.id !== formData.id
     );
     if (existing) {
       toast({ 
         title: "Duplicate Record Found", 
-        description: `Contact "${existing.name}" already exists. Highlighting existing record.` 
+        description: `Contact "${existing.name}" already exists in ${currentType}. Highlighting existing record.` 
       });
       setFormData(existing);
       setNoGst(existing.gst === "-");
@@ -345,7 +347,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                     {field.name} {field.required && <span className="text-destructive">*</span>}
                   </Label>
                   {field.key === "name" && !formData.id ? (
-                    <Popover open={!!(formData?.name && contacts?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name.toLowerCase())).length > 0)}>
+                    <Popover open={!!(formData?.name && contacts?.filter(c => c.type === (Array.isArray(type) ? type[0] : type) && c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name.toLowerCase())).length > 0)}>
                       <PopoverAnchor asChild>
                         <Input 
                           className="mt-1 h-9" 
@@ -363,11 +365,12 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                                 toast({ variant: "destructive", title: "Required Field", description: `${field.name} is mandatory.` });
                                 return;
                               }
-                              const matches = contacts?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""));
+                              const currentTypeName = Array.isArray(type) ? type[0] : type;
+                              const matches = contacts?.filter(c => c.type === currentTypeName && c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""));
                               if (matches && matches.length > 0) {
                                 e.preventDefault();
                                 const firstMatch = matches[0];
-                                toast({ title: "Contact Selected", description: `Loaded details for ${firstMatch.name}` });
+                                toast({ title: "Contact Selected", description: `Loaded details for existing ${currentTypeName}: ${firstMatch.name}` });
                                 setFormData(firstMatch);
                                 setNoGst(firstMatch.gst === "-");
                               }
@@ -385,11 +388,12 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                           onBlur={e => {
                             const val = e.target.value;
                             if (val) {
-                              const existing = contacts.find(c => c.name?.trim().toLowerCase() === val.trim().toLowerCase());
+                              const currentTypeName = Array.isArray(type) ? type[0] : type;
+                              const existing = contacts.find(c => c.type === currentTypeName && c.name?.trim().toLowerCase() === val.trim().toLowerCase());
                               if (existing) {
                                 toast({ 
                                   title: "Match Found", 
-                                  description: `Loading details for existing contact: "${existing.name}"` 
+                                  description: `Loading details for existing ${currentTypeName}: "${existing.name}"` 
                                 });
                                 setFormData(existing);
                                 setNoGst(existing.gst === "-");
@@ -407,7 +411,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                           <CommandList>
                             <CommandGroup heading="Existing Contacts">
                               {contacts
-                                ?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""))
+                                ?.filter(c => c.type === (Array.isArray(type) ? type[0] : type) && c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""))
                                 .slice(0, 5)
                                 .map(c => (
                                   <CommandItem

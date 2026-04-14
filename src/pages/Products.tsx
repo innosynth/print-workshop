@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -22,6 +22,8 @@ import { StatusBadge } from "./Dashboard";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
@@ -72,21 +74,44 @@ function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
 }
 
 function ProductList({ products, isLoading, isError }: { products: any[], isLoading: boolean, isError: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [showInactive, setShowInactive] = useState(false);
+
+  const inactiveCount = (products || []).filter((p: any) => p.status === "Inactive").length;
 
   const categories = Array.isArray(products) 
     ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
     : [];
 
   const filtered = (products || [])
-    .filter((p: any) => catFilter === "all" || p.category === catFilter)
-    .filter((p: any) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
-      (p.hsnCode && p.hsnCode.toLowerCase().includes(search.toLowerCase()))
-    );
+    .filter((p: any) => {
+      const matchesCategory = catFilter === "all" || p.category === catFilter;
+      const matchesStatus = showInactive || p.status === "Active" || !p.status;
+      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+        (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
+        (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
+        (p.hsnCode && p.hsnCode.toLowerCase().includes(search.toLowerCase()));
+      return matchesCategory && matchesStatus && matchesSearch;
+    });
+
+  const toggleStatus = async (product: any) => {
+    const newStatus = product.status === "Active" ? "Inactive" : "Active";
+    try {
+      const res = await fetch("/api/core?resource=products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...product, status: newStatus })
+      });
+      if (!res.ok) throw new Error("Failed to toggle status");
+      toast({ title: "Status Updated", description: `"${product.name}" is now ${newStatus}` });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -106,6 +131,31 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
             <Button variant="ghost" size="sm" onClick={() => setCatFilter('all')} className="h-9 text-xs">Clear</Button>
           )}
         </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 rounded-lg border border-muted-foreground/10">
+          <Checkbox 
+            id="show-inactive" 
+            checked={showInactive} 
+            onCheckedChange={(v) => setShowInactive(!!v)}
+            className="h-4 w-4 border-muted-foreground/30 data-[state=checked]:bg-primary"
+          />
+          <Label htmlFor="show-inactive" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none">Show Inactive</Label>
+        </div>
+
+        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted/20 px-4 h-9 rounded-lg border border-muted-foreground/10">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="w-1 h-1 rounded-full bg-gray-400" />
+            <span className="opacity-70">Total:</span> {products.length}
+          </div>
+          <div className="flex items-center gap-1.5 text-primary whitespace-nowrap">
+            <span className="w-1 h-1 rounded-full bg-primary" />
+            <span className="opacity-70">Active:</span> {products.filter((p: any) => p.status === "Active" || !p.status).length}
+          </div>
+          <div className="flex items-center gap-1.5 text-orange-600 whitespace-nowrap">
+            <span className="w-1 h-1 rounded-full bg-orange-600" />
+            <span className="opacity-70">Inactive:</span> {inactiveCount}
+          </div>
+        </div>
+
         <div className="ml-auto">
           <BulkImportModal 
             trigger={<Button variant="outline" size="sm" className="h-9 gap-1"><Upload className="h-3.5 w-3.5" />Bulk Import</Button>}
@@ -131,8 +181,32 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                 <tbody className="divide-y divide-muted/50">
                   {filtered.map((p: any) => (
                     <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors whitespace-nowrap group">
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku || "—"}</td>
-                      <td className="px-4 py-3 font-medium">{p.name}</td>
+                      <td className="px-4 py-3">
+                        <CreateProductModal 
+                           tabName="products" 
+                           products={products}
+                           initialData={p}
+                           title="Edit Product"
+                           trigger={
+                             <button className="font-mono text-xs text-primary font-bold hover:underline underline-offset-4 decoration-primary/30">
+                               {p.sku || "EDIT"}
+                             </button>
+                           }
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <CreateProductModal 
+                           tabName="products" 
+                           products={products}
+                           initialData={p}
+                           title="Edit Product"
+                           trigger={
+                             <button className="font-medium text-primary hover:underline underline-offset-4 decoration-primary/30">
+                               {p.name}
+                             </button>
+                           }
+                        />
+                      </td>
                       <td className="px-4 py-3"><Badge variant="outline" className="text-[10px] font-bold uppercase">{p.category}</Badge></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{p.subCategory || "—"}</td>
                       <td className={`px-4 py-3 tabular-nums font-bold ${p.stock === 0 ? "text-destructive" : parseFloat(p.stock) < parseFloat(p.minStock) ? "text-yellow-600" : "text-primary"
@@ -145,8 +219,17 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                       <td className="px-4 py-3 font-mono text-xs">{p.rack || "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.partNo || "—"}</td>
                       <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{p.barcode || "—"}</td>
-                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">SERVICE</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            checked={p.status === "Active" || !p.status} 
+                            onCheckedChange={() => toggleStatus(p)}
+                            className="scale-75 data-[state=checked]:bg-primary"
+                          />
+                          <StatusBadge status={p.status || "Active"} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">{p.type || "PRODUCT"}</td>
                       <td className="px-4 py-3 text-right">
                         <CreateProductModal 
                           tabName="products" 
@@ -154,7 +237,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                           initialData={p}
                           title="Edit Product"
                           trigger={
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-all opacity-0 group-hover:opacity-100">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground/50">
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
                           }
@@ -173,7 +256,11 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
           </div>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">{filtered.length} products</p>
+      {filtered.length !== products.length && (
+        <p className="text-[9px] font-medium text-muted-foreground/60 italic lowercase ml-1">
+          Showing {filtered.length} products matching filters
+        </p>
+      )}
     </div>
   );
 }
@@ -446,12 +533,19 @@ function PriceListView({ pricelists, isLoading, products }: { pricelists: any[],
   );
 }
 
-function FormCombobox({ label, value, options, onSelect }: { label: string, value: string, options: string[], onSelect: (v: string) => void }) {
+function FormCombobox({ label, value, options, onSelect, triggerRef, onKeyDown, openOnFocus }: { label: string, value: string, options: string[], onSelect: (v: string) => void, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, openOnFocus?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full mt-1 h-9 justify-between font-normal">
+        <Button 
+          ref={triggerRef}
+          variant="outline" 
+          role="combobox" 
+          className="w-full mt-1 h-9 justify-between font-normal"
+          onKeyDown={onKeyDown}
+          onFocus={() => openOnFocus && setOpen(true)}
+        >
           {value || `Select ${label.toLowerCase()}`}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -462,7 +556,7 @@ function FormCombobox({ label, value, options, onSelect }: { label: string, valu
           <CommandList>
             <CommandEmpty>No {label.toLowerCase()} found.</CommandEmpty>
             <CommandGroup>
-              {options.map((opt: string) => (
+              {Array.from(new Set(options)).map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
@@ -510,6 +604,22 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
   };
 
   const [formData, setFormData] = useState<any>(initialData?.id ? initialData : { ...defaultValues, ...initialData });
+  const fieldRefs = useRef<Record<string, any>>({});
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+
+  const handleEnter = (e: React.KeyboardEvent, nextKey?: string, isLast?: boolean) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (isLast) {
+        saveBtnRef.current?.focus();
+      } else if (nextKey) {
+        fieldRefs.current[nextKey]?.focus();
+        if (fieldRefs.current[nextKey] instanceof HTMLInputElement) {
+          fieldRefs.current[nextKey]?.select();
+        }
+      }
+    }
+  };
 
   const resetForm = () => setFormData(initialData?.id ? initialData : { ...defaultValues, ...initialData });
 
@@ -607,29 +717,43 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
-          {fields.map(f => (
+          {fields.map((f, i) => (
             <div key={f.label} className={f.span ? "col-span-2" : ""}>
               <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
               {f.isCategory ? (
                 <FormCombobox 
+                  triggerRef={(el: any) => fieldRefs.current[f.key as string] = el}
+                  onKeyDown={(e) => handleEnter(e, fields[i + 1]?.key as string, i === fields.length - 1)}
+                  openOnFocus
                   label={f.label} 
                   value={formData.category} 
                   options={categories} 
-                  onSelect={(v) => setFormData({ ...formData, category: v })} 
+                  onSelect={(v) => {
+                    setFormData({ ...formData, category: v });
+                    setTimeout(() => fieldRefs.current[fields[i+1]?.key as string]?.focus(), 100);
+                  }} 
                 />
               ) : f.isBrand ? (
                 <FormCombobox 
+                  triggerRef={(el: any) => fieldRefs.current[f.key as string] = el}
+                  onKeyDown={(e) => handleEnter(e, fields[i + 1]?.key as string, i === fields.length - 1)}
+                  openOnFocus
                   label={f.label} 
                   value={formData.brand} 
                   options={brands} 
-                  onSelect={(v) => setFormData({ ...formData, brand: v })} 
+                  onSelect={(v) => {
+                    setFormData({ ...formData, brand: v });
+                    setTimeout(() => fieldRefs.current[fields[i+1]?.key as string]?.focus(), 100);
+                  }} 
                 />
               ) : f.isToggle ? (
                 <ToggleGroup 
+                  ref={(el: any) => fieldRefs.current[f.key as string] = el}
                   type="single" 
                   className="justify-start mt-1 gap-0 border rounded-lg w-fit overflow-hidden h-9" 
                   value={formData[f.key as string]} 
                   onValueChange={(v) => v && setFormData({ ...formData, [f.key as string]: v })}
+                  onKeyDown={(e) => handleEnter(e, fields[i + 1]?.key as string, i === fields.length - 1)}
                 >
                   {f.options?.map((opt: string) => (
                     <ToggleGroupItem 
@@ -642,15 +766,30 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
                   ))}
                 </ToggleGroup>
               ) : f.type === "textarea" ? (
-                <Textarea className="mt-1 h-20" placeholder={f.label} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <Textarea 
+                  ref={(el: any) => fieldRefs.current[f.key as string] = el}
+                  className="mt-1 h-20" 
+                  placeholder={f.label} 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})} 
+                  onKeyDown={(e) => handleEnter(e, fields[i + 1]?.key as string, i === fields.length - 1)}
+                />
               ) : (
-                <Input className="mt-1 h-9" placeholder={f.label} type={f.type || "text"} value={formData[f.key as string]} onChange={e => setFormData({...formData, [f.key as string]: e.target.value})} />
+                <Input 
+                  ref={(el: any) => fieldRefs.current[f.key as string] = el}
+                  className="mt-1 h-9" 
+                  placeholder={f.label} 
+                  type={f.type || "text"} 
+                  value={formData[f.key as string]} 
+                  onChange={e => setFormData({...formData, [f.key as string]: e.target.value})} 
+                  onKeyDown={(e) => handleEnter(e, fields[i + 1]?.key as string, i === fields.length - 1)}
+                />
               )}
             </div>
           ))}
           <div className="col-span-2 flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleSave} disabled={loading}>
+            <Button ref={saveBtnRef} size="sm" onClick={handleSave} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {formData.id ? `Update ${title.split(' ').pop()}` : `Save ${title.split(' ').pop()}`}
             </Button>
