@@ -47,6 +47,7 @@ export const invoices = pgTable("invoices", {
   invoiceNo: text("invoiceNo").unique().notNull(),
   date: date("date").notNull().defaultNow(),
   customerId: integer("customerId").references(() => contacts.id),
+  customerName: text("customerName"), // For walk-in/dummy bills
   amount: numeric("amount").notNull(),
   tax: numeric("tax").notNull(),
   total: numeric("total").notNull(),
@@ -71,6 +72,7 @@ export const quotations = pgTable("quotations", {
   quotationNo: text("quotationNo").unique().notNull(),
   date: date("date").notNull().defaultNow(),
   customerId: integer("customerId").references(() => contacts.id),
+  customerName: text("customerName"), // For walk-in/dummy bills
   amount: numeric("amount").notNull(),
   status: text("status").default("Pending"),
   createdAt: timestamp("createdAt").defaultNow(),

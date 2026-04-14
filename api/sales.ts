@@ -8,14 +8,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const method = request.method;
 
   try {
-    if (resource === 'invoices') {
+    if (resource === 'invoices' || resource === 'estimates') {
       if (method === 'GET') {
         const { id } = request.query;
         if (id) {
           const main = await db.select({
             id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
             amount: invoices.amount, tax: invoices.tax, total: invoices.total,
-            status: invoices.status, customerName: contacts.name, customerId: contacts.id,
+            status: invoices.status, customerId: contacts.id,
+            customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
             customerGst: contacts.gst
           }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).where(eq(invoices.id, parseInt(id as string))).limit(1);
           if (main.length === 0) return response.status(404).json({ error: 'Invoice not found' });
@@ -25,13 +26,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const data = await db.select({
           id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
           amount: invoices.amount, tax: invoices.tax, total: invoices.total,
-          status: invoices.status, customerName: contacts.name, customerId: contacts.id,
+          status: invoices.status, customerId: contacts.id,
+          customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
           productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`
         })
         .from(invoices)
         .leftJoin(contacts, eq(invoices.customerId, contacts.id))
         .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
-        .groupBy(invoices.id, contacts.id)
+        .groupBy(invoices.id, contacts.id, invoices.customerName)
         .orderBy(desc(invoices.createdAt));
         return response.status(200).json(data);
       }
@@ -63,13 +65,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
         }
         const data = await db.select({
           id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
-          amount: quotations.amount, status: quotations.status, customerName: contacts.name,
+          amount: quotations.amount, status: quotations.status, customerId: contacts.id,
+          customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
           productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`
         })
         .from(quotations)
         .leftJoin(contacts, eq(quotations.customerId, contacts.id))
         .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-        .groupBy(quotations.id, contacts.id)
+        .groupBy(quotations.id, contacts.id, quotations.customerName)
         .orderBy(desc(quotations.createdAt));
         return response.status(200).json(data);
       }
@@ -104,7 +107,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const { returnFor } = request.query;
       // For now, we mainly support Invoice-based GST reporting
       const lines = await db.select({
-        companyName: contacts.name,
+        companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
         gstin: contacts.gst,
         invoiceNo: invoices.invoiceNo,
         date: invoices.date,

@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock, Edit } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -34,28 +34,101 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-function FormCombobox({ label, value, options, onSelect, action }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode }) {
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpen, openOnFocus, includeBlank, allowCustom }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpen?: boolean, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState("");
+  const [search, setSearch] = useState("");
+  const justClosed = useRef(false);
+
+  useEffect(() => {
+    if (autoOpen) {
+      const timer = setTimeout(() => setOpen(true), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpen]);
+
+  useEffect(() => {
+    if (open) {
+      setHighlighted("___hidden_default___");
+      setSearch("");
+    }
+  }, [open]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full mt-1 h-10 justify-between font-normal">
+        <Button 
+          ref={triggerRef}
+          variant="outline" 
+          role="combobox" 
+          className="w-full mt-1 h-10 justify-between font-normal"
+          onFocus={() => {
+            if (openOnFocus && !justClosed.current) {
+              setOpen(true);
+            }
+            justClosed.current = false;
+          }}
+          onKeyDown={onKeyDown}
+        >
           <span className="truncate">{value || `Select ${label.toLowerCase()}`}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
-        <Command>
-          <CommandInput placeholder={`Search ${label.toLowerCase()}...`} className="h-9" />
+        <Command value={highlighted} onValueChange={setHighlighted}>
+          <CommandInput 
+            placeholder={`Search ${label.toLowerCase()}...`} 
+            className="h-9" 
+            onValueChange={setSearch}
+          />
           <CommandList>
-            <CommandEmpty>No {label.toLowerCase()} found.</CommandEmpty>
+            <CommandEmpty className="p-0">
+              {allowCustom && search ? (
+                <div 
+                  className="flex items-center gap-2 p-2 hover:bg-accent cursor-pointer text-xs font-bold text-primary"
+                  onClick={() => {
+                    justClosed.current = true;
+                    onSelect(search);
+                    setOpen(false);
+                  }}
+                >
+                  <Plus className="h-3 w-3" /> Use "{search}" as Walk-in
+                </div>
+              ) : (
+                <div className="p-6 text-center text-sm">No {label.toLowerCase()} found.</div>
+              )}
+            </CommandEmpty>
+            <CommandGroup className="p-0 h-0 overflow-hidden">
+              <CommandItem
+                value="___hidden_default___"
+                onSelect={() => {
+                  justClosed.current = true;
+                  setOpen(false);
+                  onSelect("");
+                }}
+              />
+            </CommandGroup>
+            
             <CommandGroup>
+              {includeBlank && (
+                <CommandItem
+                  value="none_selected"
+                  onSelect={() => {
+                    justClosed.current = true;
+                    onSelect("");
+                    setOpen(false);
+                  }}
+                >
+                  <span className="text-muted-foreground italic">-- Skip / None --</span>
+                </CommandItem>
+              )}
               {options.map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
-                  onSelect={() => {
-                    onSelect(opt);
+                  onSelect={(v) => {
+                    justClosed.current = true;
+                    onSelect(v);
                     setOpen(false);
                   }}
                 >
@@ -120,7 +193,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     const rate = parseFloat(item.gstRate || 0);
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
-  const total = taxableAmount + totalTax;
+  const total = isEstimate ? taxableAmount : (taxableAmount + totalTax);
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
 
@@ -396,8 +469,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       <tr key={i}>
                         <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
                         <td className="border border-black px-2 py-1 font-bold">{item.name || "Custom Service"}</td>
-                        <td className="border border-black px-1 py-1 text-center">{item.hsnCode || "4909"}</td>
-                        <td className="border border-black px-1 py-1 text-center">{item.qty || 1}.00</td>
+                        <td className="border border-black px-1 py-1 text-center">{item.hsnCode || "-"}</td>
+                        <td className="border border-black px-1 py-1 text-center">{item.qty || 0}.00</td>
                         <td className="border border-black px-1 py-1 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
                         <td className="border border-black px-1 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
                         <td className="border border-black px-1 py-1 text-right">{(itemTax / 2).toFixed(2)}</td>
@@ -407,20 +480,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       </tr>
                     );
                   })}
-                  {items.length === 0 && (
-                    <tr className="min-h-[100px]">
-                      <td className="border border-black px-1 py-6 text-center">1</td>
-                      <td className="border border-black px-2 py-6 font-bold">DIGITAL PRINTING SERVICES</td>
-                      <td className="border border-black px-1 py-6 text-center">4909</td>
-                      <td className="border border-black px-1 py-6 text-center">1.00</td>
-                      <td className="border border-black px-1 py-6 text-right">{taxableAmount.toFixed(2)}</td>
-                      <td className="border border-black px-1 py-6 text-center">9.00</td>
-                      <td className="border border-black px-1 py-6 text-right">{cgst.toFixed(2)}</td>
-                      <td className="border border-black px-1 py-6 text-center">9.00</td>
-                      <td className="border border-black px-1 py-6 text-right">{sgst.toFixed(2)}</td>
-                      <td className="border border-black px-2 py-6 text-right font-bold">{total.toFixed(2)}</td>
-                    </tr>
-                  )}
+
                   {/* Empty rows to maintain height */}
                   {[...Array(Math.max(0, 5 - items.length))].map((_, i) => (
                     <tr key={i} className="h-6">
@@ -523,29 +583,16 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     </tr>
                   </thead>
                   <tbody className="font-medium pt-1">
-                    {invoice.items?.map((item: any, i: number) => (
+                    {invoice.items && invoice.items.length > 0 ? invoice.items.map((item: any, i: number) => (
                       <tr key={i} className="align-top">
                         <td className="text-left py-1 uppercase">{item.name}</td>
                         <td className="text-right py-1">{item.qty}</td>
                         <td className="text-right py-1">{item.rate}</td>
                         <td className="text-right py-1">{item.amount.toFixed(2)}</td>
                       </tr>
-                    )) || (
-                        <>
-                          <tr className="align-top">
-                            <td className="text-left py-1 uppercase font-bold">SYNTHETIC</td>
-                            <td className="text-right py-1">1</td>
-                            <td className="text-right py-1">30</td>
-                            <td className="text-right py-1">30.00</td>
-                          </tr>
-                          <tr className="align-top">
-                            <td className="text-left py-1 uppercase font-bold">LASER B/W PRINT</td>
-                            <td className="text-right py-1">7</td>
-                            <td className="text-right py-1">2</td>
-                            <td className="text-right py-1">14.00</td>
-                          </tr>
-                        </>
-                      )}
+                    )) : (
+                      <tr className="h-10"><td colSpan={4} className="text-center italic opacity-50">No items listed</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -589,30 +636,58 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   );
 }
 
-function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; title: string, type: string }) {
-  const [open, setOpen] = useState(false);
+function CreateSalesModal({ trigger, title, type, initialData, open: controlledOpen, onOpenChange: controlledOnOpenChange }: { 
+  trigger?: React.ReactNode; 
+  title: string; 
+  type: string; 
+  initialData?: any;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
+
   const [items, setItems] = useState([{
     name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
     category: "", subCategory: "", sku: ""
   }]);
   const [customerId, setCustomerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [gstEnabled, setGstEnabled] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Reset form when opening or when type changes
-  useEffect(() => {
-    if (open) {
-      setItems([{
-        name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-        category: "", subCategory: "", sku: ""
-      }]);
-      setCustomerId("");
-      setGstEnabled(type !== 'estimates');
+  // Navigation Refs
+  const customerRef = useRef<HTMLButtonElement>(null);
+  const categoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const productRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const subCategoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const rateRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+
+
+  const handleEnter = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | any) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (nextRef && 'current' in nextRef) {
+        nextRef.current?.focus();
+      } else if (nextRef) {
+        nextRef?.focus();
+      }
     }
-  }, [open, type]);
+  };
+
+  // Fetch full details if editing, list view usually has only summary
+  const { data: fullDetails, isLoading: detailsLoading } = useQuery({
+    queryKey: ["sales_detail", type, initialData?.id],
+    queryFn: () => fetch(`/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}&id=${initialData.id}`).then(res => res.json()),
+    enabled: open && !!initialData?.id
+  });
 
   const { data: contacts = [], isError: contactsError } = useQuery({
     queryKey: ["contacts"],
@@ -630,6 +705,66 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
     })
   });
 
+
+
+  // Reset form when opening or when type/initialData changes
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        // Use fullDetails if available, fallback to initialData
+        const source = fullDetails || initialData;
+        
+        const mappedItems = (source.items || []).map((item: any) => {
+          // If category is missing, attempt to find it from products list
+          let category = item.category;
+          let subCategory = item.subCategory;
+          
+          if (!category && products.length > 0) {
+            const match = products.find((p: any) => p.name === item.name || (item.sku && p.sku === item.sku));
+            if (match) {
+              category = match.category;
+              subCategory = match.subCategory;
+            }
+          }
+
+          return {
+            ...item,
+            category: category || "",
+            subCategory: subCategory || "",
+            qty: parseFloat(item.qty || 0),
+            rate: parseFloat(item.rate || 0),
+            amount: parseFloat(item.amount || 0)
+          };
+        });
+
+        setItems(mappedItems);
+        setCustomerId(source.customerId?.toString() || "");
+        setCustomerName(source.customerName || "");
+        setDate(source.date || new Date().toISOString().split('T')[0]);
+        setGstEnabled(parseFloat(source.tax || 0) > 0 || type !== 'estimates');
+      } else {
+        setItems([{
+          name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+          category: "", subCategory: "", sku: ""
+        }]);
+        setCustomerId("");
+        setCustomerName("");
+        setDate(new Date().toISOString().split('T')[0]);
+        setGstEnabled(type !== 'estimates');
+      }
+    }
+  }, [open, type, initialData, fullDetails, products]);
+
+  // Focus customer select on open
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => customerRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+
+
+
   const addItem = () => setItems([...items, {
     name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
     category: "", subCategory: "", sku: ""
@@ -644,8 +779,9 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
     setItems(newItems);
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const totalTax = gstEnabled ? items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0) : 0;
+  const validItems = items.filter(i => i.name && i.name.trim() !== "");
+  const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalTax = gstEnabled ? validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0) : 0;
   const grandTotal = subtotal + (type === 'estimates' || !gstEnabled ? 0 : totalTax);
 
   const resetForm = () => {
@@ -654,40 +790,42 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
       category: "", subCategory: "", sku: ""
     }]);
     setCustomerId("");
+    setCustomerName("");
     setGstEnabled(type !== 'estimates');
   };
 
   const handleSave = async (stayOpen: boolean = false) => {
-    if (!customerId) {
-      toast({ variant: "destructive", title: "Missing information", description: "Please select a customer" });
+    if (!customerId && !customerName) {
+      toast({ variant: "destructive", title: "Missing information", description: "Please select or type a customer name" });
       return;
     }
     setLoading(true);
     try {
-      const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}`;
+      const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}${initialData ? `&id=${initialData.id}` : ''}`;
       const res = await fetch(endpoint, {
-        method: "POST",
+        method: initialData ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: parseInt(customerId),
-          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: `${type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV'}-${Date.now().toString().slice(-6)}`,
-          date: new Date().toISOString().split('T')[0],
+          customerId: customerId ? parseInt(customerId) : null,
+          customerName: customerName || null,
+          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: initialData ? (initialData.invoiceNo || initialData.quotationNo) : `${type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV'}-${Date.now().toString().slice(-6)}`,
+          date: date,
           amount: subtotal.toFixed(2),
           tax: type === 'estimates' ? "0" : totalTax.toFixed(2),
           total: grandTotal.toFixed(2),
-          status: type === 'estimates' ? "Draft" : "Pending",
-          items: items.map(item => ({
+          status: initialData ? initialData.status : (type === 'estimates' ? "Draft" : "Pending"),
+          items: validItems.map(item => ({
             ...item,
-            qty: parseInt(item.qty.toString()),
-            rate: item.rate.toFixed(2),
-            amount: item.amount.toFixed(2),
+            qty: parseFloat(item.qty.toString()),
+            rate: parseFloat(item.rate.toString()).toFixed(2),
+            amount: parseFloat(item.amount.toString()).toFixed(2),
             hsnCode: item.hsnCode,
             gstRate: item.gstRate
           }))
         })
       });
       if (!res.ok) throw new Error("Failed to save");
-      toast({ title: "Success", description: `${title} created successfully` });
+      toast({ title: "Success", description: `${title} ${initialData ? 'updated' : 'created'} successfully` });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["returns"] });
@@ -733,18 +871,36 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
             )}
           </DialogHeader>
 
-          <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+          <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto relative">
+            {detailsLoading && (
+              <div className="absolute inset-0 bg-white/50 z-50 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-xs font-bold text-muted-foreground animate-pulse">Loading Document Details...</p>
+                </div>
+              </div>
+            )}
             {/* Header info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Select Customer</Label>
                 <FormCombobox
+                  triggerRef={customerRef}
+                  onKeyDown={(e) => handleEnter(e, categoryRefs.current[0])}
+                  autoOpen={!initialData}
+                  allowCustom
                   label="Customer"
-                  value={contacts.find((c: any) => c.id.toString() === customerId)?.name || ""}
+                  value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
                   options={Array.isArray(contacts) ? contacts.filter((c: any) => c.status !== "Inactive").map((c: any) => c.name) : []}
                   onSelect={(v) => {
                     const contact = contacts.find((c: any) => c.name === v);
-                    if (contact) setCustomerId(contact.id.toString());
+                    if (contact) {
+                      setCustomerId(contact.id.toString());
+                      setCustomerName("");
+                    } else {
+                      setCustomerId("");
+                      setCustomerName(v);
+                    }
                   }}
                   action={
                     <Button 
@@ -759,7 +915,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
             </div>
 
@@ -810,20 +966,31 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                         <div className="md:col-span-2 space-y-1.5">
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
                           <FormCombobox
+                            triggerRef={(el: any) => categoryRefs.current[index] = el}
+                            onKeyDown={(e) => handleEnter(e, subCategoryRefs.current[index])}
+                            openOnFocus
                             label="Category"
                             value={item.category}
                             options={uniqueCategories}
                             onSelect={(v) => {
+                              if (!v) {
+                                saveBtnRef.current?.focus();
+                                return;
+                              }
                               updateItem(index, "category", v);
                               updateItem(index, "subCategory", "");
                               updateItem(index, "name", "");
                               updateItem(index, "sku", "");
+                              setTimeout(() => subCategoryRefs.current[index]?.focus(), 100);
                             }}
                           />
                         </div>
                         <div className="md:col-span-2 space-y-1.5">
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
                           <FormCombobox
+                            triggerRef={(el: any) => subCategoryRefs.current[index] = el}
+                            onKeyDown={(e) => handleEnter(e, productRefs.current[index])}
+                            openOnFocus
                             label="Sub Category"
                             value={item.subCategory}
                             options={subCategories}
@@ -831,12 +998,16 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                               updateItem(index, "subCategory", v);
                               updateItem(index, "name", "");
                               updateItem(index, "sku", "");
+                              setTimeout(() => productRefs.current[index]?.focus(), 100);
                             }}
                           />
                         </div>
                         <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
                           <FormCombobox
+                            triggerRef={(el: any) => productRefs.current[index] = el}
+                            onKeyDown={(e) => handleEnter(e, qtyRefs.current[index])}
+                            openOnFocus
                             label="Product"
                             value={item.sku ? `${item.sku} - ${item.name}` : item.name}
                             options={filteredProducts.map((p: any) => `${p.sku || 'N/A'} | ${p.name}`)}
@@ -851,6 +1022,7 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                                 updateItem(index, "rate", parseFloat(prod.sellPrice || 0));
                                 updateItem(index, "hsnCode", prod.hsnCode || "");
                                 updateItem(index, "gstRate", prod.gstRate || "0");
+                                setTimeout(() => qtyRefs.current[index]?.focus(), 100);
                               }
                             }}
                           />
@@ -860,12 +1032,37 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
                         <div className={cn("grid gap-2 items-end md:col-span-4", (type === 'estimates' || !gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
                           <div className="space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
-                            <Input type="number" value={item.qty} className="h-10 font-bold px-1 text-center" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
+                            <Input 
+                              ref={el => qtyRefs.current[index] = el}
+                              onKeyDown={(e) => handleEnter(e, rateRefs.current[index])}
+                              type="number" 
+                              value={item.qty} 
+                              className="h-10 font-bold px-1 text-center" 
+                              onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} 
+                            />
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
-                            <Input type="number" value={item.rate} className="h-10 font-bold" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
+                            <Input 
+                              ref={el => rateRefs.current[index] = el}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  if (index === items.length - 1) {
+                                    addItem();
+                                    setTimeout(() => categoryRefs.current[index + 1]?.focus(), 100);
+                                  } else {
+                                    categoryRefs.current[index + 1]?.focus();
+                                  }
+                                }
+                              }}
+                              type="number" 
+                              value={item.rate} 
+                              className="h-10 font-bold" 
+                              onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} 
+                            />
                           </div>
+
                           {(type !== 'estimates' && gstEnabled) && (
                             <div className="space-y-1.5">
                               <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
@@ -936,13 +1133,19 @@ function CreateSalesModal({ trigger, title, type }: { trigger: React.ReactNode; 
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Save & Create Another
             </Button>
-            <Button size="lg" className="px-8 shadow-lg shadow-primary/20 gap-2" onClick={() => handleSave(false)} disabled={loading}>
+            <Button 
+              ref={saveBtnRef}
+              size="lg" 
+              className="px-8 shadow-lg shadow-primary/20 gap-2" 
+              onClick={() => handleSave(false)} 
+              disabled={loading}
+            >
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                initialData ? <Edit className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />
               )}
-              Save {type.endsWith('s') ? type.slice(0, -1) : type}
+              {initialData ? 'Update' : 'Save'} {type.endsWith('s') ? type.slice(0, -1) : type}
             </Button>
           </div>
         </div>
@@ -1018,7 +1221,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -1026,7 +1229,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   onConvert?: (r: any) => void,
   onToggleStatus?: (r: any) => void,
   loadingId?: number | null,
-  onWhatsApp?: (r: any) => void
+  onWhatsApp?: (r: any) => void,
+  onEdit?: (r: any) => void
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -1089,7 +1293,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                         </div>
                       </th>
                     ))}
-                    {(onPrint || onConvert) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
+                    {(onPrint || onConvert || onEdit) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1100,12 +1304,17 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                           {c.render ? c.render(row) : row[c.key]}
                         </td>
                       ))}
-                      {(onPrint || onConvert) && (
+                      {(onPrint || onConvert || onEdit) && (
                         <td className="px-4 py-2.5">
                           <div className="flex gap-1">
                             {onPrint && (
                               <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onPrint(row)}>
                                 <Printer className="h-3.5 w-3.5" />Print
+                              </Button>
+                            )}
+                            {onEdit && (
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
+                                <Edit className="h-3.5 w-3.5" />Edit
                               </Button>
                             )}
                             {onConvert && row.status !== 'Invoiced' && (
@@ -1151,9 +1360,10 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
 
 export default function Sales() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "invoices";
+  const activeTab = searchParams.get("tab") || "estimates";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const [selectedInvoice, setSelectedInvoice] = useState<any>({ data: null, type: "invoices" });
+  const [editingRecord, setEditingRecord] = useState<{ data: any, type: string } | null>(null);
   const [waDialog, setWaDialog] = useState<{ open: boolean, data: any, contact: any }>({ open: false, data: null, contact: null });
 
   const { data: settingsData } = useQuery({
@@ -1347,9 +1557,9 @@ export default function Sales() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <TabsList className="h-12 flex-wrap gap-2 bg-transparent">
             {[
-              { id: "invoices", label: "Invoices" },
-              { id: "quotations", label: "Quotations" },
               { id: "estimates", label: "Estimates" },
+              { id: "quotations", label: "Quotations" },
+              { id: "invoices", label: "Invoices" },
               { id: "returns", label: "Returns" },
               { id: "receipts", label: "Receipts" },
               { id: "proforma", label: "Proforma / SO" },
@@ -1372,14 +1582,14 @@ export default function Sales() {
           />
         </div>
 
-        <TabsContent value="invoices" className="mt-4">
-          <TxTable
-            data={invoices.filter((i: any) => i.status !== 'Draft')}
-            cols={invCols}
-            isLoading={invLoading}
-            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })}
-            onToggleStatus={handleToggleStatus}
+        <TabsContent value="estimates" className="mt-4">
+          <TxTable 
+            data={invoices.filter((i: any) => i.status === 'Draft')} 
+            cols={invCols} 
+            isLoading={invLoading} 
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} 
             onWhatsApp={handleWhatsApp}
+            onEdit={(r) => setEditingRecord({ data: r, type: "estimates" })}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
@@ -1391,10 +1601,19 @@ export default function Sales() {
             onConvert={handleConvertQuotation}
             loadingId={convertingId}
             onWhatsApp={handleWhatsApp}
+            onEdit={(r) => setEditingRecord({ data: r, type: "quotations" })}
           />
         </TabsContent>
-        <TabsContent value="estimates" className="mt-4">
-          <TxTable data={invoices.filter((i: any) => i.status === 'Draft')} cols={invCols} isLoading={invLoading} onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })} onWhatsApp={handleWhatsApp} />
+        <TabsContent value="invoices" className="mt-4">
+          <TxTable
+            data={invoices.filter((i: any) => i.status !== 'Draft')}
+            cols={invCols}
+            isLoading={invLoading}
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })}
+            onToggleStatus={handleToggleStatus}
+            onWhatsApp={handleWhatsApp}
+            onEdit={(r) => setEditingRecord({ data: r, type: "invoices" })}
+          />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">
           <TxTable data={returns} cols={qtCols} isLoading={srLoading} />
@@ -1444,6 +1663,16 @@ export default function Sales() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {editingRecord && (
+        <CreateSalesModal
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          initialData={editingRecord.data}
+          type={editingRecord.type}
+          title={`Edit ${editingRecord.type.charAt(0).toUpperCase() + editingRecord.type.slice(1, -1)}`}
+        />
+      )}
 
       {selectedInvoice.data && (
         <InvoicePrintPreview

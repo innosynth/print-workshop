@@ -18,9 +18,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Filter } from "lucide-react";
+import { Filter, Check } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -113,8 +114,15 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<any>({});
+  const [showInactive, setShowInactive] = useState(false);
+  const [sameAsMobile, setSameAsMobile] = useState(true);
+  const [noGst, setNoGst] = useState(false);
   
-  const resetForm = () => setFormData({});
+  const resetForm = () => {
+    setFormData({});
+    setSameAsMobile(true);
+    setNoGst(false);
+  };
   
   const { data: contacts = [], isLoading, isError } = useQuery<Contact[]>({
     queryKey: ["contacts"],
@@ -144,6 +152,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
 
   const filtered = allContactsInTab
     .filter(c => {
+      if (!showInactive && c.status === "Inactive") return false;
       const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
         (c.mobile && c.mobile.includes(search)) ||
         (c.gst && c.gst.toLowerCase().includes(search.toLowerCase()));
@@ -177,7 +186,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       case "B2B":
         return [
           { key: "name", name: "Company Name", placeholder: "Enter company name", required: true },
-          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: true },
+          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: false },
           { key: "mobile", name: "Mobile", placeholder: "Enter mobile number" },
           { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
           { key: "email", name: "Email", placeholder: "Enter email address" },
@@ -194,11 +203,12 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { key: "email", name: "Email", placeholder: "Enter email address" },
           { key: "city", name: "City", placeholder: "Enter city", required: true },
           { key: "address", name: "Address", placeholder: "Enter address", required: true, type: "textarea" },
+          { key: "status", name: "Status", placeholder: "Select status", isStatus: true },
         ];
       case "Supplier":
         return [
           { key: "name", name: "Company Name", placeholder: "Enter company name", required: true },
-          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: true },
+          { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: false },
           { key: "mobile", name: "Mobile", placeholder: "Enter mobile number", required: true },
           { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
           { key: "email", name: "Email", placeholder: "Enter email address", required: true },
@@ -206,6 +216,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { key: "city", name: "City", placeholder: "Enter city", required: true },
           { key: "address", name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
           { key: "paymentTerms", name: "Payment Terms", placeholder: "e.g., 30 days credit" },
+          { key: "status", name: "Status", placeholder: "Select status", isStatus: true },
         ];
       default:
         return [];
@@ -217,12 +228,45 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   const handleSave = async (stayOpen: boolean = false) => {
     // Validation
     const missing = formFields.filter(f => f.required && !formData[f.key]);
-    if (missing.length > 0) {
+    
+    // Custom GST Logic
+    const isCompany = tabName === "B2B" || tabName === "Supplier";
+    const gstMissing = isCompany && !formData.gst && !noGst && formData.gst !== "-";
+
+    if (missing.length > 0 || gstMissing) {
+      let desc = missing.map(m => m.name).join(", ");
+      if (gstMissing) desc = desc ? `${desc}, GST Number` : "GST Number (or check 'No GST')";
+      
       toast({ 
         variant: "destructive", 
         title: "Required Fields", 
-        description: `Please fill in: ${missing.map(m => m.name).join(", ")}` 
+        description: `Please fill in: ${desc}` 
       });
+      return;
+    }
+
+    if (formData.mobile && !/^\d{10}$/.test(formData.mobile)) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "Mobile number must be exactly 10 digits." });
+      return;
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a valid email address." });
+      return;
+    }
+
+    // Duplicate Check
+    const existing = contacts.find(c => 
+      c.name.trim().toLowerCase() === formData.name?.trim().toLowerCase() && 
+      c.id !== formData.id
+    );
+    if (existing) {
+      toast({ 
+        title: "Duplicate Record Found", 
+        description: `Contact "${existing.name}" already exists. Highlighting existing record.` 
+      });
+      setFormData(existing);
+      setNoGst(existing.gst === "-");
       return;
     }
 
@@ -271,11 +315,23 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search contacts..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        {(search || Object.keys(columnFilters).length > 0) && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
+        {(search || Object.keys(columnFilters).length > 0 || showInactive) && (
+          <Button variant="ghost" size="sm" onClick={() => { clearFilters(); setShowInactive(false); }} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
             Clear Filters
           </Button>
         )}
+        <div className="flex items-center gap-2 bg-muted/50 px-3 py-1 rounded-full border border-border h-9">
+          <input 
+            type="checkbox" 
+            id="show-inactive" 
+            checked={showInactive} 
+            onChange={(e) => setShowInactive(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="show-inactive" className="text-[10px] font-black uppercase cursor-pointer select-none text-muted-foreground mr-1">
+            Show Inactive
+          </label>
+        </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
@@ -288,19 +344,137 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                   <Label className="text-xs font-medium text-muted-foreground">
                     {field.name} {field.required && <span className="text-destructive">*</span>}
                   </Label>
-                  {field.type === "textarea" ? (
+                  {field.key === "name" && !formData.id ? (
+                    <Popover open={!!(formData?.name && contacts?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name.toLowerCase())).length > 0)}>
+                      <PopoverAnchor asChild>
+                        <Input 
+                          className="mt-1 h-9" 
+                          placeholder={field.placeholder} 
+                          value={formData[field.key!] || ""}
+                          autoComplete="off"
+                          onChange={e => {
+                            const val = e.target.value;
+                            setFormData({ ...formData, [field.key!]: val });
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              if (field.required && !formData.name) {
+                                e.preventDefault();
+                                toast({ variant: "destructive", title: "Required Field", description: `${field.name} is mandatory.` });
+                                return;
+                              }
+                              const matches = contacts?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""));
+                              if (matches && matches.length > 0) {
+                                e.preventDefault();
+                                const firstMatch = matches[0];
+                                toast({ title: "Contact Selected", description: `Loaded details for ${firstMatch.name}` });
+                                setFormData(firstMatch);
+                                setNoGst(firstMatch.gst === "-");
+                              }
+                              // Move to next field regardless
+                              const form = e.currentTarget.closest('[role="dialog"]');
+                              if (form) {
+                                const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"])')) as HTMLElement[];
+                                const index = inputs.indexOf(e.currentTarget);
+                                if (index > -1 && index < inputs.length - 1) {
+                                  inputs[index + 1].focus();
+                                }
+                              }
+                            }
+                          }}
+                          onBlur={e => {
+                            const val = e.target.value;
+                            if (val) {
+                              const existing = contacts.find(c => c.name?.trim().toLowerCase() === val.trim().toLowerCase());
+                              if (existing) {
+                                toast({ 
+                                  title: "Match Found", 
+                                  description: `Loading details for existing contact: "${existing.name}"` 
+                                });
+                                setFormData(existing);
+                                setNoGst(existing.gst === "-");
+                              }
+                            }
+                          }}
+                        />
+                      </PopoverAnchor>
+                      <PopoverContent 
+                        className="p-0 w-[var(--radix-popover-trigger-width)]" 
+                        align="start"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <Command>
+                          <CommandList>
+                            <CommandGroup heading="Existing Contacts">
+                              {contacts
+                                ?.filter(c => c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name?.toLowerCase() || ""))
+                                .slice(0, 5)
+                                .map(c => (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={c.name}
+                                    onSelect={() => {
+                                      toast({ title: "Contact Selected", description: `Loaded details for ${c.name}` });
+                                      setFormData(c);
+                                      setNoGst(c.gst === "-");
+                                    }}
+                                  >
+                                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-xs">{c.name}</span>
+                                      <span className="text-[9px] text-muted-foreground">{c.type} • {c.mobile || 'No Mobile'}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : field.type === "textarea" ? (
                     <Textarea 
                       className="mt-1 h-20" 
                       placeholder={field.placeholder} 
                       value={formData[field.key!] || ""}
                       onChange={e => setFormData({ ...formData, [field.key!]: e.target.value })}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          const form = e.currentTarget.closest('[role="dialog"]');
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"])')) as HTMLElement[];
+                            const index = inputs.indexOf(e.currentTarget);
+                            if (index > -1 && index < inputs.length - 1) inputs[index + 1].focus();
+                          }
+                        }
+                      }}
                     />
                   ) : field.isStatus ? (
                     <Select 
                       value={formData[field.key!] || "Active"} 
                       onValueChange={v => setFormData({ ...formData, [field.key!]: v })}
                     >
-                      <SelectTrigger className="mt-1 h-9">
+                      <SelectTrigger 
+                        className="mt-1 h-9"
+                        onKeyDown={e => {
+                          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            const currentStatus = formData.status || "Active";
+                            setFormData({ ...formData, status: currentStatus === "Active" ? "Inactive" : "Active" });
+                          }
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const form = e.currentTarget.closest('[role="dialog"]');
+                            if (form) {
+                              const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"]), [role="combobox"]')) as HTMLElement[];
+                              const index = inputs.indexOf(e.currentTarget);
+                              if (index > -1 && index < inputs.length - 1) {
+                                inputs[index + 1].focus();
+                              }
+                            }
+                          }
+                        }}
+                      >
                         <SelectValue placeholder="Select Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -314,15 +488,97 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                       placeholder={field.placeholder} 
                       type={field.type || "text"} 
                       value={formData[field.key!] || ""}
-                      onChange={e => setFormData({ ...formData, [field.key!]: e.target.value })}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const newData = { ...formData, [field.key!]: val };
+                        if (field.key === "mobile" && sameAsMobile) {
+                          newData.whatsapp = val;
+                        }
+                        setFormData(newData);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.currentTarget.closest('[role="dialog"]');
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"]), [role="combobox"]')) as HTMLElement[];
+                            const index = inputs.indexOf(e.currentTarget);
+                            if (index > -1 && index < inputs.length - 1) inputs[index + 1].focus();
+                          }
+                        }
+                      }}
+                      tabIndex={field.key === "whatsapp" ? -1 : undefined}
                     />
+                  )}
+                  {field.key === "whatsapp" && (
+                    <div className="flex items-center gap-1.5 mt-1 ml-1">
+                      <input 
+                        type="checkbox" 
+                        id="same-as-mobile" 
+                        tabIndex={-1}
+                        checked={sameAsMobile}
+                        onChange={(e) => {
+                          setSameAsMobile(e.target.checked);
+                          if (e.target.checked) {
+                            setFormData({ ...formData, whatsapp: formData.mobile || "" });
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const form = e.currentTarget.closest('[role="dialog"]');
+                            if (form) {
+                              const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"]), [role="combobox"]')) as HTMLElement[];
+                              const index = inputs.indexOf(e.currentTarget);
+                              if (index > -1 && index < inputs.length - 1) inputs[index + 1].focus();
+                            }
+                          }
+                        }}
+                        className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="same-as-mobile" className="text-[9px] font-bold uppercase text-muted-foreground cursor-pointer">
+                        Same as Mobile Number
+                      </label>
+                    </div>
+                  )}
+                  {field.key === "gst" && (tabName === "B2B" || tabName === "Supplier") && (
+                    <div className="flex items-center gap-1.5 mt-1 ml-1">
+                      <input 
+                        type="checkbox" 
+                        id="no-gst" 
+                        checked={noGst}
+                        onChange={(e) => {
+                          setNoGst(e.target.checked);
+                          if (e.target.checked) {
+                            setFormData({ ...formData, gst: "-" });
+                          } else if (formData.gst === "-") {
+                            setFormData({ ...formData, gst: "" });
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const form = e.currentTarget.closest('[role="dialog"]');
+                            if (form) {
+                              const inputs = Array.from(form.querySelectorAll('input:not([tabindex="-1"]), select:not([tabindex="-1"]), textarea:not([tabindex="-1"]), button:not([tabindex="-1"]), [role="combobox"]')) as HTMLElement[];
+                              const index = inputs.indexOf(e.currentTarget);
+                              if (index > -1 && index < inputs.length - 1) inputs[index + 1].focus();
+                            }
+                          }
+                        }}
+                        className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="no-gst" className="text-[9px] font-bold uppercase text-muted-foreground cursor-pointer">
+                        No GST (Use '-')
+                      </label>
+                    </div>
                   )}
                 </div>
               ))}
               <div className="col-span-2 flex flex-col sm:flex-row justify-end gap-2 pt-2 mt-2">
-                <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={loading} tabIndex={-1}>Cancel</Button>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => handleSave(true)} disabled={loading} className="gap-1">
+                  <Button variant="secondary" size="sm" onClick={() => handleSave(true)} disabled={loading} className="gap-1" tabIndex={-1}>
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
                     Save & Add Another
                   </Button>
