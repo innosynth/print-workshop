@@ -443,6 +443,8 @@ export function StatusBadge({ status }: { status: string }) {
     Active: "bg-primary/10 text-primary border-primary/20",
     Inactive: "bg-muted text-muted-foreground border-border",
     Approved: "bg-primary/10 text-primary border-primary/20",
+    Invoiced: "bg-blue-100 text-blue-700 border-blue-200",
+    Quoted: "bg-purple-100 text-purple-700 border-purple-200",
   };
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${map[status] ?? "bg-muted text-muted-foreground"}`}>

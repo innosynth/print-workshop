@@ -1,15 +1,18 @@
-import { useState, Fragment } from "react";
+import React, { useState, Fragment, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Loader2, Gauge, Save, History, TrendingDown, LayoutPanelLeft, Edit2, Download, Calendar } from "lucide-react";
+import { Search, Plus, Loader2, Gauge, Save, History, TrendingDown, LayoutPanelLeft, Edit2, Download, Calendar, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 
 export default function MeterReadings() {
@@ -23,6 +26,17 @@ export default function MeterReadings() {
   const [search, setSearch] = useState("");
   const [newMachineMode, setNewMachineMode] = useState(false);
   const [newMachineName, setNewMachineName] = useState("");
+  const [comboOpen, setComboOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      // Small timeout to ensure the modal is fully mounted before opening the popover
+      const timer = setTimeout(() => setComboOpen(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setComboOpen(false);
+    }
+  }, [open]);
   
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
@@ -59,6 +73,26 @@ export default function MeterReadings() {
     queryFn: () => fetch("/api/system?resource=machines").then(res => res.json()) 
   });
 
+  const bwLargeRef = useRef<HTMLInputElement>(null);
+  const bwSmallRef = useRef<HTMLInputElement>(null);
+  const colorLargeRef = useRef<HTMLInputElement>(null);
+  const colorSmallRef = useRef<HTMLInputElement>(null);
+  const lsColorRef = useRef<HTMLInputElement>(null);
+  const lsMonoRef = useRef<HTMLInputElement>(null);
+  const closingReadingRef = useRef<HTMLInputElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+
+  const handleEnter = (e: React.KeyboardEvent, nextRef: React.RefObject<any>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      nextRef.current?.focus();
+      if (nextRef.current instanceof HTMLInputElement) {
+        nextRef.current.select();
+      }
+    }
+  };
+
+
   const readings = Array.isArray(readingsData) ? readingsData : [];
 
   const mutation = useMutation({
@@ -93,6 +127,22 @@ export default function MeterReadings() {
       toast({ title: "Success", description: "New machine added." });
     }
   });
+
+  /**
+   * Finds the most recent closing reading for a given machine
+   * that was recorded on any date strictly before `currentDate`.
+   * Returns "0" if no prior record exists.
+   */
+  const getPreviousClosingReading = (machineName: string, currentDate: string): string => {
+    if (!machineName || !currentDate) return "0";
+    const priorReadings = readings
+      .filter((r: any) => r.machineName === machineName && r.date < currentDate)
+      .sort((a: any, b: any) => b.date.localeCompare(a.date));
+    if (priorReadings.length > 0 && priorReadings[0].closingReading) {
+      return String(priorReadings[0].closingReading);
+    }
+    return "0";
+  };
 
   const resetForm = () => {
     setFormData({
@@ -206,34 +256,94 @@ export default function MeterReadings() {
                         </div>
                      ) : (
                         <div className="flex gap-2">
-                          <Select value={formData.machineName} onValueChange={(v) => setFormData(prev => ({ ...prev, machineName: v }))}>
-                            <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold uppercase text-[11px] tracking-widest">
-                              <SelectValue placeholder="CHOOSE MACHINE" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white border-gray-100">
-                              {machinesList.map((m: any) => (
-                                <SelectItem key={m.id} value={m.name} className="font-bold uppercase text-[10px] tracking-widest">{m.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 border-gray-100 text-gray-300 hover:text-primary transition-colors" onClick={() => setNewMachineMode(true)}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
+                           <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                             <PopoverTrigger asChild>
+                               <Button
+                                 variant="outline"
+                                 role="combobox"
+                                 aria-expanded={comboOpen}
+                                 className="h-11 justify-between flex-1 bg-gray-50 border-gray-100 font-bold uppercase text-[11px] tracking-widest hover:bg-gray-100"
+                               >
+                                 {formData.machineName
+                                   ? machinesList.find((m: any) => m.name === formData.machineName)?.name
+                                   : "CHOOSE MACHINE"}
+                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                               </Button>
+                             </PopoverTrigger>
+                             <PopoverContent className="w-[300px] p-0 bg-white border-gray-100 shadow-xl" align="start">
+                               <Command className="bg-white">
+                                 <CommandInput placeholder="Search machine..." className="h-11" />
+                                 <CommandList>
+                                   <CommandEmpty>No machine found.</CommandEmpty>
+                                   <CommandGroup>
+                                     {machinesList.map((m: any) => (
+                                       <CommandItem
+                                         key={m.id}
+                                         value={m.name}
+                                         className="font-bold uppercase text-[10px] tracking-widest py-2.5 cursor-pointer"
+                                         onSelect={(currentValue) => {
+                                           const opening = getPreviousClosingReading(currentValue, formData.date);
+                                           setFormData(prev => ({ ...prev, machineName: currentValue, openingReading: opening }));
+                                           setComboOpen(false);
+                                           setTimeout(() => bwLargeRef.current?.focus(), 50);
+                                         }}
+                                       >
+                                         <Check
+                                           className={cn(
+                                             "mr-2 h-4 w-4",
+                                             formData.machineName === m.name ? "opacity-100" : "opacity-0"
+                                           )}
+                                         />
+                                         {m.name}
+                                       </CommandItem>
+                                     ))}
+                                   </CommandGroup>
+                                 </CommandList>
+                               </Command>
+                             </PopoverContent>
+                           </Popover>
+                           <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 border-gray-100 text-gray-300 hover:text-primary transition-colors" onClick={() => setNewMachineMode(true)}>
+                             <Plus className="h-4 w-4" />
+                           </Button>
                         </div>
                      )}
                    </div>
-                   <div className="space-y-1.5">
-                     <Label className="font-bold uppercase text-[10px] text-gray-500">Date</Label>
-                     <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="font-bold" />
+                   <div className="space-y-1.5 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                     <div className="flex items-center justify-between">
+                       <Label className="font-bold uppercase text-[10px] text-gray-500 tracking-widest">Entry Date</Label>
+                       <span className="text-[9px] font-black uppercase tracking-widest bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">FIXED</span>
+                     </div>
+                     <div className="text-xl font-black text-gray-700 leading-none py-1 select-none">
+                       {new Date(formData.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                     </div>
+                     <p className="text-[9px] font-bold text-gray-400 uppercase italic tracking-tighter">Current shift logging date</p>
                    </div>
                    <div className="space-y-4">
                      <div className="space-y-1.5 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100">
-                        <Label className="font-black uppercase text-[10px] text-emerald-700 tracking-widest">Opening Reading (Shift Start)</Label>
-                        <Input type="number" value={formData.openingReading} onChange={e => setFormData({...formData, openingReading: e.target.value})} className="text-2xl font-black border-none bg-transparent h-auto p-0 focus-visible:ring-0 shadow-none" />
+                        <div className="flex items-center justify-between">
+                          <Label className="font-black uppercase text-[10px] text-emerald-700 tracking-widest">Opening Reading (Shift Start)</Label>
+                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">AUTO</span>
+                        </div>
+                        <div className="text-2xl font-black text-emerald-800 leading-none py-1 select-none tabular-nums">
+                          {parseFloat(formData.openingReading || "0").toLocaleString()}
+                        </div>
+                        <p className="text-[9px] font-bold text-emerald-500 uppercase italic tracking-tighter">
+                          {formData.machineName
+                            ? `Fetched from previous day's closing reading`
+                            : `Select a machine to auto-fill`}
+                        </p>
                      </div>
                      <div className="space-y-1.5 p-4 bg-primary/5 rounded-xl border border-primary/10">
                         <Label className="font-black uppercase text-[10px] text-primary tracking-widest">Closing Reading (Shift End)</Label>
-                        <Input type="number" value={formData.closingReading || ""} onChange={e => setFormData({...formData, closingReading: e.target.value})} placeholder="0" className="text-2xl font-black border-none bg-transparent h-auto p-0 focus-visible:ring-0 shadow-none" />
+                        <Input 
+                           ref={closingReadingRef}
+                           type="number" 
+                           value={formData.closingReading || ""} 
+                           onChange={e => setFormData({...formData, closingReading: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, submitRef)}
+                           placeholder="0" 
+                           className="text-2xl font-black border-none bg-transparent h-auto p-0 focus-visible:ring-0 shadow-none" 
+                         />
                         <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase italic tracking-tighter">Enter manually or use machine counters &darr;</p>
                      </div>
                    </div>
@@ -243,37 +353,74 @@ export default function MeterReadings() {
                      <div className="col-span-2 text-[10px] font-black uppercase text-blue-600">BW Counters</div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">LARGE</Label>
-                        <Input type="number" value={formData.bwLarge} onChange={e => setFormData({...formData, bwLarge: e.target.value})} />
+                        <Input 
+                           ref={bwLargeRef}
+                           type="number" 
+                           value={formData.bwLarge} 
+                           onChange={e => setFormData({...formData, bwLarge: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, bwSmallRef)}
+                         />
                      </div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">SMALL</Label>
-                        <Input type="number" value={formData.bwSmall} onChange={e => setFormData({...formData, bwSmall: e.target.value})} />
+                        <Input 
+                           ref={bwSmallRef}
+                           type="number" 
+                           value={formData.bwSmall} 
+                           onChange={e => setFormData({...formData, bwSmall: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, colorLargeRef)}
+                         />
                      </div>
                    </div>
                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-orange-50/30">
                      <div className="col-span-2 text-[10px] font-black uppercase text-orange-600">COLOR Counters</div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">LARGE</Label>
-                        <Input type="number" value={formData.colorLarge} onChange={e => setFormData({...formData, colorLarge: e.target.value})} />
+                        <Input 
+                           ref={colorLargeRef}
+                           type="number" 
+                           value={formData.colorLarge} 
+                           onChange={e => setFormData({...formData, colorLarge: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, colorSmallRef)}
+                         />
                      </div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">SMALL</Label>
-                        <Input type="number" value={formData.colorSmall} onChange={e => setFormData({...formData, colorSmall: e.target.value})} />
+                        <Input 
+                           ref={colorSmallRef}
+                           type="number" 
+                           value={formData.colorSmall} 
+                           onChange={e => setFormData({...formData, colorSmall: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, lsColorRef)}
+                         />
                      </div>
                    </div>
                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-purple-50/30">
                      <div className="col-span-2 text-[10px] font-black uppercase text-purple-600">LS Counters</div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">COLOR</Label>
-                        <Input type="number" value={formData.lsColor} onChange={e => setFormData({...formData, lsColor: e.target.value})} />
+                        <Input 
+                           ref={lsColorRef}
+                           type="number" 
+                           value={formData.lsColor} 
+                           onChange={e => setFormData({...formData, lsColor: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, lsMonoRef)}
+                         />
                      </div>
                      <div className="space-y-1">
                         <Label className="text-[9px] font-bold">MONO</Label>
-                        <Input type="number" value={formData.lsMono} onChange={e => setFormData({...formData, lsMono: e.target.value})} />
+                        <Input 
+                           ref={lsMonoRef}
+                           type="number" 
+                           value={formData.lsMono} 
+                           onChange={e => setFormData({...formData, lsMono: e.target.value})} 
+                           onKeyDown={(e) => handleEnter(e, closingReadingRef)}
+                         />
                      </div>
                    </div>
                 </div>
                 <Button 
+                  ref={submitRef}
                   className="col-span-2 h-12 text-lg font-black uppercase tracking-widest shadow-xl" 
                   onClick={() => mutation.mutate({ ...formData, userId: user?.id })}
                   disabled={mutation.isPending}
@@ -394,4 +541,3 @@ export default function MeterReadings() {
     </div>
   );
 }
-

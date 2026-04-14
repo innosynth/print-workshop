@@ -51,7 +51,9 @@ export const invoices = pgTable("invoices", {
   amount: numeric("amount").notNull(),
   tax: numeric("tax").notNull(),
   total: numeric("total").notNull(),
+  fileName: text("fileName"),
   status: text("status").default("Paid"), // 'Paid', 'Pending', 'Cancelled', 'Draft', 'Partial'
+  isIgst: boolean("isIgst").default(false),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -74,7 +76,9 @@ export const quotations = pgTable("quotations", {
   customerId: integer("customerId").references(() => contacts.id),
   customerName: text("customerName"), // For walk-in/dummy bills
   amount: numeric("amount").notNull(),
+  fileName: text("fileName"),
   status: text("status").default("Pending"),
+  isIgst: boolean("isIgst").default(false),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 

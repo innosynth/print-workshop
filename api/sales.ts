@@ -16,6 +16,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
             id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
             amount: invoices.amount, tax: invoices.tax, total: invoices.total,
             status: invoices.status, customerId: contacts.id,
+            fileName: invoices.fileName,
             customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
             customerGst: contacts.gst
           }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).where(eq(invoices.id, parseInt(id as string))).limit(1);
@@ -58,7 +59,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (method === 'GET') {
         const { id } = request.query;
         if (id) {
-          const main = await db.select().from(quotations).where(eq(quotations.id, parseInt(id as string))).limit(1);
+          const main = await db.select({
+            id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
+            amount: quotations.amount, status: quotations.status, customerId: contacts.id,
+            fileName: quotations.fileName, isIgst: quotations.isIgst,
+            customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
+            customerGst: contacts.gst
+          }).from(quotations).leftJoin(contacts, eq(quotations.customerId, contacts.id)).where(eq(quotations.id, parseInt(id as string))).limit(1);
+          
           if (main.length === 0) return response.status(404).json({ error: 'Quotation not found' });
           const items = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, main[0].id));
           return response.status(200).json({ ...main[0], items });
