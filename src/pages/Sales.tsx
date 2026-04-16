@@ -238,7 +238,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     const rate = parseFloat(item.gstRate || 0);
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
-  const total = isEstimate ? taxableAmount : (taxableAmount + totalTax);
+  const total = (isEstimate && totalTax === 0) ? taxableAmount : (taxableAmount + totalTax);
   const igst = totalTax;
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
@@ -522,7 +522,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <th className="border border-black px-1 py-1 w-12 text-center">HSN</th>
                     <th className="border border-black px-1 py-1 w-10 text-center">QTY</th>
                     <th className="border border-black px-1 py-1 w-16 text-right">RATE (₹)</th>
-                    {!isEstimate && (
+                    {(totalTax > 0) && (
                       isIgst ? (
                         <>
                           <th className="border border-black px-1 py-1 w-10 text-center">IGST %</th>
@@ -552,7 +552,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="border border-black px-1 py-1 text-center">{item.hsnCode || "-"}</td>
                         <td className="border border-black px-1 py-1 text-center">{item.qty || 0}.00</td>
                         <td className="border border-black px-1 py-1 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
-                        {!isEstimate && (
+                        {(totalTax > 0) && (
                           isIgst ? (
                             <>
                               <td className="border border-black px-1 py-1 text-center">{itemRate.toFixed(2)}</td>
@@ -567,7 +567,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                             </>
                           )
                         )}
-                        <td className="border border-black px-2 py-1 text-right font-bold">{(itemAmount + (isEstimate ? 0 : itemTax)).toFixed(2)}</td>
+                        <td className="border border-black px-2 py-1 text-right font-bold">{(itemAmount + (totalTax > 0 ? itemTax : 0)).toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -577,7 +577,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <tr key={i} className="h-6">
                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
                       <td className="border border-black"></td><td className="border border-black"></td>
-                      {!isEstimate && (
+                      {(totalTax > 0) && (
                         isIgst ? (
                           <><td className="border border-black"></td><td className="border border-black"></td></>
                         ) : (
@@ -624,7 +624,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="px-2 py-1 text-gray-500">Sub Total</td>
                         <td className="px-2 py-1 text-right font-black">₹{taxableAmount.toFixed(2)}</td>
                       </tr>
-                      {!isEstimate && (
+                      {(totalTax > 0) && (
                         isIgst ? (
                           <tr className="border border-black">
                             <td className="px-2 py-1 text-gray-500">IGST</td>
@@ -921,7 +921,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const validItems = items.filter(i => i.name && i.name.trim() !== "");
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const totalTax = gstEnabled ? validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0) : 0;
-  const grandTotal = subtotal + (type === 'estimates' || !gstEnabled ? 0 : totalTax);
+  const grandTotal = subtotal + (!gstEnabled ? 0 : totalTax);
 
   const resetForm = () => {
     setItems([{
@@ -953,7 +953,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: initialData ? (initialData.invoiceNo || initialData.quotationNo) : `${type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV'}-${Date.now().toString().slice(-6)}`,
           date: date,
           amount: subtotal.toFixed(2),
-          tax: type === 'estimates' ? "0" : totalTax.toFixed(2),
+          tax: !gstEnabled ? "0" : totalTax.toFixed(2),
           total: grandTotal.toFixed(2),
           isIgst: isIgst,
           status: initialData ? initialData.status : (type === 'estimates' ? "Draft" : "Pending"),
@@ -1001,7 +1001,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
                   <p className="text-xs font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
-                {type !== 'estimates' && (
+                {(type !== 'estimates' || gstEnabled) && (
                   <div className="text-right">
                     <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">{isIgst ? 'IGST' : 'GST'}</p>
                     <p className="text-xs font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
@@ -1071,7 +1071,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md">
                 <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground ml-2">Line Items</Label>
                 <div className="flex items-center gap-3">
-                  {type !== 'estimates' && (
+                  {true && (
                     <div className="flex items-center gap-3">
                       <div className="flex items-center space-x-2 bg-white/50 px-3 py-1 rounded-full border border-primary/10 transition-all hover:bg-white">
                         <Checkbox
@@ -1205,7 +1205,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         </div>
 
                         {/* Financials Row */}
-                        <div className={cn("grid gap-2 items-end md:col-span-4", (type === 'estimates' || !gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
+                        <div className={cn("grid gap-2 items-end md:col-span-4", (!gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
                           <div className="space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
                             <Input
@@ -1239,7 +1239,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             />
                           </div>
 
-                          {(type !== 'estimates' && gstEnabled) && (
+                          {gstEnabled && (
                             <div className="space-y-1.5">
                               <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
                               <Input
@@ -1297,7 +1297,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
                   <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
-                {type !== 'estimates' && (
+                {(type !== 'estimates' || gstEnabled) && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">{isIgst ? 'IGST' : 'GST'} Amount</span>
                     <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
