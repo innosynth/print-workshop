@@ -17,6 +17,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
             amount: invoices.amount, tax: invoices.tax, total: invoices.total,
             status: invoices.status, customerId: contacts.id,
             fileName: invoices.fileName,
+            isIgst: invoices.isIgst,
             customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
             customerGst: contacts.gst
           }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).where(eq(invoices.id, parseInt(id as string))).limit(1);
@@ -28,6 +29,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
           amount: invoices.amount, tax: invoices.tax, total: invoices.total,
           status: invoices.status, customerId: contacts.id,
+          isIgst: invoices.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
           productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`
         })
@@ -49,8 +51,20 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'PUT') {
         const { id } = request.query;
-        const data = request.body;
-        const updated = await db.update(invoices).set(data).where(eq(invoices.id, parseInt(id as string))).returning();
+        const { items, ...invoiceData } = request.body;
+        if (invoiceData.id) delete invoiceData.id;
+
+        const updated = await db.update(invoices).set(invoiceData)
+          .where(eq(invoices.id, parseInt(id as string)))
+          .returning();
+
+        if (items) {
+          await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, parseInt(id as string)));
+          if (items.length > 0) {
+            const itemsWithId = items.map((item: any) => ({ ...item, invoiceId: parseInt(id as string) }));
+            await db.insert(invoiceItems).values(itemsWithId);
+          }
+        }
         return response.status(200).json(updated[0]);
       }
     }
@@ -74,6 +88,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const data = await db.select({
           id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
           amount: quotations.amount, status: quotations.status, customerId: contacts.id,
+          isIgst: quotations.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
           productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`
         })
@@ -95,8 +110,20 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'PUT') {
         const { id } = request.query;
-        const data = request.body;
-        const updated = await db.update(quotations).set(data).where(eq(quotations.id, parseInt(id as string))).returning();
+        const { items, ...quotationData } = request.body;
+        if (quotationData.id) delete quotationData.id;
+
+        const updated = await db.update(quotations).set(quotationData)
+          .where(eq(quotations.id, parseInt(id as string)))
+          .returning();
+
+        if (items) {
+          await db.delete(quotationItems).where(eq(quotationItems.quotationId, parseInt(id as string)));
+          if (items.length > 0) {
+            const itemsWithId = items.map((item: any) => ({ ...item, quotationId: parseInt(id as string) }));
+            await db.insert(quotationItems).values(itemsWithId);
+          }
+        }
         return response.status(200).json(updated[0]);
       }
     }
