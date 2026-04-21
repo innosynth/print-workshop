@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ScaleControl } from "@/components/ScaleControl";
 import { Bell, Search, User, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,14 +110,17 @@ export function Layout({ children }: LayoutProps) {
                 className="h-auto border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
               />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+              {/* Accessibility Scale Control — placed before notifications */}
+              <ScaleControl />
+
               {/* Notification Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative h-8 w-8">
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-destructive text-[10px] font-black text-white border-2 border-background">
+                      <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[1rem] px-1 flex items-center justify-center rounded-full bg-destructive text-[0.625rem] font-black text-white border-2 border-background">
                         {unreadCount}
                       </span>
                     )}
@@ -125,7 +129,7 @@ export function Layout({ children }: LayoutProps) {
                 <DropdownMenuContent align="end" className="w-80 p-0 border-none shadow-2xl rounded-2xl overflow-hidden">
                   <div className="p-4 bg-primary text-primary-foreground">
                     <DropdownMenuLabel className="p-0 font-black uppercase tracking-tighter text-lg">Notifications</DropdownMenuLabel>
-                    <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest mt-0.5">{unreadCount} Pending actions today</p>
+                    <p className="text-[0.625rem] opacity-70 font-bold uppercase tracking-widest mt-0.5">{unreadCount} Pending actions today</p>
                   </div>
                   <div className="max-h-[400px] overflow-auto">
                     {notifications.length === 0 ? (
@@ -143,13 +147,13 @@ export function Layout({ children }: LayoutProps) {
                           onClick={() => navigate("/meter-readings")}
                         >
                           <div className="flex items-center gap-2 w-full">
-                            <Badge variant={n.variant as any} className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0">
+                            <Badge variant={n.variant as any} className="text-[0.5625rem] font-black uppercase tracking-widest px-1.5 py-0">
                               {n.type}
                             </Badge>
                             <span className="font-black text-xs uppercase tracking-tight flex-1">{n.title}</span>
-                            <span className="text-[9px] font-bold text-gray-400">NOW</span>
+                            <span className="text-[0.5625rem] font-bold text-gray-400">NOW</span>
                           </div>
-                          <p className="text-[11px] font-bold text-gray-500 leading-tight mt-1">{n.description}</p>
+                          <p className="text-[0.6875rem] font-bold text-gray-500 leading-tight mt-1">{n.description}</p>
                         </DropdownMenuItem>
                       ))
                     )}
@@ -158,7 +162,7 @@ export function Layout({ children }: LayoutProps) {
                     <>
                       <DropdownMenuSeparator className="m-0" />
                       <DropdownMenuItem 
-                        className="justify-center py-3 text-[11px] font-black uppercase tracking-widest text-primary hover:text-primary transition-colors cursor-pointer"
+                        className="justify-center py-3 text-[0.6875rem] font-black uppercase tracking-widest text-primary hover:text-primary transition-colors cursor-pointer"
                         onClick={() => navigate("/meter-readings")}
                       >
                         Go to Meter Audit →
@@ -171,7 +175,7 @@ export function Layout({ children }: LayoutProps) {
               {/* Account Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold hover:bg-primary/90 uppercase">
+                  <Button variant="ghost" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-[0.625rem] font-bold hover:bg-primary/90 uppercase">
                     {user?.name?.substring(0, 2) || "AD"}
                   </Button>
                 </DropdownMenuTrigger>
@@ -179,7 +183,7 @@ export function Layout({ children }: LayoutProps) {
                   <DropdownMenuLabel className="p-4 bg-gray-50">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-black uppercase tracking-tight">{user?.name || "User"}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground">{user?.email}</p>
+                      <p className="text-[0.625rem] font-bold text-muted-foreground">{user?.email}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="m-0" />

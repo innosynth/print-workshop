@@ -298,7 +298,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
           </DialogTitle>
           <div className="flex gap-4">
              <div className="text-right">
-                <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70 leading-none">Grand Total</p>
+                <p className="text-[0.625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">Grand Total</p>
                 <p className="text-sm font-black text-green-600 tabular-nums">₹{Math.round(total).toLocaleString()}</p>
              </div>
           </div>
@@ -306,9 +306,9 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
 
         <div className="flex-1 p-6 space-y-6 overflow-y-auto">
           {/* Header Section */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="col-span-2 space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Supplier (From)*</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Supplier (From)*</Label>
               <FormCombobox
                 triggerRef={supplierRef}
                 autoOpen={true}
@@ -329,7 +329,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Invoice No.</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Invoice No.</Label>
               <Input 
                 ref={invNoRef}
                 value={invNo} 
@@ -340,7 +340,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
               <Input 
                 ref={createDateRef}
                 type="date" 
@@ -351,7 +351,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Due Date</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Due Date</Label>
               <Input 
                 ref={dueDateRef}
                 type="date" 
@@ -362,7 +362,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order No.</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Order No.</Label>
               <Input 
                 ref={orderRef}
                 value={orderNo} 
@@ -373,7 +373,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Our PO #</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Our PO #</Label>
               <Input 
                 ref={poRef}
                 value={ourPoNo} 
@@ -383,7 +383,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Our DC #</Label>
+              <Label className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">Our DC #</Label>
               <Input 
                 ref={dcRef}
                 value={ourDcNo} 
@@ -408,8 +408,8 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
           {/* Items Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Items & Procurement Details</Label>
-              <Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-[10px] font-bold text-primary gap-1 hover:bg-primary/5">
+              <Label className="text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground">Items & Procurement Details</Label>
+              <Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-[0.625rem] font-bold text-primary gap-1 hover:bg-primary/5">
                 <Plus className="h-3 w-3" /> Add New Row
               </Button>
             </div>
@@ -429,7 +429,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
                       
                       {/* Category & Sub Category */}
                       <div className="md:col-span-2 space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
+                        <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
                         <FormCombobox
                           triggerRef={(el: any) => categoryRefs.current[i] = el}
                           openOnFocus={true}
@@ -452,7 +452,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
                         />
                       </div>
                       <div className="md:col-span-2 space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
+                        <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
                         <FormCombobox
                           triggerRef={(el: any) => subCategoryRefs.current[i] = el}
                           openOnFocus={true}
@@ -470,7 +470,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
 
                       {/* Product */}
                       <div className="md:col-span-3 space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
+                        <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Product / SKU</Label>
                         <FormCombobox
                           triggerRef={(el: any) => itemProductRefs.current[i] = el}
                           openOnFocus={true}
@@ -495,11 +495,11 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
                       {/* Financials: Qty, Rate, GST, Disc */}
                       <div className="md:col-span-4 grid grid-cols-4 gap-2">
                          <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
                           <Input ref={el => itemQtyRefs.current[i] = el} type="number" value={item.qty} onChange={e => updateItem(i, "qty", e.target.value)} onKeyDown={e => handleEnter(e, itemRateRefs.current[i])} className="h-9 text-xs text-center font-bold bg-white" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
                           <Input ref={el => itemRateRefs.current[i] = el} type="number" value={item.rate} onChange={e => updateItem(i, "rate", e.target.value)} onKeyDown={e => {
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -513,19 +513,19 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
                           }} className="h-9 text-xs font-bold px-1 bg-white" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST%</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST%</Label>
                           <Input type="number" value={item.gstRate} onChange={e => updateItem(i, "gstRate", e.target.value)} className="h-9 text-xs text-center px-1 bg-white" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Disc%</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">Disc%</Label>
                           <Input type="number" value={item.disPct} onChange={e => updateItem(i, "disPct", e.target.value)} className="h-9 text-xs text-center px-1 bg-white" placeholder="0" />
                         </div>
                       </div>
 
                       <div className="md:col-span-1 flex items-center justify-end gap-1">
                          <div className="text-right flex-1 bg-primary/5 p-1 rounded-md border border-primary/10 overflow-hidden">
-                            <p className="text-[7px] font-black text-muted-foreground uppercase opacity-70 leading-tight">Total</p>
-                            <p className="text-[10px] font-black text-primary tabular-nums truncate">₹{item.amount.toFixed(0)}</p>
+                            <p className="text-[0.4375rem] font-black text-muted-foreground uppercase opacity-70 leading-tight">Total</p>
+                            <p className="text-[0.625rem] font-black text-primary tabular-nums truncate">₹{item.amount.toFixed(0)}</p>
                          </div>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => removeItem(i)} disabled={items.length === 1}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -545,7 +545,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
           <div className="flex flex-col md:flex-row justify-between items-end gap-6">
              <div className="flex gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Received Amount</Label>
+                  <Label className="text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground">Received Amount</Label>
                   <div className="relative w-40">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">₹</span>
                     <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} className="pl-7 h-10 font-bold bg-white" />
@@ -555,15 +555,15 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
 
              <div className="flex gap-12 text-right">
                 <div className="space-y-0.5">
-                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">Subtotal</p>
+                   <p className="text-[0.625rem] font-black text-muted-foreground uppercase opacity-70">Subtotal</p>
                    <p className="text-sm font-bold tabular-nums">₹{subTotal.toFixed(2)}</p>
                 </div>
                 <div className="space-y-0.5">
-                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">{isIgst ? 'IGST' : 'CGST + SGST'}</p>
+                   <p className="text-[0.625rem] font-black text-muted-foreground uppercase opacity-70">{isIgst ? 'IGST' : 'CGST + SGST'}</p>
                    <p className="text-sm font-bold tabular-nums text-orange-600">₹{totalTax.toFixed(2)}</p>
                 </div>
                 <div className="space-y-0.5">
-                   <p className="text-[10px] font-black text-muted-foreground uppercase opacity-70">Grand Total</p>
+                   <p className="text-[0.625rem] font-black text-muted-foreground uppercase opacity-70">Grand Total</p>
                    <p className="text-xl font-black text-primary tabular-nums tracking-tighter">₹{Math.round(total).toLocaleString()}</p>
                 </div>
              </div>

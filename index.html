@@ -57,6 +57,17 @@
       "url": "https://www.innosynth.org"
     }
     </script>
+  <!-- Flicker-prevention: apply saved UI scale before first paint -->
+  <script>
+    (function() {
+      var SCALE_MAP = { small: '0.875', default: '1', large: '1.125' };
+      var saved = 'default';
+      try { saved = localStorage.getItem('ui-scale') || 'default'; } catch(e) {}
+      if (!(saved in SCALE_MAP)) saved = 'default';
+      document.documentElement.style.setProperty('--app-scale', SCALE_MAP[saved]);
+      document.documentElement.setAttribute('data-scale', saved);
+    })();
+  </script>
 </head>
 
 <body>

@@ -46,7 +46,7 @@ export function AppSidebar() {
             </div>
             <div>
               <p className="text-xs font-bold text-sidebar-primary-foreground leading-tight">Print Workshop</p>
-              <p className="text-[10px] text-sidebar-foreground/70 leading-tight">Coimbatore</p>
+              <p className="text-[0.625rem] text-sidebar-foreground/70 leading-tight">Coimbatore</p>
             </div>
           </div>
         ) : (
@@ -59,7 +59,7 @@ export function AppSidebar() {
       <SidebarContent className="bg-sidebar">
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-sidebar-foreground/50 text-[10px] uppercase tracking-wider px-4 pt-4 pb-1">
+            <SidebarGroupLabel className="text-sidebar-foreground/50 text-[0.625rem] uppercase tracking-wider px-4 pt-4 pb-1">
               Main Menu
             </SidebarGroupLabel>
           )}

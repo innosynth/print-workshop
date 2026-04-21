@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { generateInvoicePDF } from "@/lib/pdf-engine";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -243,41 +244,47 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    const doc = await generateInvoicePDF(
+      activeInvoice,
+      profile,
+      paperSize,
+      docTitle,
+      activeQr?.imageUrl
+    );
+    
+    // Use the PDF blob to trigger a clean print
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    
+    // Create a temporary hidden iframe to trigger the print dialog
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    
+    iframe.onload = () => {
+      iframe.contentWindow?.print();
+      // Clean up after print dialog is closed
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(url);
+      }, 1000);
+    };
   };
 
   const handleDownload = async () => {
-    if (!printRef.current) return;
-
-    // Use a fixed scale for consistency, scale 2 is usually enough and more stable
-    const canvas = await html2canvas(printRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      windowWidth: paperSize === "A4" ? 1122 : paperSize === "A5" ? 794 : 302, // 297mm, 210mm and 80mm in px at 96dpi
-      onclone: (document) => {
-        // Ensure the cloned element is visible and has correct styles
-        const el = document.querySelector('.print-container') as HTMLElement;
-        if (el) el.style.overflow = 'visible';
-      }
-    });
-
-    const imgData = canvas.toDataURL(paperSize === "thermal" ? 'image/jpeg' : 'image/png', 1.0);
-    const pdf = new jsPDF({
-      orientation: paperSize === "thermal" ? "p" : "l",
-      unit: "mm",
-      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? "a5" : [80, (canvas.height * 80) / canvas.width]
-    });
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-    pdf.addImage(imgData, paperSize === "A4" ? 'PNG' : 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    const doc = await generateInvoicePDF(
+      activeInvoice,
+      profile,
+      paperSize,
+      docTitle,
+      activeQr?.imageUrl
+    );
+    
     const docNo = activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || 'Doc';
-    const custName = activeInvoice.customerName || 'Customer';
-    pdf.save(`${docNo}_${custName.replace(/\s+/g, '_')}.pdf`);
+    const custName = (activeInvoice.customerName || 'Customer').replace(/\s+/g, '_');
+    doc.save(`${docNo}_${custName}.pdf`);
   };
 
   const printStyles = `
@@ -366,11 +373,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
     .invoice-page {
       width: 100% !important;
-      max-width: ${paperSize === "A4" ? "285mm" : "195mm"} !important;
+      max-width: ${paperSize === "A4" ? "277mm" : "190mm"} !important;
       min-height: ${paperSize === "A4" ? "calc(210mm - 12mm)" : "calc(148mm - 12mm)"} !important;
       box-sizing: border-box !important;
       margin: 0 auto !important;
-      padding: 4mm 6mm !important;
+      padding: 6mm 10mm !important;
       background: white !important;
       color: black !important;
       overflow: visible !important;
@@ -464,11 +471,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   )}
                   <div>
                     <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">{profile.name || "PRINT WORKSHOP"}</h1>
-                    <p className="text-[10px] font-bold text-gray-600 uppercase mt-1 italic">{profile.slogan}</p>
-                    <p className="text-[10px] font-bold text-black uppercase">DIGITAL PRINTING</p>
+                    <p className="text-[0.625rem] font-bold text-gray-600 uppercase mt-1 italic">{profile.slogan}</p>
+                    <p className="text-[0.625rem] font-bold text-black uppercase">DIGITAL PRINTING</p>
                   </div>
                 </div>
-                <div className="text-right space-y-0.5 text-[10px] font-bold">
+                <div className="text-right space-y-0.5 text-[0.625rem] font-bold">
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">📞</span> {profile.phone}</p>
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">✉️</span> {profile.email}</p>
                   <div className="flex justify-end gap-2 items-start max-w-[200px] mt-1 leading-tight">
@@ -484,37 +491,37 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               {/* Billing Info */}
-              <div className="grid grid-cols-2 gap-8 text-[11px]">
+              <div className="grid grid-cols-2 gap-8 text-[0.6875rem]">
                 <div className="space-y-1">
-                  <p className="font-bold text-gray-500 uppercase tracking-widest text-[9px]">To :</p>
+                  <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.5625rem]">To :</p>
                   <p className="text-sm font-black">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
                   <p className="text-gray-600">COIMBATORE</p>
-                  <p className="mt-2 text-[10px] font-bold">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
-                  <p className="text-[10px] font-bold">State & Code:</p>
+                  <p className="mt-2 text-[0.625rem] font-bold">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
+                  <p className="text-[0.625rem] font-bold">State & Code:</p>
                 </div>
                 <div className="space-y-1 text-right">
                   <div className="flex justify-end gap-2">
-                    <span className="text-gray-500 uppercase text-[9px] font-bold">
+                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
                       {isEstimate ? "Estimate No :" : docType === "quotations" ? "Quotation No :" : "Invoice No :"}
                     </span>
                     <span className="font-bold w-24 text-left">{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <span className="text-gray-500 uppercase text-[9px] font-bold">
+                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
                       {isEstimate ? "Estimate Date :" : docType === "quotations" ? "Quotation Date :" : "Invoice Date :"}
                     </span>
                     <span className="font-bold w-24 text-left">{activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-end gap-2 text-primary">
-                    <span className="text-gray-500 uppercase text-[9px] font-bold">File Ref :</span>
+                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">File Ref :</span>
                     <span className="font-bold w-24 text-left">{activeInvoice.fileName || "-"}</span>
                   </div>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-tight">GSTIN : <span className="text-sm">{profile.gst}</span></p>
+                  <p className="mt-1 text-[0.625rem] font-bold uppercase tracking-tight">GSTIN : <span className="text-sm">{profile.gst}</span></p>
                 </div>
               </div>
 
               {/* Items Table */}
-              <table className="w-full border-collapse border border-black text-[10px]">
+              <table className="w-full border-collapse border border-black text-[0.625rem]">
                 <thead className="bg-gray-100 font-bold uppercase">
                   <tr>
                     <th className="border border-black px-1 py-1 w-8 text-center">S.No</th>
@@ -593,7 +600,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               {/* A4 Footer */}
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-4 space-y-4">
-                  <div className="text-[10px]">
+                  <div className="text-[0.625rem]">
                     <p className="font-black border-b border-black mb-1 w-fit uppercase">Bank Details</p>
                     <div className="grid grid-cols-2 gap-x-2">
                       <span className="text-gray-500">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span>
@@ -603,22 +610,22 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       <span className="text-gray-500">IFSC Code</span><span className="font-bold">: {profile.ifscCode}</span>
                     </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase mt-4">THANK YOU FOR YOUR BUSINESS</p>
+                  <p className="text-[0.625rem] font-black uppercase mt-4">THANK YOU FOR YOUR BUSINESS</p>
                 </div>
 
                 <div className="col-span-4 flex flex-col items-center justify-center">
                   {activeQr ? (
                     <div className="text-center">
                       <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1" alt="Payment QR" />
-                      <p className="text-[9px] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
+                      <p className="text-[0.5625rem] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
                     </div>
                   ) : (
-                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-[8px] text-gray-400 text-center">QR CODE<br />PENDING</div>
+                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-[0.5rem] text-gray-400 text-center">QR CODE<br />PENDING</div>
                   )}
                 </div>
 
                 <div className="col-span-4">
-                  <table className="w-full text-[11px] font-bold">
+                  <table className="w-full text-[0.6875rem] font-bold">
                     <tbody>
                       <tr className="border border-black">
                         <td className="px-2 py-1 text-gray-500">Sub Total</td>
@@ -649,9 +656,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-[8px] text-right mt-2 text-gray-500">This is computer generated document signature not required</p>
+                  <p className="text-[0.5rem] text-right mt-2 text-gray-500">This is computer generated document signature not required</p>
                   {activeInvoice.fileName && (
-                    <p className="text-[8px] text-right font-bold uppercase text-primary mt-0.5">File: {activeInvoice.fileName}</p>
+                    <p className="text-[0.5rem] text-right font-bold uppercase text-primary mt-0.5">File: {activeInvoice.fileName}</p>
                   )}
                 </div>
               </div>
@@ -662,14 +669,14 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <div className="mb-2">
                 {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-1 object-contain" alt="Logo" />}
                 <h1 className="text-2xl font-black">{profile.name}</h1>
-                <p className="text-[10px] font-medium leading-none">( {profile.slogan} )</p>
-                <p className="text-[10px] mt-1">{profile.address}</p>
-                <p className="text-[10px]">Call @ {profile.phone}</p>
-                <p className="text-[10px]"><span className="font-bold">Mail :</span> {profile.email}</p>
+                <p className="text-[0.625rem] font-medium leading-none">( {profile.slogan} )</p>
+                <p className="text-[0.625rem] mt-1">{profile.address}</p>
+                <p className="text-[0.625rem]">Call @ {profile.phone}</p>
+                <p className="text-[0.625rem]"><span className="font-bold">Mail :</span> {profile.email}</p>
                 <h2 className="text-xs font-bold mt-1 uppercase underline">{docTitle}</h2>
               </div>
 
-              <div className="text-[10px] py-0.5 border-t border-dashed border-black">
+              <div className="text-[0.625rem] py-0.5 border-t border-dashed border-black">
                 <div className="flex justify-between font-bold">
                   <span>
                     {isEstimate ? "Est." : docType === "quotations" ? "Qt." : "No."} {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}
@@ -682,7 +689,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               <div className="border-t border-dashed border-black pt-1">
-                <table className="w-full text-[10px]">
+                <table className="w-full text-[0.625rem]">
                   <thead className="font-bold">
                     <tr className="text-left border-b border-dashed border-black">
                       <th className="py-1">Product Name</th>
@@ -707,7 +714,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               <div className="border-t border-dashed border-black py-2 space-y-1">
-                <div className="text-left font-bold text-[11px]">
+                <div className="text-left font-bold text-[0.6875rem]">
                   <p>Total Items : {activeInvoice.items?.length || 0}</p>
                   <div className="flex justify-between items-center">
                     <span>Total Qty : {activeInvoice.items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</span>
@@ -725,13 +732,13 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     ))}
                   </div>
                 </div>
-                <div className="w-full text-left font-bold text-[9px] space-y-0.5 mt-1">
+                <div className="w-full text-left font-bold text-[0.5625rem] space-y-0.5 mt-1">
                   <p>File : {activeInvoice.fileName || "-"}</p>
                   <p>User :admin | Time : {new Date().toLocaleDateString('en-GB')}</p>
                 </div>
                 <div className="space-y-0.5">
-                  <p className="font-bold text-[10px]">{profile.website}</p>
-                  <p className="font-black text-[11px] uppercase">Thank For Your Business</p>
+                  <p className="font-bold text-[0.625rem]">{profile.website}</p>
+                  <p className="font-black text-[0.6875rem] uppercase">Thank For Your Business</p>
                 </div>
                 {activeQr && (
                   <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1 mt-1" alt="QA" />
@@ -998,18 +1005,18 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
             {items.length > 5 && (
               <div className="flex items-center gap-6 animate-in fade-in slide-in-from-right-2 duration-300">
                 <div className="text-right">
-                  <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
+                  <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
                   <p className="text-xs font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
                 {(type !== 'estimates' || gstEnabled) && (
                   <div className="text-right">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase opacity-70 leading-none">{isIgst ? 'IGST' : 'GST'}</p>
+                    <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">{isIgst ? 'IGST' : 'GST'}</p>
                     <p className="text-xs font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 <div className="h-8 w-px bg-border mx-1" />
                 <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
-                  <p className="text-[9px] font-black text-green-800 uppercase leading-none">Grand Total</p>
+                  <p className="text-[0.5625rem] font-black text-green-800 uppercase leading-none">Grand Total</p>
                   <p className="text-sm font-black text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
@@ -1082,7 +1089,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         />
                         <label
                           htmlFor="use-igst"
-                          className="text-[10px] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-blue-700"
+                          className="text-[0.625rem] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-blue-700"
                           data-enabled={isIgst}
                         >
                           Use IGST
@@ -1097,7 +1104,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         />
                         <label
                           htmlFor="enable-gst"
-                          className="text-[10px] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-green-700"
+                          className="text-[0.625rem] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-green-700"
                           data-enabled={gstEnabled}
                         >
                           Enable GST
@@ -1126,7 +1133,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end">
                         {/* Row 1/Top section on mobile, Left section on desktop */}
                         <div className="md:col-span-2 space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => categoryRefs.current[index] = el}
                             onKeyDown={(e) => {
@@ -1155,7 +1162,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           />
                         </div>
                         <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Product</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Product</Label>
                           <FormCombobox
                             triggerRef={(el: any) => productRefs.current[index] = el}
                             onKeyDown={(e) => handleEnter(e, subCategoryRefs.current[index])}
@@ -1172,7 +1179,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           />
                         </div>
                         <div className="md:col-span-2 space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
+                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => subCategoryRefs.current[index] = el}
                             onKeyDown={(e) => handleEnter(e, qtyRefs.current[index])}
@@ -1207,7 +1214,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         {/* Financials Row */}
                         <div className={cn("grid gap-2 items-end md:col-span-4", (!gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
+                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
                             <Input
                               ref={el => qtyRefs.current[index] = el}
                               onKeyDown={(e) => handleEnter(e, rateRefs.current[index])}
@@ -1218,7 +1225,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
+                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
                             <Input
                               ref={el => rateRefs.current[index] = el}
                               onKeyDown={(e) => {
@@ -1241,7 +1248,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
                           {gstEnabled && (
                             <div className="space-y-1.5">
-                              <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
+                              <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
                               <Input
                                 type="number"
                                 value={item.gstRate}
@@ -1251,8 +1258,8 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             </div>
                           )}
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
-                            <div className="h-10 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[11px] text-primary overflow-hidden truncate">
+                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
+                            <div className="h-10 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate">
                               ₹{item.amount.toFixed(2)}
                             </div>
                           </div>
@@ -1281,7 +1288,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
             {/* Footer Summary Section */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
               <div className="flex-1 w-full sm:max-w-xs space-y-1.5">
-                <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
+                <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
                 <div className="relative group">
                   <Input
                     placeholder="Enter filename or job ID..."
@@ -1353,12 +1360,12 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
       <PopoverContent className="w-56 p-3 shadow-xl border-primary/10 z-[110]" align="end">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
+            <p className="text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
             {currentFilter && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 px-1.5 text-[9px] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
+                className="h-5 px-1.5 text-[0.5625rem] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
                 onClick={() => {
                   const newFilters = { ...filters };
                   delete newFilters[column];
@@ -1467,7 +1474,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                     {cols.map(c => (
                       <th key={c.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
                         <div className="flex items-center group">
-                          <span className="uppercase tracking-widest font-black text-[9px]">{c.label}</span>
+                          <span className="uppercase tracking-widest font-black text-[0.5625rem]">{c.label}</span>
                           <ColumnFilter
                             label={c.label}
                             column={c.key}
@@ -1756,7 +1763,7 @@ export default function Sales() {
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
+    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
     { 
       key: "status", 
@@ -1774,7 +1781,7 @@ export default function Sales() {
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "invoices" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
+    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
     { 
       key: "status", 
@@ -1791,7 +1798,7 @@ export default function Sales() {
     { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "quotations" })}>{r.quotationNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[10px] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
+    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
     { 
       key: "status", 
@@ -1958,8 +1965,8 @@ export default function Sales() {
                   <FileText className="h-8 w-8 text-blue-600" />
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="font-black text-blue-900 uppercase text-[12px] tracking-wider">Quotation</p>
-                  <p className="text-[10px] font-medium text-muted-foreground leading-tight px-2">Formal proposal for customer</p>
+                  <p className="font-black text-blue-900 uppercase text-[0.75rem] tracking-wider">Quotation</p>
+                  <p className="text-[0.625rem] font-medium text-muted-foreground leading-tight px-2">Formal proposal for customer</p>
                 </div>
                 {convertingId === convertDialog.data?.id && (
                   <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10 backdrop-blur-[1px]">
@@ -1978,8 +1985,8 @@ export default function Sales() {
                   <CheckCircle2 className="h-8 w-8 text-primary" />
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="font-black text-primary uppercase text-[12px] tracking-wider">Tax Invoice</p>
-                  <p className="text-[10px] font-medium text-muted-foreground leading-tight px-2">Final bill with GST calculations</p>
+                  <p className="font-black text-primary uppercase text-[0.75rem] tracking-wider">Tax Invoice</p>
+                  <p className="text-[0.625rem] font-medium text-muted-foreground leading-tight px-2">Final bill with GST calculations</p>
                 </div>
                 {convertingId === convertDialog.data?.id && (
                   <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10 backdrop-blur-[1px]">
@@ -1989,7 +1996,7 @@ export default function Sales() {
               </Button>
             </div>
 
-            <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-widest opacity-50">
+            <p className="text-[0.625rem] text-center text-muted-foreground uppercase font-bold tracking-widest opacity-50">
               Original status will update to "Quoted" or "Invoiced"
             </p>
           </div>

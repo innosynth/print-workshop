@@ -221,15 +221,15 @@ export default function MeterReadings() {
             <div className="p-2 bg-primary/10 rounded-xl"><Gauge className="h-8 w-8 text-primary" /></div>
             Meter Reading Audit
           </h1>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-2 ml-14">High-Precision Machine Consumption Logs</p>
+          <p className="text-[0.625rem] font-black text-gray-400 uppercase tracking-[0.2em] mt-2 ml-14">High-Precision Machine Consumption Logs</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={handleExport} variant="outline" className="h-11 px-6 gap-2 font-black uppercase text-[10px] tracking-widest border-2 border-gray-100 rounded-xl hover:bg-gray-50 flex shadow-sm">
+          <Button onClick={handleExport} variant="outline" className="h-11 px-6 gap-2 font-black uppercase text-[0.625rem] tracking-widest border-2 border-gray-100 rounded-xl hover:bg-gray-50 flex shadow-sm">
             <Download className="h-4 w-4" /> Export Report
           </Button>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[11px]">
+              <Button className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[0.6875rem]">
                 <Plus className="h-4 w-4" /> Start New Shift
               </Button>
             </DialogTrigger>
@@ -238,10 +238,10 @@ export default function MeterReadings() {
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight">Log Daily Meter Reading</DialogTitle>
                 <DialogDescription className="font-medium text-gray-400">Record closing counter values to track machine performance.</DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-8 py-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 py-6">
                 <div className="space-y-6">
                    <div className="space-y-2">
-                     <Label className="font-black uppercase text-[10px] tracking-widest text-gray-400">Target Machine</Label>
+                     <Label className="font-black uppercase text-[0.625rem] tracking-widest text-gray-400">Target Machine</Label>
                      {newMachineMode ? (
                         <div className="flex gap-2">
                            <Input value={newMachineName} onChange={e => setNewMachineName(e.target.value)} placeholder="New machine name..." className="h-11 font-bold border-primary/20" />
@@ -262,7 +262,7 @@ export default function MeterReadings() {
                                  variant="outline"
                                  role="combobox"
                                  aria-expanded={comboOpen}
-                                 className="h-11 justify-between flex-1 bg-gray-50 border-gray-100 font-bold uppercase text-[11px] tracking-widest hover:bg-gray-100"
+                                 className="h-11 justify-between flex-1 bg-gray-50 border-gray-100 font-bold uppercase text-[0.6875rem] tracking-widest hover:bg-gray-100"
                                >
                                  {formData.machineName
                                    ? machinesList.find((m: any) => m.name === formData.machineName)?.name
@@ -280,7 +280,7 @@ export default function MeterReadings() {
                                        <CommandItem
                                          key={m.id}
                                          value={m.name}
-                                         className="font-bold uppercase text-[10px] tracking-widest py-2.5 cursor-pointer"
+                                         className="font-bold uppercase text-[0.625rem] tracking-widest py-2.5 cursor-pointer"
                                          onSelect={(currentValue) => {
                                            const opening = getPreviousClosingReading(currentValue, formData.date);
                                            setFormData(prev => ({ ...prev, machineName: currentValue, openingReading: opening }));
@@ -310,31 +310,31 @@ export default function MeterReadings() {
                    </div>
                    <div className="space-y-1.5 p-4 bg-gray-50 rounded-xl border border-gray-100">
                      <div className="flex items-center justify-between">
-                       <Label className="font-bold uppercase text-[10px] text-gray-500 tracking-widest">Entry Date</Label>
-                       <span className="text-[9px] font-black uppercase tracking-widest bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">FIXED</span>
+                       <Label className="font-bold uppercase text-[0.625rem] text-gray-500 tracking-widest">Entry Date</Label>
+                       <span className="text-[0.5625rem] font-black uppercase tracking-widest bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">FIXED</span>
                      </div>
                      <div className="text-xl font-black text-gray-700 leading-none py-1 select-none">
                        {new Date(formData.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                      </div>
-                     <p className="text-[9px] font-bold text-gray-400 uppercase italic tracking-tighter">Current shift logging date</p>
+                     <p className="text-[0.5625rem] font-bold text-gray-400 uppercase italic tracking-tighter">Current shift logging date</p>
                    </div>
                    <div className="space-y-4">
                      <div className="space-y-1.5 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100">
                         <div className="flex items-center justify-between">
-                          <Label className="font-black uppercase text-[10px] text-emerald-700 tracking-widest">Opening Reading (Shift Start)</Label>
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">AUTO</span>
+                          <Label className="font-black uppercase text-[0.625rem] text-emerald-700 tracking-widest">Opening Reading (Shift Start)</Label>
+                          <span className="text-[0.5625rem] font-black uppercase tracking-widest bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">AUTO</span>
                         </div>
                         <div className="text-2xl font-black text-emerald-800 leading-none py-1 select-none tabular-nums">
                           {parseFloat(formData.openingReading || "0").toLocaleString()}
                         </div>
-                        <p className="text-[9px] font-bold text-emerald-500 uppercase italic tracking-tighter">
+                        <p className="text-[0.5625rem] font-bold text-emerald-500 uppercase italic tracking-tighter">
                           {formData.machineName
                             ? `Fetched from previous day's closing reading`
                             : `Select a machine to auto-fill`}
                         </p>
                      </div>
                      <div className="space-y-1.5 p-4 bg-primary/5 rounded-xl border border-primary/10">
-                        <Label className="font-black uppercase text-[10px] text-primary tracking-widest">Closing Reading (Shift End)</Label>
+                        <Label className="font-black uppercase text-[0.625rem] text-primary tracking-widest">Closing Reading (Shift End)</Label>
                         <Input 
                            ref={closingReadingRef}
                            type="number" 
@@ -344,15 +344,15 @@ export default function MeterReadings() {
                            placeholder="0" 
                            className="text-2xl font-black border-none bg-transparent h-auto p-0 focus-visible:ring-0 shadow-none" 
                          />
-                        <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase italic tracking-tighter">Enter manually or use machine counters &darr;</p>
+                        <p className="text-[0.5625rem] font-bold text-gray-400 mt-1 uppercase italic tracking-tighter">Enter manually or use machine counters &darr;</p>
                      </div>
                    </div>
                 </div>
                 <div className="space-y-4">
                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-blue-50/30">
-                     <div className="col-span-2 text-[10px] font-black uppercase text-blue-600">BW Counters</div>
+                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-blue-600">BW Counters</div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">LARGE</Label>
+                        <Label className="text-[0.5625rem] font-bold">LARGE</Label>
                         <Input 
                            ref={bwLargeRef}
                            type="number" 
@@ -362,7 +362,7 @@ export default function MeterReadings() {
                          />
                      </div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">SMALL</Label>
+                        <Label className="text-[0.5625rem] font-bold">SMALL</Label>
                         <Input 
                            ref={bwSmallRef}
                            type="number" 
@@ -373,9 +373,9 @@ export default function MeterReadings() {
                      </div>
                    </div>
                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-orange-50/30">
-                     <div className="col-span-2 text-[10px] font-black uppercase text-orange-600">COLOR Counters</div>
+                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-orange-600">COLOR Counters</div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">LARGE</Label>
+                        <Label className="text-[0.5625rem] font-bold">LARGE</Label>
                         <Input 
                            ref={colorLargeRef}
                            type="number" 
@@ -385,7 +385,7 @@ export default function MeterReadings() {
                          />
                      </div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">SMALL</Label>
+                        <Label className="text-[0.5625rem] font-bold">SMALL</Label>
                         <Input 
                            ref={colorSmallRef}
                            type="number" 
@@ -396,9 +396,9 @@ export default function MeterReadings() {
                      </div>
                    </div>
                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-purple-50/30">
-                     <div className="col-span-2 text-[10px] font-black uppercase text-purple-600">LS Counters</div>
+                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-purple-600">LS Counters</div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">COLOR</Label>
+                        <Label className="text-[0.5625rem] font-bold">COLOR</Label>
                         <Input 
                            ref={lsColorRef}
                            type="number" 
@@ -408,7 +408,7 @@ export default function MeterReadings() {
                          />
                      </div>
                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold">MONO</Label>
+                        <Label className="text-[0.5625rem] font-bold">MONO</Label>
                         <Input 
                            ref={lsMonoRef}
                            type="number" 
@@ -446,7 +446,7 @@ export default function MeterReadings() {
                key={range}
                variant={activeRange === range ? "default" : "ghost"}
                onClick={() => handleRangeChange(range)}
-               className={`h-9 px-4 font-black uppercase text-[10px] tracking-widest rounded-lg transition-all ${activeRange === range ? "bg-primary shadow-lg shadow-primary/20" : "text-gray-400 hover:text-primary hover:bg-primary/5"}`}
+               className={`h-9 px-4 font-black uppercase text-[0.625rem] tracking-widest rounded-lg transition-all ${activeRange === range ? "bg-primary shadow-lg shadow-primary/20" : "text-gray-400 hover:text-primary hover:bg-primary/5"}`}
              >
                {range}
              </Button>
@@ -456,14 +456,14 @@ export default function MeterReadings() {
         <div className="flex items-center gap-2">
            <div className="flex items-center gap-2 bg-white px-3 h-11 border border-gray-200 rounded-xl focus-within:border-primary transition-colors">
               <Calendar className="h-4 w-4 text-gray-400" />
-              <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setActiveRange("Custom"); }} className="border-none bg-transparent p-0 h-auto font-black text-[11px] uppercase focus-visible:ring-0 shadow-none w-28" />
+              <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setActiveRange("Custom"); }} className="border-none bg-transparent p-0 h-auto font-black text-[0.6875rem] uppercase focus-visible:ring-0 shadow-none w-28" />
               <span className="text-gray-300 font-black">&rarr;</span>
-              <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setActiveRange("Custom"); }} className="border-none bg-transparent p-0 h-auto font-black text-[11px] uppercase focus-visible:ring-0 shadow-none w-28" />
+              <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setActiveRange("Custom"); }} className="border-none bg-transparent p-0 h-auto font-black text-[0.6875rem] uppercase focus-visible:ring-0 shadow-none w-28" />
            </div>
         </div>
       </div>
 
-      <div className="border rounded-lg overflow-hidden shadow-sm">
+      <div className="border rounded-lg overflow-auto shadow-sm">
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-primary text-white font-black uppercase tracking-tighter">
@@ -476,7 +476,7 @@ export default function MeterReadings() {
               <th className="border-r border-white/20 px-4 py-2.5 text-right bg-blue-700" rowSpan={2}>Total Usage</th>
               <th className="px-4 py-2.5 text-center" rowSpan={2}>Audit</th>
             </tr>
-            <tr className="bg-primary/90 text-white font-bold uppercase text-[9px]">
+            <tr className="bg-primary/90 text-white font-bold uppercase text-[0.5625rem]">
               <th className="border-r border-white/10 px-2 py-1.5">LARGE</th>
               <th className="border-r border-white/10 px-2 py-1.5">SMALL</th>
               <th className="border-r border-white/10 px-2 py-1.5">LARGE</th>
@@ -507,7 +507,7 @@ export default function MeterReadings() {
                     <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums font-bold text-blue-600">{parseFloat(r.openingReading || 0).toLocaleString()}</td>
                     <td className="px-2 py-2.5 text-center border-r border-gray-100 tabular-nums font-bold text-green-600">
                        {parseFloat(r.closingReading || 0) === 0 ? (
-                         <span className="text-[10px] bg-yellow-100 px-2 py-1 rounded text-yellow-700 animate-pulse font-black">PENDING...</span>
+                         <span className="text-[0.625rem] bg-yellow-100 px-2 py-1 rounded text-yellow-700 animate-pulse font-black">PENDING...</span>
                        ) : parseFloat(r.closingReading || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5 text-right font-black text-sm bg-gray-50 border-r tabular-nums">{parseFloat(r.totalUsage || 0).toLocaleString()}</td>

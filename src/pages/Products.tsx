@@ -138,10 +138,10 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
             onCheckedChange={(v) => setShowInactive(!!v)}
             className="h-4 w-4 border-muted-foreground/30 data-[state=checked]:bg-primary"
           />
-          <Label htmlFor="show-inactive" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none">Show Inactive</Label>
+          <Label htmlFor="show-inactive" className="text-[0.625rem] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none">Show Inactive</Label>
         </div>
 
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted/20 px-4 h-9 rounded-lg border border-muted-foreground/10">
+        <div className="flex items-center gap-4 text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground bg-muted/20 px-4 h-9 rounded-lg border border-muted-foreground/10">
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             <span className="w-1 h-1 rounded-full bg-gray-400" />
             <span className="opacity-70">Total:</span> {products.length}
@@ -174,7 +174,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
                   <tr className="border-b bg-muted/40 font-bold">
                     {["SKU", "Product Name", "Category", "Sub Category", "Stock", "GST %", "Selling Price", "Brand Name", "Purchase Price", "HSN", "Rack", "Part No.", "Barcode", "Status", "Type", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-4 text-[11px] uppercase tracking-wider font-black text-muted-foreground whitespace-nowrap border-b-2 border-muted">{h}</th>
+                      <th key={h} className="text-left px-4 py-4 text-[0.6875rem] uppercase tracking-wider font-black text-muted-foreground whitespace-nowrap border-b-2 border-muted">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -207,7 +207,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                            }
                         />
                       </td>
-                      <td className="px-4 py-3"><Badge variant="outline" className="text-[10px] font-bold uppercase">{p.category}</Badge></td>
+                      <td className="px-4 py-3"><Badge variant="outline" className="text-[0.625rem] font-bold uppercase">{p.category}</Badge></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{p.subCategory || "—"}</td>
                       <td className={`px-4 py-3 tabular-nums font-bold ${p.stock === 0 ? "text-destructive" : parseFloat(p.stock) < parseFloat(p.minStock) ? "text-yellow-600" : "text-primary"
                         }`}>{p.stock}</td>
@@ -218,7 +218,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                       <td className="px-4 py-3 font-mono text-xs text-primary font-bold">{p.hsnCode || "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs">{p.rack || "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.partNo || "—"}</td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{p.barcode || "—"}</td>
+                      <td className="px-4 py-3 font-mono text-[0.625rem] text-muted-foreground">{p.barcode || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <Switch 
@@ -257,7 +257,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
         </CardContent>
       </Card>
       {filtered.length !== products.length && (
-        <p className="text-[9px] font-medium text-muted-foreground/60 italic lowercase ml-1">
+        <p className="text-[0.5625rem] font-medium text-muted-foreground/60 italic lowercase ml-1">
           Showing {filtered.length} products matching filters
         </p>
       )}
@@ -296,10 +296,10 @@ function CategoryList({ products, dbCategories }: { products: any[], dbCategorie
                 <div className="space-y-1">
                   <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{cat}</h3>
                   <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
-                  {dbCat?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbCat.description}</p>}
+                  {dbCat?.description && <p className="text-[0.625rem] text-gray-400 italic line-clamp-1">{dbCat.description}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
+                  <p className="text-[0.5625rem] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
                   <div className="flex items-center justify-end gap-1.5 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                      <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
@@ -348,10 +348,10 @@ function BrandList({ products, dbBrands }: { products: any[], dbBrands: any[] })
                 <div className="space-y-1">
                   <h3 className="font-bold uppercase tracking-tight text-sm text-gray-900 group-hover:text-primary transition-colors">{brand}</h3>
                   <p className="text-xs text-muted-foreground font-medium">{prodCount} Products</p>
-                  {dbBrand?.description && <p className="text-[10px] text-gray-400 italic line-clamp-1">{dbBrand.description}</p>}
+                  {dbBrand?.description && <p className="text-[0.625rem] text-gray-400 italic line-clamp-1">{dbBrand.description}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
+                  <p className="text-[0.5625rem] font-black text-gray-400 uppercase tracking-[0.2em]">Total Stock</p>
                   <div className="flex items-center justify-end gap-1.5 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                      <p className="text-xl font-black text-gray-900 leading-none">{totalStock}</p>
@@ -432,7 +432,7 @@ function PriceListRatesModal({ priceList, products, trigger }: { priceList: any,
 
         <div className="flex-1 overflow-y-auto p-0">
           <table className="w-full text-sm text-left">
-            <thead className="text-[10px] uppercase font-bold text-muted-foreground bg-gray-50 sticky top-0">
+            <thead className="text-[0.625rem] uppercase font-bold text-muted-foreground bg-gray-50 sticky top-0">
               <tr>
                 <th className="px-6 py-3">Product Name</th>
                 <th className="px-6 py-3">Standard Price</th>
@@ -446,7 +446,7 @@ function PriceListRatesModal({ priceList, products, trigger }: { priceList: any,
                   <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-bold text-gray-900">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{p.sku}</p>
+                      <p className="text-[0.625rem] text-muted-foreground">{p.sku}</p>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground font-medium">₹{p.sellPrice}</td>
                     <td className="px-6 py-4">
@@ -511,12 +511,12 @@ function PriceListView({ pricelists, isLoading, products }: { pricelists: any[],
                 <div className="pt-3 border-t flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-medium">Starts: {pl.effectiveFrom ? new Date(pl.effectiveFrom).toLocaleDateString() : 'N/A'}</span>
+                    <span className="text-[0.625rem] font-medium">Starts: {pl.effectiveFrom ? new Date(pl.effectiveFrom).toLocaleDateString() : 'N/A'}</span>
                   </div>
                   <PriceListRatesModal 
                     priceList={pl} 
                     products={products}
-                    trigger={<Button variant="ghost" size="sm" className="h-7 text-[10px] uppercase font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">View Rates</Button>}
+                    trigger={<Button variant="ghost" size="sm" className="h-7 text-[0.625rem] uppercase font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">View Rates</Button>}
                   />
                 </div>
               </div>
@@ -716,7 +716,7 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
           {fields.map((f, i) => (
             <div key={f.label} className={f.span ? "col-span-2" : ""}>
               <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
@@ -759,7 +759,7 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
                     <ToggleGroupItem 
                       key={opt} 
                       value={opt} 
-                      className="px-4 text-[10px] font-bold uppercase tracking-tight rounded-none border-r last:border-0 data-[state=on]:bg-primary data-[state=on]:text-white h-full"
+                      className="px-4 text-[0.625rem] font-bold uppercase tracking-tight rounded-none border-r last:border-0 data-[state=on]:bg-primary data-[state=on]:text-white h-full"
                     >
                       {opt}
                     </ToggleGroupItem>

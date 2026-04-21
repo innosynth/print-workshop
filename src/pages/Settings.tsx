@@ -95,7 +95,7 @@ function RolesManager() {
               <CardHeader className="p-4 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold">{r.name}</CardTitle>
-                  <CardDescription className="text-[10px] uppercase font-semibold">Created {new Date(r.createdAt || Date.now()).toLocaleDateString()}</CardDescription>
+                  <CardDescription className="text-[0.625rem] uppercase font-semibold">Created {new Date(r.createdAt || Date.now()).toLocaleDateString()}</CardDescription>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
               </CardHeader>
@@ -133,7 +133,7 @@ function RolesManager() {
           <div className="overflow-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/40 uppercase text-[10px] tracking-wider font-bold text-muted-foreground">
+                <tr className="border-b bg-muted/40 uppercase text-[0.625rem] tracking-wider font-bold text-muted-foreground">
                   <th className="text-left px-6 py-3">Module Name</th>
                   <th className="px-4 py-3">Full Access</th>
                   <th className="px-4 py-3">View</th>
@@ -226,7 +226,7 @@ function EmployeesManager() {
       {open && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
                 <Input placeholder="Employee Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
@@ -281,7 +281,7 @@ function EmployeesManager() {
                     {roles.find((r: any) => r.id === emp.roleId)?.name || <span className="text-muted-foreground italic text-xs">Unassigned</span>}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">{emp.status}</span>
+                    <span className="bg-primary/10 text-primary text-[0.625rem] px-2 py-0.5 rounded-full font-bold uppercase">{emp.status}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -444,9 +444,9 @@ function QrCard({ qr, toggleMutation, deleteMutation }: any) {
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex items-center justify-between bg-muted/40 p-2 px-3 rounded-lg border border-border/50">
-              <label htmlFor={`inv-${qr.id}`} className="text-[9px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Invoice</label>
+              <label htmlFor={`inv-${qr.id}`} className="text-[0.5625rem] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Invoice</label>
               {toggleMutation.isPending && (toggleMutation.variables as any)?.id === qr.id && (toggleMutation.variables as any).isActiveForInvoice !== undefined ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               ) : (
@@ -454,7 +454,7 @@ function QrCard({ qr, toggleMutation, deleteMutation }: any) {
               )}
             </div>
             <div className="flex items-center justify-between bg-muted/40 p-2 px-3 rounded-lg border border-border/50">
-              <label htmlFor={`est-${qr.id}`} className="text-[9px] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Estimate</label>
+              <label htmlFor={`est-${qr.id}`} className="text-[0.5625rem] uppercase font-black text-muted-foreground cursor-pointer leading-tight">For Estimate</label>
               {toggleMutation.isPending && (toggleMutation.variables as any)?.id === qr.id && (toggleMutation.variables as any).isActiveForEstimate !== undefined ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               ) : (
@@ -543,7 +543,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="company" className="w-full">
-        <TabsList className="h-12 mb-6 bg-transparent gap-2 px-1">
+        <TabsList className="h-12 mb-6 bg-transparent gap-2 px-1 tabs-responsive flex-wrap sm:flex-nowrap">
           <TabsTrigger value="company" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Building2 className="h-4 w-4" />Workshop Profile</TabsTrigger>
           <TabsTrigger value="employees" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><Users className="h-4 w-4" />Staff Members</TabsTrigger>
           <TabsTrigger value="roles" className="text-sm px-5 gap-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm border-b-2 border-transparent data-[state=active]:border-primary h-11 transition-all font-black uppercase tracking-tight"><ShieldCheck className="h-4 w-4" />RBAC Roles</TabsTrigger>
@@ -582,7 +582,7 @@ export default function Settings() {
                     <>
                       <div className="text-center group-hover:scale-105 transition-transform">
                         <Building2 className="h-8 w-8 text-muted-foreground/50 mx-auto" />
-                        <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">UPLOAD LOGO</p>
+                        <p className="text-[0.625rem] text-muted-foreground mt-2 font-bold uppercase tracking-widest">UPLOAD LOGO</p>
                       </div>
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Plus className="h-6 w-6 text-white" />
@@ -592,17 +592,17 @@ export default function Settings() {
                 </div>
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                   <div className="md:col-span-2 lg:col-span-2">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Workshop/Company Name</label>
+                    <label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Workshop/Company Name</label>
                     <Input className="h-10 bg-muted/30 border-border" value={company.name}
                       onChange={e => setCompany((p: any) => ({ ...p, name: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Slogan / Tagline</label>
+                    <label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Slogan / Tagline</label>
                     <Input className="h-10 bg-muted/30 border-border" value={company.slogan || ""}
                       onChange={e => setCompany((p: any) => ({ ...p, slogan: e.target.value }))} />
                   </div>
                   <div className="md:col-span-2 lg:col-span-3">
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Full Address</label>
+                    <label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">Full Address</label>
                     <Input className="h-10 bg-muted/30 border-border" value={company.address || ""}
                       onChange={e => setCompany((p: any) => ({ ...p, address: e.target.value }))} />
                   </div>
@@ -612,7 +612,7 @@ export default function Settings() {
                     { key: "state", label: "State" }, { key: "pincode", label: "Pincode" },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
+                      <label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
                       <Input className="h-10 bg-muted/30 border-border" value={company[f.key] || ""}
                         onChange={e => setCompany((p: any) => ({ ...p, [f.key]: e.target.value }))} />
                     </div>
@@ -632,7 +632,7 @@ export default function Settings() {
                     { key: "accountName", label: "Account Name / Beneficiary" }
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
+                      <label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-wider mb-1 block">{f.label}</label>
                       <div className="relative">
                         <Input 
                           type={(f as any).sensitive && !showBankDetails ? "password" : "text"}
@@ -694,7 +694,7 @@ export default function Settings() {
             <CardContent className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Default Document Layout</Label>
+                  <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-widest">Default Document Layout</Label>
                   <Select value={printConfig.defaultPaperSize} onValueChange={(v) => setPrintConfig({ ...printConfig, defaultPaperSize: v as "A4" | "A5" | "thermal" })}>
                     <SelectTrigger className="mt-1 h-11 bg-muted/30 border-border font-medium">
                       <SelectValue />
@@ -718,12 +718,12 @@ export default function Settings() {
                   </Label>
                   <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Margins (mm)</Label>
+                      <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground">Margins (mm)</Label>
                       <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.a4Margin}
                         onChange={e => setPrintConfig({ ...printConfig, a4Margin: parseInt(e.target.value) })} />
                     </div>
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Font Base (px)</Label>
+                      <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground">Font Base (px)</Label>
                       <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.a4FontSize}
                         onChange={e => setPrintConfig({ ...printConfig, a4FontSize: parseInt(e.target.value) })} />
                     </div>
@@ -739,14 +739,14 @@ export default function Settings() {
                   </Label>
                   <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Width (mm)</Label>
+                      <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground">Width (mm)</Label>
                       <Select value={printConfig.thermalWidth} onValueChange={(v) => setPrintConfig({ ...printConfig, thermalWidth: v })}>
                         <SelectTrigger className="mt-1.5 h-10 bg-white border-border shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent><SelectItem value="57">57mm</SelectItem><SelectItem value="58">58mm</SelectItem><SelectItem value="80">80mm</SelectItem></SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Font Size (px)</Label>
+                      <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground">Font Size (px)</Label>
                       <Input type="number" className="mt-1.5 h-10 bg-white border-border shadow-sm" value={printConfig.thermalFontSize}
                         onChange={e => setPrintConfig({ ...printConfig, thermalFontSize: parseInt(e.target.value) })} />
                     </div>

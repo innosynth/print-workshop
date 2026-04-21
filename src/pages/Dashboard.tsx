@@ -53,7 +53,7 @@ const fmt = (n: number) =>
 
 function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () => void }) {
   const { settings } = usePrintSettings();
-  const [paperSize, setPaperSize] = useState<"A4" | "thermal">(settings.defaultPaperSize);
+  const [paperSize, setPaperSize] = useState<"A4" | "A5" | "thermal">(settings.defaultPaperSize);
 
   const companyInfo = {
     name: "Print Workshop",
@@ -100,10 +100,18 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
     }
   `;
 
+  const a5Style = `
+    @media print {
+      @page { size: A5 landscape; margin: 5mm; }
+      .no-print { display: none !important; }
+      .print-container { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    }
+  `;
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
-        <style>{paperSize === "A4" ? a4Style : thermalStyle}</style>
+        <style>{paperSize === "A4" ? a4Style : paperSize === "A5" ? a5Style : thermalStyle}</style>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Invoice Print Preview - {invoice.invoiceNo}</span>
@@ -115,6 +123,14 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
                 className="no-print"
               >
                 A4
+              </Button>
+              <Button
+                variant={paperSize === "A5" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaperSize("A5")}
+                className="no-print"
+              >
+                A5
               </Button>
               <Button
                 variant={paperSize === "thermal" ? "default" : "outline"}
@@ -201,13 +217,13 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
                       className="border-2 border-black p-1"
                     />
                     <p className="text-xs mt-2 font-semibold">Scan to Pay ₹{parseFloat(invoice.total).toLocaleString("en-IN")}</p>
-                    <p className="text-[10px] text-muted-foreground">UPI: {companyInfo.upiId}</p>
+                    <p className="text-[0.625rem] text-muted-foreground">UPI: {companyInfo.upiId}</p>
                   </div>
                 </div>
               )}
               <div className="text-center">
-                <p className={paperSize === "thermal" ? "text-[10px]" : "text-xs"}>Thank you for your business!</p>
-                <p className={`${paperSize === "thermal" ? "text-[10px]" : "text-xs"} mt-1`}>This is a computer-generated invoice.</p>
+                <p className={paperSize === "thermal" ? "text-[0.625rem]" : "text-xs"}>Thank you for your business!</p>
+                <p className={`${paperSize === "thermal" ? "text-[0.625rem]" : "text-xs"} mt-1`}>This is a computer-generated invoice.</p>
               </div>
             </div>
           </div>
@@ -273,12 +289,12 @@ export default function Dashboard() {
         <StatCard title="Active Customers" value={String(stats?.activeCustomers || 0)} icon={Users} sub="Total registered" isLoading={statsLoading} />
         <div className="p-5 rounded-xl bg-primary/10 border border-primary/20 flex flex-col justify-between group cursor-pointer hover:bg-primary/15 transition-all shadow-lg shadow-primary/5" onClick={() => window.location.href='/meter-readings'}>
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Quick Action</p>
+            <p className="text-[0.625rem] font-bold text-primary uppercase tracking-widest">Quick Action</p>
             <Gauge className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2">
             <p className="text-sm font-bold text-foreground">Log Meter Reading</p>
-            <p className="text-[10px] text-muted-foreground">Record daily machine counters</p>
+            <p className="text-[0.625rem] text-muted-foreground">Record daily machine counters</p>
           </div>
         </div>
       </div>
@@ -378,7 +394,7 @@ export default function Dashboard() {
             <CardTitle className="text-base">Recent Invoices</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-             <div className="min-h-[150px] flex flex-col">
+             <div className="min-h-[150px] flex flex-col overflow-auto">
               {invoicesLoading ? (
                 <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : (

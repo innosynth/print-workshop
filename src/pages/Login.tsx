@@ -61,7 +61,7 @@ export default function Login() {
             <Building2 className="w-7 h-7 text-primary" />
           </div>
           <CardTitle className="text-2xl font-black tracking-tight text-foreground uppercase">Print Workshop</CardTitle>
-          <CardDescription className="text-primary font-bold tracking-widest text-[10px] uppercase">
+          <CardDescription className="text-primary font-bold tracking-widest text-[0.625rem] uppercase">
             Coimbatore
           </CardDescription>
         </CardHeader>
@@ -127,7 +127,7 @@ export default function Login() {
               )}
             </Button>
             <div className="text-center pt-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+              <p className="text-[0.625rem] text-muted-foreground uppercase tracking-widest font-bold">
                 Restricted System Access
               </p>
             </div>

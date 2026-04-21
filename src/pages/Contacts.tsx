@@ -53,12 +53,12 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
       <PopoverContent className="w-56 p-3 shadow-xl border-primary/10 z-[110]" align="end">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
+            <p className="text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
             {currentFilter && (
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-5 px-1.5 text-[9px] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
+                className="h-5 px-1.5 text-[0.5625rem] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
                 onClick={() => {
                   const newFilters = { ...filters };
                   delete newFilters[column];
@@ -330,7 +330,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
             onChange={(e) => setShowInactive(e.target.checked)}
             className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
           />
-          <label htmlFor="show-inactive" className="text-[10px] font-black uppercase cursor-pointer select-none text-muted-foreground mr-1">
+          <label htmlFor="show-inactive" className="text-[0.625rem] font-black uppercase cursor-pointer select-none text-muted-foreground mr-1">
             Show Inactive
           </label>
         </div>
@@ -340,7 +340,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           </DialogTrigger>
           <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
             <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
               {formFields.map((field) => (
                 <div key={field.name} className={field.type === "textarea" ? "col-span-2" : ""}>
                   <Label className="text-xs font-medium text-muted-foreground">
@@ -426,7 +426,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                                     <Check className="mr-2 h-4 w-4 opacity-0" />
                                     <div className="flex flex-col">
                                       <span className="font-bold text-xs">{c.name}</span>
-                                      <span className="text-[9px] text-muted-foreground">{c.type} • {c.mobile || 'No Mobile'}</span>
+                                      <span className="text-[0.5625rem] text-muted-foreground">{c.type} • {c.mobile || 'No Mobile'}</span>
                                     </div>
                                   </CommandItem>
                                 ))}
@@ -540,7 +540,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                         }}
                         className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
                       />
-                      <label htmlFor="same-as-mobile" className="text-[9px] font-bold uppercase text-muted-foreground cursor-pointer">
+                      <label htmlFor="same-as-mobile" className="text-[0.5625rem] font-bold uppercase text-muted-foreground cursor-pointer">
                         Same as Mobile Number
                       </label>
                     </div>
@@ -572,7 +572,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                         }}
                         className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
                       />
-                      <label htmlFor="no-gst" className="text-[9px] font-bold uppercase text-muted-foreground cursor-pointer">
+                      <label htmlFor="no-gst" className="text-[0.5625rem] font-bold uppercase text-muted-foreground cursor-pointer">
                         No GST (Use '-')
                       </label>
                     </div>
@@ -625,7 +625,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                     ].map(h => (
                       <th key={h.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
                         <div className="flex items-center group">
-                          <span className="uppercase tracking-widest font-black text-[9px]">{h.label}</span>
+                          <span className="uppercase tracking-widest font-black text-[0.5625rem]">{h.label}</span>
                           <ColumnFilter 
                             label={h.label} 
                             column={h.key} 

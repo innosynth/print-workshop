@@ -78,7 +78,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
       <Card className="bg-white border-gray-200 shadow-sm print:hidden">
         <CardContent className="p-5 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 items-end">
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Tax Return For</Label>
+            <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Tax Return For</Label>
             <Select value={returnFor} onValueChange={setReturnFor}>
               <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -91,7 +91,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Create Date</Label>
+            <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Create Date</Label>
             <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -103,7 +103,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Tax Type</Label>
+            <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Tax Type</Label>
             <Select value={taxType} onValueChange={setTaxType}>
               <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -114,7 +114,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Filter Type</Label>
+            <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Filter Type</Label>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -124,14 +124,14 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
           </div>
 
           <div className="space-y-1.5 col-span-1 lg:col-span-2">
-            <Label className="text-[10px] uppercase font-black text-gray-500 tracking-wider">HSN/SAC Search</Label>
+            <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">HSN/SAC Search</Label>
             <Input className="h-10 bg-gray-50/50 border-gray-200 font-bold" placeholder="HSN..." value={hsnSearch} onChange={e => setHsnSearch(e.target.value)} />
           </div>
           
           <div className="flex gap-2 mb-0.5">
-            <Button className="h-10 flex-1 font-bold uppercase tracking-widest text-[10px]">Find Records</Button>
+            <Button className="h-10 flex-1 font-bold uppercase tracking-widest text-[0.625rem]">Find Records</Button>
             {isFiltered && (
-              <Button variant="ghost" className="h-10 flex-1 font-bold uppercase tracking-widest text-[10px] text-destructive hover:bg-destructive/10" onClick={handleClear}>
+              <Button variant="ghost" className="h-10 flex-1 font-bold uppercase tracking-widest text-[0.625rem] text-destructive hover:bg-destructive/10" onClick={handleClear}>
                 <RotateCcw className="h-3 w-3 mr-1" /> Reset
               </Button>
             )}
@@ -148,7 +148,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
             {isLoading ? (
               <div className="flex justify-center p-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
-              <table className="w-full text-[10px] border-collapse min-w-[1400px]">
+              <table className="w-full text-[0.625rem] border-collapse min-w-[1400px]">
                 <thead>
                   <tr className="bg-gray-100 text-gray-600 font-bold uppercase">
                     <th className="border px-3 py-2 text-left w-64">Company Name</th>
@@ -239,20 +239,20 @@ function DailySalesReport({ onRegisterExport }: { onRegisterExport: (fn: () => v
     <div className="space-y-4">
       <div className="flex gap-3 bg-white p-3 border rounded-lg shadow-sm items-end print:hidden">
         <div className="space-y-1">
-          <Label className="text-[10px] font-black uppercase text-gray-400">Select Date</Label>
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Select Date</Label>
           <Input type="date" className="h-9 w-40 font-bold" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </div>
         <div className="space-y-1 flex-1">
-          <Label className="text-[10px] font-black uppercase text-gray-400">Search Customer / Product</Label>
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Search Customer / Product</Label>
           <Input placeholder="Search..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <div className="flex gap-2">
-          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
         </div>
       </div>
       <Card className="border-gray-200 shadow-xl overflow-hidden">
         <CardContent className="p-0">
-          <table className="w-full text-[11px] border-collapse">
+          <table className="w-full text-[0.6875rem] border-collapse">
             <thead>
               <tr className="bg-gray-900 text-white font-black uppercase tracking-widest">
                 <th className="px-4 py-3 text-left w-32">Date</th>
@@ -317,11 +317,11 @@ function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => vo
     <div className="space-y-4">
       <div className="flex gap-4 bg-white p-4 border rounded-xl shadow-sm items-end mb-6 print:hidden">
         <div className="space-y-1.5 flex-1">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Search Product / SKU</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Search Product / SKU</Label>
           <Input placeholder="Search..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
         <div className="space-y-1.5 w-48">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Category</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Category</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -331,33 +331,33 @@ function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => vo
           </Select>
         </div>
         <div>
-          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white border-2 border-primary/20 p-6 rounded-2xl shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Catalog Size</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Catalog Size</p>
           <p className="text-4xl font-black text-primary leading-none">{filteredProducts.length}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Filtered Items</span>
-            <span className="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded">Active</span>
+            <span className="text-[0.625rem] font-bold text-gray-400 uppercase">Filtered Items</span>
+            <span className="text-[0.625rem] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded">Active</span>
           </div>
         </div>
         <div className="bg-white border-2 border-orange-200 p-6 rounded-2xl shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Low Stock Alerts</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Low Stock Alerts</p>
           <p className="text-4xl font-black text-orange-600 leading-none">{filteredProducts.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Action items</span>
-            <span className="text-[10px] font-black text-orange-600 uppercase bg-orange-50 px-2 py-0.5 rounded">{filteredProducts.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length > 0 ? 'Urgent' : 'Safe'}</span>
+            <span className="text-[0.625rem] font-bold text-gray-400 uppercase">Action items</span>
+            <span className="text-[0.625rem] font-black text-orange-600 uppercase bg-orange-50 px-2 py-0.5 rounded">{filteredProducts.filter((p: any) => parseFloat(p.stock) < parseFloat(p.minStock)).length > 0 ? 'Urgent' : 'Safe'}</span>
           </div>
         </div>
         <div className="bg-white border-2 border-blue-200 p-6 rounded-2xl shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Filtered Valuation</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Filtered Valuation</p>
           <p className="text-4xl font-black text-blue-700 leading-none">₹{totalValuation.toLocaleString()}</p>
           <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-[10px] font-bold text-gray-400 uppercase">Filtered total</span>
-            <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">Asset Value</span>
+            <span className="text-[0.625rem] font-bold text-gray-400 uppercase">Filtered total</span>
+            <span className="text-[0.625rem] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">Asset Value</span>
           </div>
         </div>
       </div>
@@ -365,7 +365,7 @@ function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => vo
         <CardContent className="p-0">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 border-b text-gray-500 font-black uppercase tracking-widest text-[9px]">
+              <tr className="bg-gray-50 border-b text-gray-500 font-black uppercase tracking-widest text-[0.5625rem]">
                 <th className="px-6 py-4 text-left">SKU / Reference</th>
                 <th className="px-6 py-4 text-left">Material / Product Name</th>
                 <th className="px-6 py-4 text-left">Category</th>
@@ -381,7 +381,7 @@ function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => vo
                 <tr key={p.id} className="hover:bg-primary/5 transition-all">
                   <td className="px-6 py-4 font-mono text-gray-400 italic">{p.sku || 'N/A'}</td>
                   <td className="px-6 py-4 font-black uppercase">{p.name}</td>
-                  <td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 rounded text-[9px] font-black uppercase text-gray-500">{p.category}</span></td>
+                  <td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 rounded text-[0.5625rem] font-black uppercase text-gray-500">{p.category}</span></td>
                   <td className="px-6 py-4 text-center">
                     <span className={`font-black tabular-nums ${parseFloat(p.stock) < parseFloat(p.minStock) ? 'text-red-500 animate-pulse' : 'text-emerald-700'}`}>
                       {parseFloat(p.stock).toLocaleString()} {p.unit}
@@ -433,15 +433,15 @@ function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 border rounded-xl shadow-sm items-end mb-4 print:hidden">
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Start Date</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Start Date</Label>
           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-400">End Date</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">End Date</Label>
           <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Category</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Category</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -451,17 +451,17 @@ function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void
           </Select>
         </div>
         <div>
-          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20 w-full"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest border border-destructive/20 w-full"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
         </div>
       </div>
 
       <div className="flex justify-between items-center bg-gray-900 p-6 rounded-2xl shadow-xl text-white mb-6">
         <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80 mb-1">Aggregated Operations Cost</h3>
+          <h3 className="text-[0.625rem] font-black uppercase tracking-[0.3em] text-primary/80 mb-1">Aggregated Operations Cost</h3>
           <p className="text-4xl font-black tracking-tighter tabular-nums">₹{filteredExpenses.reduce((acc: number, e: any) => acc + parseFloat(e.amount), 0).toLocaleString()}</p>
         </div>
         <div className="text-right">
-           <p className="text-[10px] font-black uppercase opacity-60">Filtered Records</p>
+           <p className="text-[0.625rem] font-black uppercase opacity-60">Filtered Records</p>
            <p className="text-xl font-bold">{filteredExpenses.length}</p>
         </div>
       </div>
@@ -469,7 +469,7 @@ function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void
         <CardContent className="p-0">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 border-b text-gray-400 font-black uppercase tracking-widest text-[9px]">
+              <tr className="bg-gray-50 border-b text-gray-400 font-black uppercase tracking-widest text-[0.5625rem]">
                 <th className="px-6 py-4 text-left">Ref Date</th>
                 <th className="px-6 py-4 text-left">Category Group</th>
                 <th className="px-6 py-4 text-left">Expense Description</th>
@@ -483,7 +483,7 @@ function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void
               ) : filteredExpenses.map((e: any) => (
                 <tr key={e.id} className="hover:bg-gray-50 transition-all">
                   <td className="px-6 py-4 text-gray-400 font-bold italic">{e.date}</td>
-                  <td className="px-6 py-4"><span className="font-black uppercase text-[9px] px-2.5 py-1 rounded bg-gray-100 text-gray-600">{e.category}</span></td>
+                  <td className="px-6 py-4"><span className="font-black uppercase text-[0.5625rem] px-2.5 py-1 rounded bg-gray-100 text-gray-600">{e.category}</span></td>
                   <td className="px-6 py-4 font-bold uppercase text-gray-800">{e.name}</td>
                   <td className="px-6 py-4 text-right font-black tabular-nums text-sm text-red-600">₹{parseFloat(e.amount).toLocaleString()}</td>
                   <td className="px-6 py-4 text-center"><StatusBadge status="Cleared" /></td>
@@ -523,10 +523,10 @@ function OutstandingReport({ onRegisterExport }: { onRegisterExport: (fn: () => 
     <div className="space-y-4">
       <div className="flex gap-4 bg-white p-3 border rounded-xl shadow-sm items-end mb-6 print:hidden">
         <div className="space-y-1 flex-1">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Search Customer Name / Mobile</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Search Customer Name / Mobile</Label>
           <Input placeholder="Search debtors..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+        {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
       </div>
 
       <div className="bg-red-700 p-8 rounded-[2rem] shadow-2xl shadow-red-200 text-white flex justify-between items-end mb-10 overflow-hidden relative">
@@ -536,12 +536,12 @@ function OutstandingReport({ onRegisterExport }: { onRegisterExport: (fn: () => 
             <p className="text-5xl font-black tracking-tighter">₹{totalOutstanding.toLocaleString()}</p>
             <div className="px-3 py-1 bg-white/10 rounded-full border border-white/20 flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Selected collections</span>
+              <span className="text-[0.625rem] font-black uppercase tracking-widest">Selected collections</span>
             </div>
           </div>
         </div>
         <div className="relative z-10 text-right">
-           <p className="text-[10px] font-black uppercase opacity-60 mb-1">Filtered Debtors</p>
+           <p className="text-[0.625rem] font-black uppercase opacity-60 mb-1">Filtered Debtors</p>
            <p className="text-2xl font-black">{filteredCustomers.filter((c: any) => parseFloat(c.balance || 0) > 0).length}</p>
         </div>
         <div className="absolute -bottom-10 -right-10 h-64 w-64 bg-white/5 rounded-full blur-3xl" />
@@ -550,7 +550,7 @@ function OutstandingReport({ onRegisterExport }: { onRegisterExport: (fn: () => 
         <CardContent className="p-0">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 border-b text-gray-400 font-black uppercase tracking-widest text-[9px]">
+              <tr className="bg-gray-50 border-b text-gray-400 font-black uppercase tracking-widest text-[0.5625rem]">
                 <th className="px-8 py-5 text-left">Client Entity</th>
                 <th className="px-8 py-5 text-left">Contact Channel</th>
                 <th className="px-8 py-5 text-center">Collection Status</th>
@@ -566,17 +566,17 @@ function OutstandingReport({ onRegisterExport }: { onRegisterExport: (fn: () => 
                   <td className="px-8 py-4">
                     <div className="flex flex-col">
                       <span className="font-black uppercase text-gray-800 tracking-tight text-sm">{c.name}</span>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{c.type} partner</span>
+                      <span className="text-[0.5625rem] font-bold text-gray-400 uppercase tracking-widest">{c.type} partner</span>
                     </div>
                   </td>
                   <td className="px-8 py-4">
                      <div className="flex flex-col gap-0.5">
                        <span className="text-gray-500 font-bold flex items-center gap-1.5"><History className="h-3 w-3" /> {c.mobile || "N/A"}</span>
-                       <span className="text-[10px] text-gray-400 italic font-medium">{c.email || "-"}</span>
+                       <span className="text-[0.625rem] text-gray-400 italic font-medium">{c.email || "-"}</span>
                      </div>
                   </td>
                   <td className="px-8 py-4 text-center">
-                    <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border-2 ${parseFloat(c.balance || 0) > 0 ? "border-red-100 bg-red-50 text-red-700 shadow-sm" : "border-emerald-100 bg-emerald-50 text-emerald-700 opacity-50"}`}>
+                    <span className={`text-[0.5625rem] font-black uppercase px-3 py-1.5 rounded-full border-2 ${parseFloat(c.balance || 0) > 0 ? "border-red-100 bg-red-50 text-red-700 shadow-sm" : "border-emerald-100 bg-emerald-50 text-emerald-700 opacity-50"}`}>
                       {parseFloat(c.balance || 0) > 0 ? "OVERDUE" : "SETTLED"}
                     </span>
                   </td>
@@ -653,7 +653,7 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 bg-white p-4 border rounded-xl shadow-sm items-end print:hidden">
         <div className="space-y-1.5 col-span-1">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Date Range</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Date Range</Label>
           <div className="flex items-center gap-2">
             <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 font-bold text-xs" />
             <span className="text-gray-300 font-black">→</span>
@@ -661,7 +661,7 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
           </div>
         </div>
         <div className="space-y-1.5 col-span-1">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Transaction Type</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Transaction Type</Label>
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="h-9 font-bold text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -672,7 +672,7 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
           </Select>
         </div>
         <div className="space-y-1.5 col-span-2">
-          <Label className="text-[10px] uppercase font-black text-gray-400">Search Transaction</Label>
+          <Label className="text-[0.625rem] uppercase font-black text-gray-400">Search Transaction</Label>
           <Input 
             placeholder="Search by Ref # or Entity Name..." 
             value={searchTerm} 
@@ -685,7 +685,7 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
             <Button 
               variant="outline" 
               onClick={handleClear} 
-              className="h-9 w-full font-bold uppercase text-[10px] tracking-widest text-destructive hover:bg-destructive/5 hover:text-destructive border-dashed"
+              className="h-9 w-full font-bold uppercase text-[0.625rem] tracking-widest text-destructive hover:bg-destructive/5 hover:text-destructive border-dashed"
             >
               <RotateCcw className="h-3 w-3 mr-2" /> Clear
             </Button>
@@ -695,15 +695,15 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
 
       <div className="flex items-center gap-4 bg-white p-4 border rounded-xl shadow-sm">
         <div className="flex-1 border-r border-gray-100 pr-4">
-           <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Filtered Records</p>
+           <p className="text-[0.625rem] font-black uppercase text-gray-400 mb-0.5">Filtered Records</p>
            <p className="text-xl font-black">{allFiltered.length}</p>
         </div>
         <div className="flex-1 border-r border-gray-100 pr-4">
-           <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Total Inflow</p>
+           <p className="text-[0.625rem] font-black uppercase text-gray-400 mb-0.5">Total Inflow</p>
            <p className="text-xl font-black text-emerald-600">₹{totalInflow.toLocaleString()}</p>
         </div>
         <div className="flex-1">
-           <p className="text-[10px] font-black uppercase text-gray-400 mb-0.5">Total Outflow</p>
+           <p className="text-[0.625rem] font-black uppercase text-gray-400 mb-0.5">Total Outflow</p>
            <p className="text-xl font-black text-red-600">₹{totalOutflow.toLocaleString()}</p>
         </div>
       </div>
@@ -711,9 +711,9 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
       <Card className="border-gray-200 shadow-md overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-auto max-h-[600px]">
-            <table className="w-full text-[11px] border-collapse min-w-[800px]">
+            <table className="w-full text-[0.6875rem] border-collapse min-w-[800px]">
               <thead>
-                <tr className="bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-[9px]">
+                <tr className="bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-[0.5625rem]">
                   <th className="px-6 py-4 text-left w-32">Timestamp</th>
                   <th className="px-6 py-4 text-left w-24">Type</th>
                   <th className="px-6 py-4 text-left w-40">Ref Number</th>
@@ -730,7 +730,7 @@ function TransactionHistoryReport({ onRegisterExport }: { onRegisterExport: (fn:
                   <tr key={idx} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-3.5 text-gray-400 font-bold italic">{t.date}</td>
                     <td className="px-6 py-3.5">
-                      <span className={`text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-tighter ${t.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`text-[0.5625rem] font-black px-2.5 py-1 rounded-md uppercase tracking-tighter ${t.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                         {t.type}
                       </span>
                     </td>
@@ -790,26 +790,26 @@ function InvoiceLedgerReport({ onRegisterExport }: { onRegisterExport: (fn: () =
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3 bg-white p-3 border rounded-xl shadow-sm print:hidden">
         <div className="space-y-1">
-          <Label className="text-[10px] font-black uppercase text-gray-400">Start Date</Label>
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Start Date</Label>
           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-40 font-bold" />
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px] font-black uppercase text-gray-400">End Date</Label>
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">End Date</Label>
           <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-40 font-bold" />
         </div>
         <div className="space-y-1 flex-1 min-w-[200px]">
-          <Label className="text-[10px] font-black uppercase text-gray-400">Search Invoice # / Customer</Label>
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Search Invoice # / Customer</Label>
           <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-9 font-bold" />
         </div>
         <div className="flex gap-2">
-          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[10px] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest border border-destructive/20"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
         </div>
       </div>
       <Card className="border-gray-200 overflow-hidden shadow-2xl">
         <CardContent className="p-0">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-900 text-white font-black uppercase tracking-widest text-[9px]">
+              <tr className="bg-gray-900 text-white font-black uppercase tracking-widest text-[0.5625rem]">
                 <th className="px-6 py-4 text-left">ID Tag</th>
                 <th className="px-6 py-4 text-left">Filing Date</th>
                 <th className="px-6 py-4 text-left">Client Identity</th>
@@ -822,7 +822,7 @@ function InvoiceLedgerReport({ onRegisterExport }: { onRegisterExport: (fn: () =
                 <tr key={inv.id} className="hover:bg-primary/5 transition-all transition-colors cursor-pointer group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">#{inv.id}</div>
+                      <div className="h-8 w-8 rounded bg-gray-100 flex items-center justify-center text-[0.625rem] font-black text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">#{inv.id}</div>
                       <span className="font-mono text-xs font-black text-primary group-hover:underline">{inv.invoiceNo}</span>
                     </div>
                   </td>
@@ -869,18 +869,18 @@ function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () =>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform"><Gauge className="h-24 w-24 text-primary" /></div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Total Print Volume</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Total Print Volume</p>
           <p className="text-4xl font-black tabular-nums">{totalUsage.toLocaleString()}</p>
-          <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full uppercase">
+          <div className="mt-4 flex items-center gap-2 text-[0.625rem] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full uppercase">
              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Cumulative
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border-2 border-blue-50 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-2">B&W Consumption</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-blue-400 mb-2">B&W Consumption</p>
           <p className="text-4xl font-black tabular-nums text-blue-900">{totalBW.toLocaleString()}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border-2 border-orange-50 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400 mb-2">Color Consumption</p>
+          <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-orange-400 mb-2">Color Consumption</p>
           <p className="text-4xl font-black tabular-nums text-orange-900">{totalColor.toLocaleString()}</p>
         </div>
       </div>
@@ -892,7 +892,7 @@ function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () =>
         <CardContent className="p-0">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-100/50 text-gray-400 font-bold uppercase text-[9px]">
+              <tr className="bg-gray-100/50 text-gray-400 font-bold uppercase text-[0.5625rem]">
                 <th className="px-6 py-4 text-left">Machine Name</th>
                 <th className="px-6 py-4 text-center">Last Opening</th>
                 <th className="px-6 py-4 text-center">Last Closing</th>
@@ -963,13 +963,13 @@ export default function Reports() {
               <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3 leading-none text-black">
                 <report.icon className="h-8 w-8 text-primary shadow-sm" /> {report.title}
               </h1>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 ml-11">{report.desc}</p>
+              <p className="text-[0.625rem] font-bold text-gray-400 uppercase tracking-widest mt-1.5 ml-11">{report.desc}</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 font-black uppercase text-[10px] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><Download className="h-4 w-4" /> Export CSV</Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[10px] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><FileText className="h-4 w-4" /> Download PDF</Button>
-            <Button size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[10px] gap-2 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all"><Printer className="h-4 w-4" /> Print Report</Button>
+            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 font-black uppercase text-[0.625rem] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><Download className="h-4 w-4" /> Export CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[0.625rem] gap-2 border-2 border-gray-100 rounded-xl hover:bg-black hover:text-white transition-all"><FileText className="h-4 w-4" /> Download PDF</Button>
+            <Button size="sm" onClick={() => window.print()} className="h-10 px-6 font-black uppercase text-[0.625rem] gap-2 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all"><Printer className="h-4 w-4" /> Print Report</Button>
           </div>
         </div>
 

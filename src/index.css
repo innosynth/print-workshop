@@ -3,7 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * ──────────────────────────────────────────────────
+   *  Global UI Scale System
+   *
+   *  --app-scale controls the root font-size.
+   *  Since Tailwind spacing and text utilities are rem-based,
+   *  changing this single variable scales the ENTIRE app —
+   *  typography, spacing, padding, margins, etc.
+   *
+   *  Values:  small=0.875  default=1  large=1.125
+   *  Applied via: <html data-scale="..."> + inline script
+   * ──────────────────────────────────────────────────
+   */
   :root {
+    --app-scale: 1;
+
     --background: 0 0% 98%;
     --foreground: 220 13% 13%;
 
@@ -88,6 +103,12 @@
     --sidebar-border: 220 15% 18%;
     --sidebar-ring: 142 71% 45%;
   }
+
+  /* Root font-size driven by --app-scale */
+  html {
+    font-size: calc(16px * var(--app-scale, 1));
+    -webkit-text-size-adjust: 100%;
+  }
 }
 
 @layer base {
@@ -95,7 +116,71 @@
   body { @apply bg-background text-foreground; }
 }
 
+/*
+ * ──────────────────────────────────────────────────
+ *  Responsive Utilities
+ * ──────────────────────────────────────────────────
+ */
+
+@layer utilities {
+  /* Responsive table container: horizontal scroll with subtle indicators */
+  .table-responsive {
+    @apply w-full overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Responsive tabs: horizontal scroll on small screens */
+  .tabs-responsive {
+    @apply overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs-responsive::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * ──────────────────────────────────────────────────
+ *  Responsive Breakpoint Adjustments
+ * ──────────────────────────────────────────────────
+ */
+
+/* Small screens: reduce base page padding */
+@media (max-width: 640px) {
+  .p-6 {
+    padding: 1rem;
+  }
+  .p-8 {
+    padding: 1.25rem;
+  }
+  .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+  }
+}
+
+/* Make dialogs more mobile-friendly */
+@media (max-width: 640px) {
+  [data-radix-portal] [role="dialog"] {
+    max-width: calc(100vw - 1rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+    width: 100% !important;
+  }
+}
+
+/*
+ * ──────────────────────────────────────────────────
+ *  Print Styles
+ * ──────────────────────────────────────────────────
+ */
 @media print {
+  /* Reset scale for print output — always use default sizing */
+  html {
+    font-size: 16px !important;
+  }
+
   .print-hidden, 
   [role="navigation"], 
   aside, 
