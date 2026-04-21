@@ -43,8 +43,9 @@ export const generateInvoicePDF = async (
   const unit = "mm";
   const isEstimateDoc = docTitle.toUpperCase() === "ESTIMATE";
 
-  // For thermal: pre-calculate exact page height so coordinates are correct
-  let thermalPageHeight = 500;
+  // Pre-calculate exact page height for ALL formats to ensure production-grade fit
+  let finalHeight = isA4 ? 210 : isA5 ? 148.5 : 500;
+  
   if (isThermal) {
     const M = 4;
     const PW = 72.1;
@@ -90,10 +91,57 @@ export const generateInvoicePDF = async (
     if (qrImageUrl) h += 35; 
     h += 6;   
 
-    thermalPageHeight = Math.max(h, 50);
+    finalHeight = Math.max(h, 50);
+  } else {
+    // A4 / A5 Height Calculation
+    const scale = isA4 ? 1 : 0.72;
+    const M = 8;
+    const contentWidth = (isA4 ? 297 : 210) - (2 * M);
+    
+    // Scale standard widths for calculation
+    const W_SNO = 12 * scale;
+    const W_AMT = 30 * scale;
+    const W_QTY = 15 * scale;
+    const W_HSN = 18 * scale;
+    const W_RATE = 25 * scale;
+    const shopStateCode = profile.gst?.slice(0, 2) || "33";
+    const custStateCode = invoice.customerGst?.slice(0, 2) || "33";
+    const isIgst = invoice.isIgst ?? (shopStateCode !== custStateCode && !isEstimateDoc);
+    let taxAreaW = 0;
+    if (!isEstimateDoc) {
+      taxAreaW = isIgst ? (20 + 25) * scale : (15 + 20 + 15 + 20) * scale;
+    }
+    const remainingW = contentWidth - W_SNO - W_AMT - taxAreaW - W_QTY - W_HSN - W_RATE;
+    const W_DESC = remainingW;
+
+    const temp = new jsPDF({ orientation: "l", unit: "mm", format: isA4 ? "a4" : "a5" });
+    temp.setFontSize(9 * scale);
+
+    let h = M;
+    h += 22 * scale; // Header Area
+    h += 8 * scale;  // Gap
+    h += 10 * scale; // Title Row
+    h += 30 * scale; // Billing Row
+    h += 14 * scale; // Table Header
+    
+    invoice.items.forEach(item => {
+      const descLines = temp.splitTextToSize(item.name?.toUpperCase() || "", W_DESC - 6 * scale);
+      const rowH = Math.max(8 * scale, descLines.length * 4.5 * scale + 2);
+      h += rowH;
+    });
+
+    h += 15 * scale; // Gap before footer
+    
+    // Footer height (Bank details, QR, and Totals box)
+    const totalsH = (isEstimateDoc ? 3 : 5) * 8 * scale; // Estimate has fewer rows
+    const footerContentH = Math.max(45 * scale, totalsH); 
+    h += footerContentH;
+    h += 12 * scale; // Disclaimer + Final margin
+    
+    finalHeight = Math.max(h, isA4 ? 210 : 148.5);
   }
 
-  const format = isA4 ? "a4" : isA5 ? "a5" : [72.1, thermalPageHeight];
+  const format = isThermal ? [72.1, finalHeight] : [ (isA4 ? 297 : 210), finalHeight ];
 
   const doc = new jsPDF({
     orientation: orientation as any,
@@ -314,11 +362,11 @@ export const generateInvoicePDF = async (
     doc.setTextColor(0, 0, 0);
     let contactY = currY + 4 * scale;
     
-    doc.text(`+91 ${profile.phone}`, contactX, contactY, { align: "right" }); contactY += 5 * scale;
+    doc.text(`${profile.phone}`, contactX, contactY, { align: "right" }); contactY += 5 * scale;
     doc.text(profile.email, contactX, contactY, { align: "right" }); contactY += 5 * scale;
     
     const addrLines = doc.splitTextToSize(profile.address, 65 * scale);
-    doc.setFontSize(8 * scale);
+    doc.setFontSize(9.2 * scale); // Increased by 15% (from 8)
     doc.setFont("helvetica", "normal");
     doc.text(addrLines, contactX, contactY, { align: "right" });
     
@@ -368,7 +416,10 @@ export const generateInvoicePDF = async (
 
     metaArr.forEach(m => {
       doc.setFont("helvetica", "bold");
-      doc.text(`${m[0]} ${m[1]}`, metaX, rY);
+      doc.text(m[0], metaX, rY);
+      const labelW = doc.getTextWidth(m[0] + " ");
+      doc.setFont("helvetica", "normal");
+      doc.text(m[1], metaX + labelW, rY);
       rY += 6 * scale;
     });
 
@@ -486,7 +537,7 @@ export const generateInvoicePDF = async (
     
     // Bank Details (Bottom-Left)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10 * scale);
+    doc.setFontSize(11 * scale); // Increased by 10% (from 10)
     doc.text("Bank Details", margin, footerY);
     
     const bLabels = ["Account Name", "Bank", "Branch", "A\\C No", "IFSC Code"];
@@ -499,7 +550,7 @@ export const generateInvoicePDF = async (
     ];
     
     let by = footerY + 6 * scale;
-    doc.setFontSize(8.5 * scale);
+    doc.setFontSize(9.35 * scale); // Increased by 10% (from 8.5)
     bLabels.forEach((bl, i) => {
       doc.setFont("helvetica", "normal");
       doc.text(bl + ":", margin, by);

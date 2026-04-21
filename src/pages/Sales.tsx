@@ -424,7 +424,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-white p-0">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto bg-white p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
@@ -439,14 +439,10 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">Thermal POS Only</Button>
             ) : (
               <>
-                {items.length > 5 ? (
-                  <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">A4 Paper Only</Button>
-                ) : (
-                  <>
-                    <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
-                    <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")}>A5 Paper</Button>
-                  </>
-                )}
+              <>
+                <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
+                <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")}>A5 Paper</Button>
+              </>
               </>
             )}
             <Separator orientation="vertical" className="h-8 mx-2" />
@@ -475,7 +471,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <p className="text-[0.625rem] font-bold text-black uppercase">DIGITAL PRINTING</p>
                   </div>
                 </div>
-                <div className="text-right space-y-0.5 text-[0.625rem] font-bold">
+                <div className="text-right space-y-0.5 text-[0.72rem] font-bold">
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">📞</span> {profile.phone}</p>
                   <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">✉️</span> {profile.email}</p>
                   <div className="flex justify-end gap-2 items-start max-w-[200px] mt-1 leading-tight">
@@ -486,7 +482,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               {/* Title Strip */}
-              <div className="bg-gray-50 border-y border-black py-1.5 text-center">
+              <div className="py-2 text-center">
                 <h2 className="text-lg font-black tracking-[0.2em]">{docTitle}</h2>
               </div>
 
@@ -504,47 +500,47 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
                       {isEstimate ? "Estimate No :" : docType === "quotations" ? "Quotation No :" : "Invoice No :"}
                     </span>
-                    <span className="font-bold w-24 text-left">{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
+                    <span className="font-normal w-24 text-left">{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
                   </div>
                   <div className="flex justify-end gap-2">
                     <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
                       {isEstimate ? "Estimate Date :" : docType === "quotations" ? "Quotation Date :" : "Invoice Date :"}
                     </span>
-                    <span className="font-bold w-24 text-left">{activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
+                    <span className="font-normal w-24 text-left">{activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-end gap-2 text-primary">
                     <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">File Ref :</span>
-                    <span className="font-bold w-24 text-left">{activeInvoice.fileName || "-"}</span>
+                    <span className="font-normal w-24 text-left">{activeInvoice.fileName || "-"}</span>
                   </div>
                   <p className="mt-1 text-[0.625rem] font-bold uppercase tracking-tight">GSTIN : <span className="text-sm">{profile.gst}</span></p>
                 </div>
               </div>
 
               {/* Items Table */}
-              <table className="w-full border-collapse border border-black text-[0.625rem]">
-                <thead className="bg-gray-100 font-bold uppercase">
+              <table className="w-full border-collapse text-[0.625rem]">
+                <thead className="bg-[#ebebeb] font-bold uppercase">
                   <tr>
-                    <th className="border border-black px-1 py-1 w-8 text-center">S.No</th>
-                    <th className="border border-black px-2 py-1 text-left">Description</th>
-                    <th className="border border-black px-1 py-1 w-12 text-center">HSN</th>
-                    <th className="border border-black px-1 py-1 w-10 text-center">QTY</th>
-                    <th className="border border-black px-1 py-1 w-16 text-right">RATE (₹)</th>
+                    <th className="px-1 py-1 w-8 text-center">S.No</th>
+                    <th className="px-2 py-1 text-left">Description</th>
+                    <th className="px-1 py-1 w-12 text-center">HSN</th>
+                    <th className="px-1 py-1 w-10 text-center">QTY</th>
+                    <th className="px-1 py-1 w-16 text-right">RATE (₹)</th>
                     {(totalTax > 0) && (
                       isIgst ? (
                         <>
-                          <th className="border border-black px-1 py-1 w-10 text-center">IGST %</th>
-                          <th className="border border-black px-1 py-1 w-20 text-right">IGST Amt(₹)</th>
+                          <th className="px-1 py-1 w-10 text-center">IGST %</th>
+                          <th className="px-1 py-1 w-20 text-right">IGST Amt(₹)</th>
                         </>
                       ) : (
                         <>
-                          <th className="border border-black px-1 py-1 w-10 text-center">CGST %</th>
-                          <th className="border border-black px-1 py-1 w-16 text-right">CGST Amt(₹)</th>
-                          <th className="border border-black px-1 py-1 w-10 text-center">SGST %</th>
-                          <th className="border border-black px-1 py-1 w-16 text-right">SGST Amt(₹)</th>
+                          <th className="px-1 py-1 w-10 text-center">CGST %</th>
+                          <th className="px-1 py-1 w-16 text-right">CGST Amt(₹)</th>
+                          <th className="px-1 py-1 w-10 text-center">SGST %</th>
+                          <th className="px-1 py-1 w-16 text-right">SGST Amt(₹)</th>
                         </>
                       )
                     )}
-                    <th className="border border-black px-2 py-1 w-20 text-right">AMOUNT</th>
+                    <th className="px-2 py-1 w-20 text-right">AMOUNT</th>
                   </tr>
                 </thead>
                 <tbody className="font-medium">
@@ -553,55 +549,41 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     const itemAmount = parseFloat(item.amount || 0);
                     const itemTax = itemAmount * (itemRate / 100);
                     return (
-                      <tr key={i}>
-                        <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
-                        <td className="border border-black px-2 py-1 font-bold">{item.name || "Custom Service"}</td>
-                        <td className="border border-black px-1 py-1 text-center">{item.hsnCode || "-"}</td>
-                        <td className="border border-black px-1 py-1 text-center">{item.qty || 0}.00</td>
-                        <td className="border border-black px-1 py-1 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="px-1 py-1.5 text-center">{i + 1}</td>
+                        <td className="px-2 py-1.5 font-bold uppercase">{item.name || "Custom Service"}</td>
+                        <td className="px-1 py-1.5 text-center">{item.hsnCode || "-"}</td>
+                        <td className="px-1 py-1.5 text-center">{item.qty || 0}.00</td>
+                        <td className="px-1 py-1.5 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
                         {(totalTax > 0) && (
                           isIgst ? (
                             <>
-                              <td className="border border-black px-1 py-1 text-center">{itemRate.toFixed(2)}</td>
-                              <td className="border border-black px-1 py-1 text-right">{itemTax.toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-center">{itemRate.toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-right">{itemTax.toFixed(2)}</td>
                             </>
                           ) : (
                             <>
-                              <td className="border border-black px-1 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="border border-black px-1 py-1 text-right">{(itemTax / 2).toFixed(2)}</td>
-                              <td className="border border-black px-1 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="border border-black px-1 py-1 text-right">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-right">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-1 py-1.5 text-right">{(itemTax / 2).toFixed(2)}</td>
                             </>
                           )
                         )}
-                        <td className="border border-black px-2 py-1 text-right font-bold">{(itemAmount + (totalTax > 0 ? itemTax : 0)).toFixed(2)}</td>
+                        <td className="px-2 py-1.5 text-right font-bold">{(itemAmount + (totalTax > 0 ? itemTax : 0)).toFixed(2)}</td>
                       </tr>
                     );
                   })}
 
-                  {/* Empty rows to maintain height */}
-                  {[...Array(Math.max(0, 5 - items.length))].map((_, i) => (
-                    <tr key={i} className="h-6">
-                      <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
-                      <td className="border border-black"></td><td className="border border-black"></td>
-                      {(totalTax > 0) && (
-                        isIgst ? (
-                          <><td className="border border-black"></td><td className="border border-black"></td></>
-                        ) : (
-                          <><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td></>
-                        )
-                      )}
-                      <td className="border border-black"></td>
-                    </tr>
-                  ))}
+                  {/* Empty rows removed for cleaner preview if they have no purpose in layout height here */}
                 </tbody>
               </table>
 
               {/* A4 Footer */}
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-4 space-y-4">
-                  <div className="text-[0.625rem]">
-                    <p className="font-black border-b border-black mb-1 w-fit uppercase">Bank Details</p>
+                  <div className="text-[0.6875rem]">
+                    <p className="font-black mb-1 w-fit uppercase">Bank Details</p>
                     <div className="grid grid-cols-2 gap-x-2">
                       <span className="text-gray-500">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span>
                       <span className="text-gray-500">Bank</span><span className="font-bold">: {profile.bankName}</span>
@@ -616,7 +598,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 <div className="col-span-4 flex flex-col items-center justify-center">
                   {activeQr ? (
                     <div className="text-center">
-                      <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1" alt="Payment QR" />
+                      <img src={activeQr.imageUrl} className="h-20 w-20 p-1" alt="Payment QR" />
                       <p className="text-[0.5625rem] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
                     </div>
                   ) : (
@@ -784,6 +766,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
   const rateRefs = useRef<(HTMLInputElement | null)[]>([]);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
 
 
   const handleEnter = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | any) => {
@@ -901,6 +884,19 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     }
   }, [open]);
 
+  // Handle auto-scroll to bottom when new item added
+  useEffect(() => {
+    if (scrollViewportRef.current && items.length > 1) {
+      const timer = setTimeout(() => {
+        scrollViewportRef.current?.scrollTo({
+          top: scrollViewportRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [items.length]);
+
 
 
 
@@ -1005,9 +1001,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
+      <DialogContent className="max-w-5xl w-[95vw] h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
         <div className="flex flex-col h-full bg-white relative">
-          <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0 pr-12">
+          <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
             <DialogTitle>{title}</DialogTitle>
             {items.length > 5 && (
               <div className="flex items-center gap-6 animate-in fade-in slide-in-from-right-2 duration-300">
@@ -1030,7 +1026,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
             )}
           </DialogHeader>
 
-          <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto relative">
+          <div className="flex-1 flex flex-col min-h-0 relative">
             {detailsLoading && (
               <div className="absolute inset-0 bg-white/50 z-50 flex items-center justify-center backdrop-blur-[1px]">
                 <div className="flex flex-col items-center gap-2">
@@ -1039,10 +1035,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 </div>
               </div>
             )}
-            {/* Header info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Select Customer</Label>
+            {/* Static Top Section */}
+            <div className="p-3 md:p-4 pb-2 space-y-2 shrink-0">
+              {/* Header info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="space-y-0.5">
+                <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
                 <FormCombobox
                   triggerRef={customerRef}
                   onKeyDown={(e) => handleEnter(e, categoryRefs.current[0])}
@@ -1072,18 +1070,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   }
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <div className="space-y-0.5">
+                <Label className="text-[0.6875rem] font-bold text-muted-foreground">Date</Label>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-8 text-xs px-2" />
               </div>
             </div>
-
             <Separator />
 
-            {/* Line Items Section */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md">
-                <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground ml-2">Line Items</Label>
+              {/* Line Items Section Header */}
+              <div className="flex justify-between items-center bg-muted/40 p-1.5 rounded-md shrink-0">
+                <Label className="text-[0.6875rem] font-black uppercase tracking-wider text-muted-foreground ml-2">Line Items</Label>
                 <div className="flex items-center gap-3">
                   {true && (
                     <div className="flex items-center gap-3">
@@ -1124,8 +1120,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   </Button>
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-3">
+            {/* Scrollable Items Section */}
+            <div ref={scrollViewportRef} className="flex-1 overflow-y-auto p-3 md:p-4 pt-1">
+              <div className="space-y-2">
                 {items.map((item, index) => {
                   const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
                   const productNames = Array.from(new Set(products.filter((p: any) => !item.category || p.category === item.category).map((p: any) => p.name))).filter(Boolean) as string[];
@@ -1135,11 +1134,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   ).map((p: any) => p.subCategory))).filter(Boolean) as string[];
 
                   return (
-                    <div key={index} className="relative p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10">
+                    <div key={index} className="relative p-2.5 border rounded-lg bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10">
                       {/* Responsive Grid Layout */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2 items-end">
                         {/* Row 1/Top section on mobile, Left section on desktop */}
-                        <div className="md:col-span-2 space-y-1.5">
+                        <div className="md:col-span-2 space-y-0.5">
                           <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => categoryRefs.current[index] = el}
@@ -1168,7 +1167,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             }}
                           />
                         </div>
-                        <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
+                        <div className="sm:col-span-2 md:col-span-3 space-y-0.5">
                           <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Product</Label>
                           <FormCombobox
                             triggerRef={(el: any) => productRefs.current[index] = el}
@@ -1185,7 +1184,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             }}
                           />
                         </div>
-                        <div className="md:col-span-2 space-y-1.5">
+                        <div className="md:col-span-2 space-y-0.5">
                           <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
                           <FormCombobox
                             triggerRef={(el: any) => subCategoryRefs.current[index] = el}
@@ -1220,18 +1219,18 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
                         {/* Financials Row */}
                         <div className={cn("grid gap-2 items-end md:col-span-4", (!gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
-                          <div className="space-y-1.5">
+                          <div className="space-y-0.5">
                             <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
                             <Input
                               ref={el => qtyRefs.current[index] = el}
                               onKeyDown={(e) => handleEnter(e, rateRefs.current[index])}
                               type="number"
                               value={item.qty}
-                              className="h-10 font-bold px-1 text-center"
+                              className="h-8 font-bold px-1 text-center text-xs"
                               onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
                             />
                           </div>
-                          <div className="space-y-1.5">
+                          <div className="space-y-0.5">
                             <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
                             <Input
                               ref={el => rateRefs.current[index] = el}
@@ -1248,25 +1247,25 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                               }}
                               type="number"
                               value={item.rate}
-                              className="h-10 font-bold"
+                              className="h-8 font-bold text-xs"
                               onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
                             />
                           </div>
 
                           {gstEnabled && (
-                            <div className="space-y-1.5">
+                            <div className="space-y-0.5">
                               <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
                               <Input
                                 type="number"
                                 value={item.gstRate}
-                                className="h-10 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200"
+                                className="h-8 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200 text-xs"
                                 onChange={e => updateItem(index, "gstRate", e.target.value)}
                               />
                             </div>
                           )}
-                          <div className="space-y-1.5">
+                          <div className="space-y-0.5">
                             <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
-                            <div className="h-10 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate">
+                            <div className="h-8 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate">
                               ₹{item.amount.toFixed(2)}
                             </div>
                           </div>
@@ -1276,11 +1275,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-10 w-10 text-destructive hover:bg-destructive/10 shrink-0"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
                             onClick={() => removeItem(index)}
                             disabled={items.length === 1}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -1290,43 +1289,46 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               </div>
             </div>
 
-            <Separator />
+            {/* Static Bottom Section */}
+            <div className="p-3 md:p-4 pt-1 shrink-0 space-y-2">
+              <Separator />
 
-            {/* Footer Summary Section */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div className="flex-1 w-full sm:max-w-xs space-y-1.5">
-                <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
-                <div className="relative group">
-                  <Input
-                    placeholder="Enter filename or job ID..."
-                    value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
-                    className="pl-9 bg-white border-primary/10 focus:border-primary/30 transition-all text-xs font-bold"
-                  />
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                </div>
-              </div>
-              <div className="w-full sm:w-[320px] bg-muted/20 p-4 rounded-xl space-y-3 border shadow-inner">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
-                  <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                {(type !== 'estimates' || gstEnabled) && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">{isIgst ? 'IGST' : 'GST'} Amount</span>
-                    <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              {/* Footer Summary Section */}
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                <div className="flex-1 w-full sm:max-w-xs space-y-1">
+                  <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
+                  <div className="relative group">
+                    <Input
+                      placeholder="Enter filename or job ID..."
+                      value={fileName}
+                      onChange={(e) => setFileName(e.target.value)}
+                      className="pl-9 bg-white border-primary/10 focus:border-primary/30 transition-all text-xs font-bold h-8"
+                    />
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   </div>
-                )}
-                <Separator className="bg-muted-foreground/20" />
-                <div className="flex justify-between items-center text-lg">
-                  <span className="font-black text-xs uppercase tracking-widest text-muted-foreground">Grand Total</span>
-                  <span className="font-black text-xl text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="w-full sm:w-[320px] bg-muted/20 p-2.5 rounded-lg space-y-1 border shadow-inner">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
+                    <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {(type !== 'estimates' || gstEnabled) && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground font-medium uppercase tracking-tighter">{isIgst ? 'IGST' : 'GST'} Amount</span>
+                      <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  <Separator className="bg-muted-foreground/20" />
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="p-4 border-t bg-muted/30 flex justify-end gap-3 shrink-0">
+          <div className="p-2.5 px-4 border-t bg-muted/30 flex justify-end gap-3 shrink-0">
             <Button variant="outline" size="lg" className="px-8" onClick={() => setOpen(false)}>Cancel</Button>
             <Button variant="secondary" size="lg" className="px-4 gap-2 border-primary/10" onClick={() => handleSave(true)} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
