@@ -25,6 +25,7 @@ interface ProfileData {
   bankBranch: string;
   accountName: string;
   logoUrl?: string;
+  website?: string;
 }
 
 export const generateInvoicePDF = async (
@@ -40,7 +41,63 @@ export const generateInvoicePDF = async (
 
   const orientation = isThermal ? "p" : "l"; 
   const unit = "mm";
-  const format = isA4 ? "a4" : isA5 ? "a5" : [80, 250];
+  const isEstimateDoc = docTitle.toUpperCase() === "ESTIMATE";
+
+  // For thermal: pre-calculate exact page height so coordinates are correct
+  let thermalPageHeight = 500;
+  if (isThermal) {
+    const M = 4;
+    const PW = 72.1;
+    const CW = PW - M * 2;
+    const COL_QTY = 43;
+
+    // Use a temp doc solely for text-wrapping measurement
+    const temp = new jsPDF({ orientation: "p", unit: "mm", format: [PW, 100] as any });
+    let h = M + 4; // top margin + 1 line space
+
+    // Header
+    h += 5; // shop name
+    temp.setFont("helvetica", "normal");
+    temp.setFontSize(7);
+    const isEstimate = isEstimateDoc;
+    if (profile.slogan) h += 3.5;
+    const addrLC = temp.splitTextToSize(profile.address, CW - 4).length;
+    h += addrLC * 3.2; // address lines
+    h += 3.5; // phone
+    h += 5;   // mail
+    h += 4;   // doc title + underline
+    h += 4;   // separator
+    h += 4;   // invoice no + date
+    h += 3;   // customer
+    h += 4;   // separator
+    h += 4;   // table header
+
+    // Items (measure wrapping per item)
+    temp.setFont("helvetica", "normal");
+    temp.setFontSize(7.5);
+    const maxNameW = COL_QTY - M - 6;
+    invoice.items.forEach(item => {
+      const lines = temp.splitTextToSize((item.name || "").toUpperCase(), maxNameW).length;
+      h += 4; // first line
+      h += Math.max(0, lines - 1) * 3.5; // wrapped lines
+    });
+
+    h += 2;   // gap after items
+    h += 5;   // separator
+    h += 5;   // total items
+    h += 4;   // total qty + total
+    h += 6;   // separator
+    h += 3.5; // file
+    h += 5;   // user + time
+    h += 5;   // website
+    h += 6;   // thank you
+    if (qrImageUrl) h += 31; // QR + gap
+    h += 6;   // bottom padding
+
+    thermalPageHeight = Math.max(h, 50);
+  }
+
+  const format = isA4 ? "a4" : isA5 ? "a5" : [72.1, thermalPageHeight];
 
   const doc = new jsPDF({
     orientation: orientation as any,
@@ -50,7 +107,8 @@ export const generateInvoicePDF = async (
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = isThermal ? 5 : 10;
+  // Margins: A4=210x297 → print 202x289 (4mm), A5=148x210 → print 140x202 (4mm), Thermal=72.1mm (4mm)
+  const margin = 4;
   let currY = margin;
 
   // Icons & Symbols
@@ -67,73 +125,193 @@ export const generateInvoicePDF = async (
   const setBlack = () => doc.setTextColor(0, 0, 0);
 
   if (isThermal) {
-    // Thermal POS Layout (Kept consistent)
-    setSize(14); setBold();
-    doc.text(profile.name, pageWidth / 2, currY, { align: "center" });
-    currY += 6;
-    setSize(8); setNormal();
+    // ═══════════════════════════════════════════════════════════
+    // THERMAL POS RECEIPT — 72.1mm width, dynamic height
+    // Font: Helvetica (Arial) throughout — bold where needed
+    // ═══════════════════════════════════════════════════════════
+    const PW = doc.internal.pageSize.getWidth(); // 72.1
+    const M = margin; // 4mm
+    const CW = PW - M * 2; // content width ~64mm
+    const CX = PW / 2; // center X
+
+    // Column positions for items table (right-aligned anchors)
+    const COL_QTY = 43;
+    const COL_RATE = 54;
+    const COL_AMT = PW - M;
+
+    // Dashed separator helper
+    const drawDash = (y: number) => {
+      doc.setLineDashPattern([1.5, 1], 0);
+      doc.setLineWidth(0.2);
+      doc.line(M, y, PW - M, y);
+      doc.setLineDashPattern([], 0);
+    };
+
+    // ───── HEADER: Shop Name (Bold) ─────
+    currY += 4; // Extra space at top
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(profile.name || "Print Workshop", CX, currY, { align: "center" });
+    currY += 5;
+
+    // ───── HEADER: Slogan, Address, Phone (Normal) ─────
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+
     if (profile.slogan) {
-      doc.text(`( ${profile.slogan} )`, pageWidth / 2, currY, { align: "center" });
-      currY += 4;
+      doc.text(`( ${profile.slogan} )`, CX, currY, { align: "center" });
+      currY += 3.5;
     }
-    const splitAddr = doc.splitTextToSize(profile.address, pageWidth - 10);
-    doc.text(splitAddr, pageWidth / 2, currY, { align: "center" });
-    currY += splitAddr.length * 4;
-    doc.text(`${ICON_PHONE} ${profile.phone}`, pageWidth / 2, currY, { align: "center" });
+
+    const addrLines = doc.splitTextToSize(profile.address, CW - 4);
+    doc.text(addrLines, CX, currY, { align: "center" });
+    currY += addrLines.length * 3.2;
+
+    doc.text(`Call @ ${profile.phone}`, CX, currY, { align: "center" });
+    currY += 3.5;
+
+    // ───── Mail (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.text(`Mail : ${profile.email}`, CX, currY, { align: "center" });
+    currY += 5;
+
+    // ───── DOCUMENT TITLE (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(docTitle, CX, currY, { align: "center" });
     currY += 4;
-    doc.text(`${ICON_MAIL} ${profile.email}`, pageWidth / 2, currY, { align: "center" });
-    currY += 6;
-    setSize(10); setBold();
-    doc.text(docTitle, pageWidth / 2, currY, { align: "center" });
-    currY += 2;
-    doc.line(margin, currY, pageWidth - margin, currY);
-    currY += 5;
-    setSize(8); setBold();
-    doc.text(`NO: ${invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}`, margin, currY);
-    setNormal();
-    doc.text(`DATE: ${invoice.date || new Date().toLocaleDateString()}`, pageWidth - margin, currY, { align: "right" });
-    currY += 5;
-    setBold();
-    doc.text(`CUSTOMER: ${invoice.customerName?.toUpperCase() || "WALK-IN CUSTOMER"}`, margin, currY);
-    currY += 5;
-    doc.line(margin, currY, pageWidth - margin, currY);
-    currY += 5;
-    doc.text("PRODUCT NAME", margin, currY);
-    doc.text("QTY", pageWidth - 35, currY, { align: "right" });
-    doc.text("RATE", pageWidth - 20, currY, { align: "right" });
-    doc.text("AMT", pageWidth - margin, currY, { align: "right" });
+
+    // ───── SEPARATOR ─────
+    drawDash(currY);
     currY += 4;
-    doc.line(margin, currY, pageWidth - margin, currY);
-    currY += 5;
-    setNormal();
+
+    // ───── INVOICE META ROW (Normal) ─────
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const docNo = invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT";
+    doc.text(`No.${docNo}`, M, currY);
+    doc.text(`Date: ${invoice.date || new Date().toLocaleDateString()}`, PW - M, currY, { align: "right" });
+    currY += 4;
+    doc.text(`C.ID : ${invoice.customerName || "Walk-in Customer"}`, M, currY);
+    currY += 3;
+
+    // ───── SEPARATOR ─────
+    drawDash(currY);
+    currY += 4;
+
+    // ───── TABLE HEADER (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("Product Name", M, currY);
+    doc.text("Qty", COL_QTY, currY, { align: "right" });
+    doc.text("Rate", COL_RATE, currY, { align: "right" });
+    doc.text("Amount", COL_AMT, currY, { align: "right" });
+    currY += 4;
+
+    // ───── TABLE ITEMS (Normal) ─────
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const isEstimate = isEstimateDoc;
     let totalTaxable = 0;
+    let totalTax = 0;
     let totalQty = 0;
+
     invoice.items.forEach((item) => {
       const amt = parseFloat(item.amount || 0);
       const qty = parseFloat(item.qty || 0);
+      const gRate = parseFloat(item.gstRate || 0);
+      const itax = isEstimate ? 0 : (amt * (gRate / 100));
       totalTaxable += amt;
+      totalTax += itax;
       totalQty += qty;
-      const itemName = doc.splitTextToSize(item.name.toUpperCase(), pageWidth - 45);
-      doc.text(itemName, margin, currY);
-      doc.text(qty.toFixed(2), pageWidth - 35, currY, { align: "right" });
-      doc.text(parseFloat(item.rate || 0).toFixed(2), pageWidth - 20, currY, { align: "right" });
-      doc.text(amt.toFixed(2), pageWidth - margin, currY, { align: "right" });
-      currY += itemName.length * 4 + 1;
+
+      const maxNameW = COL_QTY - M - 6;
+      const nameLines = doc.splitTextToSize((item.name || "").toUpperCase(), maxNameW);
+
+      // First line: name + qty + rate + amount
+      doc.text(nameLines[0] || "", M, currY);
+      doc.text(qty.toString(), COL_QTY, currY, { align: "right" });
+      doc.text(parseFloat(item.rate || 0).toString(), COL_RATE, currY, { align: "right" });
+      const itemRowTotal = isEstimate ? amt : (amt + itax);
+      doc.text(itemRowTotal.toFixed(2), COL_AMT, currY, { align: "right" });
+      currY += 4;
+
+      // Wrapped name continuation lines
+      for (let k = 1; k < nameLines.length; k++) {
+        doc.text(nameLines[k], M, currY);
+        currY += 3.5;
+      }
     });
+
     currY += 2;
-    doc.line(margin, currY, pageWidth - margin, currY);
+
+    // ───── SEPARATOR ─────
+    drawDash(currY);
     currY += 5;
-    setBold();
-    doc.text(`TOTAL ITEMS : ${invoice.items.length}`, margin, currY);
+
+    // ───── TOTALS SECTION (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(`Total Items : ${invoice.items.length}`, M, currY);
     currY += 5;
-    doc.text(`TOTAL QTY : ${totalQty.toFixed(2)}`, margin, currY);
-    setSize(12);
-    doc.text(`TOTAL: ${totalTaxable.toFixed(2)}`, pageWidth - margin, currY, { align: "right" });
-    currY += 10;
+
+    doc.text(`Total Qty : ${totalQty}`, M, currY);
+    doc.setFontSize(10);
+    const grandTotal = isEstimate ? totalTaxable : (totalTaxable + totalTax);
+    doc.text(`Total: ${grandTotal.toFixed(2)}`, PW - M, currY, { align: "right" });
+    currY += 4;
+
+    // ───── SEPARATOR ─────
+    drawDash(currY);
+    currY += 6;
+
+    // ───── FILE & USER INFO (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text(`File : ${invoice.fileName || ""}`, M, currY);
+    currY += 3.5;
+    const timeStr = new Date()
+      .toLocaleTimeString("en-GB", { hour12: false })
+      .replace(/:/g, ".");
+    doc.text(`User :admin | Time : ${timeStr}`, M, currY);
+    currY += 5;
+
+    // ───── WEBSITE (Bold) ─────
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(
+      profile.website || "www.printworkshop.in",
+      CX,
+      currY,
+      { align: "center" }
+    );
+    currY += 5;
+
+    // ───── THANK YOU ─────
+    doc.setFontSize(9);
+    doc.text("Thank For Your Business", CX, currY, { align: "center" });
+    currY += 6;
+
+    // ───── QR CODE (from configured payment QR) ─────
     if (qrImageUrl) {
-      try { doc.addImage(qrImageUrl, "PNG", pageWidth / 2 - 10, currY, 20, 20); currY += 25; } catch (e) {}
+      try {
+        const qrS = 28;
+        doc.addImage(
+          qrImageUrl,
+          "PNG",
+          CX - qrS / 2,
+          currY,
+          qrS,
+          qrS
+        );
+        currY += qrS + 3;
+      } catch (_e) {
+        // QR load failed — skip silently
+      }
     }
-    setSize(8); doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, currY, { align: "center" });
+
+    // Page height was pre-calculated before doc creation — no post-render trim needed
+
   } else {
     // A4 / A5 Layout (Landscape)
     const scale = isA4 ? 1 : 0.7;
@@ -254,7 +432,8 @@ export const generateInvoicePDF = async (
         const rate = parseFloat(item.rate || 0);
         const qty = parseFloat(item.qty || 0);
         const gRate = parseFloat(item.gstRate || 0);
-        const itemTax = amt * (gRate / 100);
+        const isEstimate = isEstimateDoc;
+        const itemTax = isEstimate ? 0 : amt * (gRate / 100);
         
         taxableTotal += amt;
         taxTotal += itemTax;
@@ -270,7 +449,7 @@ export const generateInvoicePDF = async (
         doc.text(item.hsnCode || "-", cols.hsn.x + cols.hsn.w / 2, currY + 6 * scale, { align: "center" });
         doc.text(qty.toFixed(2), cols.qty.x + cols.qty.w / 2, currY + 6 * scale, { align: "center" });
         doc.text(rate.toFixed(2), cols.rate.x + cols.rate.w - 2, currY + 6 * scale, { align: "right" });
-        doc.text(gRate > 0 ? gRate.toFixed(2) : "-", cols.igstP.x + cols.igstP.w / 2, currY + 6 * scale, { align: "center" });
+        doc.text(gRate > 0 && !isEstimate ? gRate.toFixed(2) : "-", cols.igstP.x + cols.igstP.w / 2, currY + 6 * scale, { align: "center" });
         doc.text(itemTax > 0 ? itemTax.toFixed(2) : "-", cols.igstA.x + cols.igstA.w / 2, currY + 6 * scale, { align: "center" });
         setBold(); doc.text((amt + itemTax).toFixed(2), cols.amt.x + cols.amt.w - 2, currY + 6 * scale, { align: "right" });
         setNormal();
@@ -330,12 +509,14 @@ export const generateInvoicePDF = async (
     setBlack(); setBold();
     doc.text(`${SYM_RS}${taxableTotal.toFixed(2)}`, valueX - 4, tY + 5.5 * scale, { align: "right" });
     
-    tY += 8 * scale;
-    doc.rect(boxX, tY, boxW, 8 * scale, "S");
-    setNormal(); setGray();
-    doc.text("IGST", boxX + 4, tY + 5.5 * scale);
-    setBlack(); setBold();
-    doc.text(`${SYM_RS}${taxTotal.toFixed(2)}`, valueX - 4, tY + 5.5 * scale, { align: "right" });
+    if (!isEstimateDoc) {
+        tY += 8 * scale;
+        doc.rect(boxX, tY, boxW, 8 * scale, "S");
+        setNormal(); setGray();
+        doc.text("IGST", boxX + 4, tY + 5.5 * scale);
+        setBlack(); setBold();
+        doc.text(`${SYM_RS}${taxTotal.toFixed(2)}`, valueX - 4, tY + 5.5 * scale, { align: "right" });
+    }
 
     tY += 8 * scale;
     doc.setFillColor(245, 245, 245);

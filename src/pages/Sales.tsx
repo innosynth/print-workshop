@@ -195,7 +195,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const profile = settingsData?.profile || {
     name: "", slogan: "", address: "", gst: "", phone: "", email: "",
     bankName: "", accountNumber: "", ifscCode: "", bankBranch: "", accountName: "",
-    logoUrl: ""
+    logoUrl: "", website: ""
   };
 
   const { data: fullInvoice, isLoading: invoiceLoading } = useQuery({
@@ -235,14 +235,14 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const items = activeInvoice.items || [];
   const isIgst = activeInvoice.isIgst === true;
   const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
-  const totalTax = items.reduce((sum: number, item: any) => {
+  const totalTax = isEstimate ? 0 : items.reduce((sum: number, item: any) => {
     const rate = parseFloat(item.gstRate || 0);
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
-  const total = (isEstimate && totalTax === 0) ? taxableAmount : (taxableAmount + totalTax);
-  const igst = totalTax;
-  const cgst = totalTax / 2;
-  const sgst = totalTax / 2;
+  const total = isEstimate ? taxableAmount : (taxableAmount + totalTax);
+  const igst = isEstimate ? 0 : totalTax;
+  const cgst = isEstimate ? 0 : totalTax / 2;
+  const sgst = isEstimate ? 0 : totalTax / 2;
 
   const handlePrint = async () => {
     const doc = await generateInvoicePDF(
@@ -664,27 +664,27 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
             </div>
           ) : (
-            <div className="space-y-1 text-center font-sans tracking-tight leading-tight" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px` }}>
+            <div className="space-y-1 text-center tracking-tight leading-tight" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
               {/* Thermal Format Header */}
-              <div className="mb-2">
+              <div className="pt-4 mb-2">
                 {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-1 object-contain" alt="Logo" />}
                 <h1 className="text-2xl font-black">{profile.name}</h1>
-                <p className="text-[0.625rem] font-medium leading-none">( {profile.slogan} )</p>
-                <p className="text-[0.625rem] mt-1">{profile.address}</p>
-                <p className="text-[0.625rem]">Call @ {profile.phone}</p>
-                <p className="text-[0.625rem]"><span className="font-bold">Mail :</span> {profile.email}</p>
-                <h2 className="text-xs font-bold mt-1 uppercase underline">{docTitle}</h2>
+                <p className="text-[0.625rem] font-normal leading-none">( {profile.slogan} )</p>
+                <p className="text-[0.625rem] font-normal mt-1">{profile.address}</p>
+                <p className="text-[0.625rem] font-normal">Call @ {profile.phone}</p>
+                <p className="text-[0.625rem] font-bold">Mail : {profile.email}</p>
+                <h2 className="text-[0.75rem] font-bold mt-1 uppercase">{docTitle}</h2>
               </div>
 
               <div className="text-[0.625rem] py-0.5 border-t border-dashed border-black">
-                <div className="flex justify-between font-bold">
+                <div className="flex justify-between font-normal">
                   <span>
-                    {isEstimate ? "Est." : docType === "quotations" ? "Qt." : "No."} {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}
+                    No.{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}
                   </span>
                   <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
                 </div>
-                <div className="text-left font-bold">
-                  {isEstimate ? "C.Name" : docType === "quotations" ? "C.Name" : "C.ID"} : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
+                <div className="text-left font-normal">
+                  C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
                 </div>
               </div>
 
@@ -698,13 +698,18 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       <th className="text-right py-1">Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="font-medium pt-1">
+                  <tbody className="font-normal pt-1">
                     {activeInvoice.items && activeInvoice.items.length > 0 ? activeInvoice.items.map((item: any, i: number) => (
                       <tr key={i} className="align-top">
                         <td className="text-left py-1 uppercase">{item.name}</td>
                         <td className="text-right py-1">{item.qty}</td>
-                        <td className="text-right py-1">{item.rate}</td>
-                        <td className="text-right py-1">{parseFloat(item.amount || 0).toFixed(2)}</td>
+                        <td className="text-right py-1">{parseFloat(item.rate || 0).toFixed(0)}</td>
+                        <td className="text-right py-1">
+                          {isEstimate 
+                            ? parseFloat(item.amount || 0).toFixed(2) 
+                            : (parseFloat(item.amount || 0) * (1 + parseFloat(item.gstRate || 0) / 100)).toFixed(2)
+                          }
+                        </td>
                       </tr>
                     )) : (
                       <tr className="h-10"><td colSpan={4} className="text-center italic opacity-50">No items listed</td></tr>
@@ -724,24 +729,16 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               <div className="border-t border-dashed border-black pt-2 flex flex-col items-center gap-1">
-                {/* Barcode Placeholder */}
-                <div className="w-32 h-8 bg-zinc-200 flex items-center justify-center relative overflow-hidden">
-                  <div className="flex gap-[1px] w-full h-full p-2 bg-white">
-                    {[...Array(20)].map((_, i) => (
-                      <div key={i} className="flex-1 bg-black" style={{ width: `${Math.random() * 2 + 1}px` }}></div>
-                    ))}
-                  </div>
-                </div>
                 <div className="w-full text-left font-bold text-[0.5625rem] space-y-0.5 mt-1">
                   <p>File : {activeInvoice.fileName || "-"}</p>
-                  <p>User :admin | Time : {new Date().toLocaleDateString('en-GB')}</p>
+                  <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
                 </div>
                 <div className="space-y-0.5">
-                  <p className="font-bold text-[0.625rem]">{profile.website}</p>
-                  <p className="font-black text-[0.6875rem] uppercase">Thank For Your Business</p>
+                  <p className="font-bold text-[0.625rem]">{profile.website || 'www.printworkshop.in'}</p>
+                  <p className="font-bold text-[0.6875rem] uppercase">Thank For Your Business</p>
                 </div>
                 {activeQr && (
-                  <img src={activeQr.imageUrl} className="h-20 w-20 border border-black p-1 mt-1" alt="QA" />
+                  <img src={activeQr.imageUrl} className="h-32 w-32 border border-black p-1 mt-1" alt="QA" />
                 )}
               </div>
             </div>
@@ -1576,7 +1573,7 @@ export default function Sales() {
   const profile = settingsData?.profile || {
     name: "", slogan: "", address: "", gst: "", phone: "", email: "",
     bankName: "", bankBranch: "", accountNumber: "", ifscCode: "", accountName: "",
-    logoUrl: ""
+    logoUrl: "", website: ""
   };
 
   const { data: contacts = [] } = useQuery({ queryKey: ["contacts"], queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) });
