@@ -947,6 +947,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       toast({ variant: "destructive", title: "Missing information", description: "Please select or type a customer name" });
       return;
     }
+    
+    if (grandTotal <= 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Invalid Bill Value", 
+        description: "0 bill value is not allowed to store. Add any items and try again." 
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}${initialData ? `&id=${initialData.id}` : ''}`;

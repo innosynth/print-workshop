@@ -250,6 +250,16 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
       toast({ variant: "destructive", title: "Error", description: "Please select a supplier" });
       return;
     }
+
+    if (total <= 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Invalid Bill Value", 
+        description: "0 bill value is not allowed to store. Add any items and try again." 
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
       const payload = {
