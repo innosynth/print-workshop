@@ -95,7 +95,7 @@ export const generateInvoicePDF = async (
   } else {
     // A4 / A5 Height Calculation
     const scale = isA4 ? 1 : 0.72;
-    const M = 8;
+    const M = 4; // Updated to 4mm margin (8mm total reduction from width)
     const contentWidth = (isA4 ? 297 : 210) - (2 * M);
     
     // Scale standard widths for calculation
@@ -151,7 +151,7 @@ export const generateInvoicePDF = async (
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = isThermal ? 4 : 8;
+  const margin = 4; // Normalized to 4mm for all formats per user specs
   let currY = margin;
 
   // Font helpers
