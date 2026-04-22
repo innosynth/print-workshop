@@ -207,7 +207,18 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     refetchOnMount: "always"
   });
 
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => fetch("/api/core?resource=products").then(res => res.json())
+  });
+
   const activeInvoice = fullInvoice || invoice;
+  
+  const items = (activeInvoice?.items || []).map((item: any) => {
+    if (item.category) return item;
+    const match = allProducts.find((p: any) => p.name === item.name || (item.sku && p.sku === item.sku));
+    return { ...item, category: match?.category || "" };
+  });
 
   useEffect(() => {
     if (docType === "estimates") {
@@ -232,8 +243,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     </Dialog>
   );
   const isEstimate = docType === "estimates";
-  const items = activeInvoice.items || [];
   const isIgst = activeInvoice.isIgst === true;
+
   const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
   const totalTax = isEstimate ? 0 : items.reduce((sum: number, item: any) => {
     const rate = parseFloat(item.gstRate || 0);
@@ -246,7 +257,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   const handlePrint = async () => {
     const doc = await generateInvoicePDF(
-      activeInvoice,
+      { ...activeInvoice, items },
+
       profile,
       paperSize,
       docTitle,
@@ -275,7 +287,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   const handleDownload = async () => {
     const doc = await generateInvoicePDF(
-      activeInvoice,
+      { ...activeInvoice, items },
+
       profile,
       paperSize,
       docTitle,
@@ -551,7 +564,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     return (
                       <tr key={i} className="border-b border-gray-100">
                         <td className="px-1 py-1.5 text-center">{i + 1}</td>
-                        <td className="px-2 py-1.5 font-bold uppercase">{item.name || "Custom Service"}</td>
+                        <td className="px-2 py-1.5 font-bold uppercase">{item.category || item.name || "Custom Service"}</td>
+
                         <td className="px-1 py-1.5 text-center">{item.hsnCode || "-"}</td>
                         <td className="px-1 py-1.5 text-center">{item.qty || 0}.00</td>
                         <td className="px-1 py-1.5 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
@@ -683,7 +697,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   <tbody className="font-normal pt-1">
                     {activeInvoice.items && activeInvoice.items.length > 0 ? activeInvoice.items.map((item: any, i: number) => (
                       <tr key={i} className="align-top">
-                        <td className="text-left py-1 uppercase">{item.name}</td>
+                        <td className="text-left py-1 uppercase">{item.category || item.name}</td>
+
                         <td className="text-right py-1">{item.qty}</td>
                         <td className="text-right py-1">{parseFloat(item.rate || 0).toFixed(0)}</td>
                         <td className="text-right py-1">

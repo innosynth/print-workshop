@@ -61,12 +61,15 @@ export const invoiceItems = pgTable("invoiceItems", {
   id: serial("id").primaryKey(),
   invoiceId: integer("invoiceId").references(() => invoices.id),
   name: text("name").notNull(),
+  category: text("category"),
+  subCategory: text("subCategory"),
   qty: integer("qty").notNull(),
   rate: numeric("rate").notNull(),
   amount: numeric("amount").notNull(),
   hsnCode: text("hsnCode"),
   gstRate: numeric("gstRate").default("18"),
 });
+
 
 // ─── Quotations ───────────────────────────────────────────────────────────────
 export const quotations = pgTable("quotations", {
@@ -86,12 +89,15 @@ export const quotationItems = pgTable("quotationItems", {
   id: serial("id").primaryKey(),
   quotationId: integer("quotationId").references(() => quotations.id),
   name: text("name"),
+  category: text("category"),
+  subCategory: text("subCategory"),
   qty: numeric("qty"),
   rate: numeric("rate"),
   amount: numeric("amount"),
   hsnCode: text("hsnCode"),
   gstRate: numeric("gstRate").default("18"),
 });
+
 
 // ─── Sales Returns ────────────────────────────────────────────────────────────
 export const salesReturns = pgTable("salesReturns", {

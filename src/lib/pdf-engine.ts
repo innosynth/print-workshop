@@ -74,7 +74,8 @@ export const generateInvoicePDF = async (
     temp.setFontSize(7.5);
     const maxNameW = COL_QTY - M - 6;
     invoice.items.forEach(item => {
-      const lines = temp.splitTextToSize((item.name || "").toUpperCase(), maxNameW).length;
+      const lines = temp.splitTextToSize(((item.category || item.name) || "").toUpperCase(), maxNameW).length;
+
       h += 4; 
       h += Math.max(0, lines - 1) * 3.5; 
     });
@@ -125,7 +126,8 @@ export const generateInvoicePDF = async (
     h += 14 * scale; // Table Header
     
     invoice.items.forEach(item => {
-      const descLines = temp.splitTextToSize(item.name?.toUpperCase() || "", W_DESC - 6 * scale);
+      const descLines = temp.splitTextToSize((item.category || item.name)?.toUpperCase() || "", W_DESC - 6 * scale);
+
       const rowH = Math.max(8 * scale, descLines.length * 4.5 * scale + 2);
       h += rowH;
     });
@@ -177,7 +179,7 @@ export const generateInvoicePDF = async (
       doc.setLineDashPattern([], 0);
     };
 
-    currY += 4;
+    currY += 1;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.text(profile.name || "Print Workshop", CX, currY, { align: "center" });
@@ -245,7 +247,8 @@ export const generateInvoicePDF = async (
       totalQty += qty;
 
       const maxNameW = COL_QTY - M - 6;
-      const nameLines = doc.splitTextToSize((item.name || "").toUpperCase(), maxNameW);
+      const nameLines = doc.splitTextToSize(((item.category || item.name) || "").toUpperCase(), maxNameW);
+
 
       doc.text(nameLines[0] || "", M, currY);
       doc.text(qty.toString(), COL_QTY, currY, { align: "right" });
@@ -502,7 +505,8 @@ export const generateInvoicePDF = async (
       taxableAmount += amt;
       taxTotal += itax;
 
-      const descLines = doc.splitTextToSize(item.name?.toUpperCase() || "", cols.desc.w - 6 * scale);
+      const descLines = doc.splitTextToSize((item.category || item.name)?.toUpperCase() || "", cols.desc.w - 6 * scale);
+
       const rowH = Math.max(8 * scale, descLines.length * 4.5 * scale + 2);
 
       doc.text((i + 1).toString(), cols.sno.x + cols.sno.w / 2, currY + 5 * scale, { align: "center" });
