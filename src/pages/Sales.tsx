@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { generateInvoicePDF } from "@/lib/pdf-engine";
+// import jsPDF from "jspdf";
+// import html2canvas from "html2canvas";
+import html2pdf from 'html2pdf.js';
+// import { generateInvoicePDF } from "@/lib/pdf-engine";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -256,20 +257,37 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const sgst = isEstimate ? 0 : totalTax / 2;
 
   const handlePrint = async () => {
-    const doc = await generateInvoicePDF(
-      { ...activeInvoice, items },
-
-      profile,
-      paperSize,
-      docTitle,
-      activeQr?.imageUrl
-    );
+    if (!printRef.current) return;
     
-    // Use the PDF blob to trigger a clean print
-    const pdfBlob = doc.output('blob');
+    const element = printRef.current;
+    const docNo = activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || 'Doc';
+    const custName = (activeInvoice.customerName || 'Customer').replace(/\s+/g, '_');
+    const filename = `${docNo}_${custName}.pdf`;
+
+    const opt = {
+      margin: 0,
+      filename: filename,
+      image: { type: 'jpeg' as const, quality: 1.0 },
+      html2canvas: { 
+        scale: 4, 
+        useCORS: true,
+        logging: false,
+        letterRendering: true,
+        windowWidth: paperSize === "A4" || paperSize === "A5" ? 794 : 800,
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: paperSize === 'A4' ? 'a4' : (paperSize === 'A5' ? [210, 148.5] as [number, number] : [80, 200] as [number, number]), 
+        orientation: paperSize === 'A5' ? 'landscape' : 'portrait',
+        compress: true
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const }
+    };
+    
+    const targetElement = element.querySelector('.invoice-page') || element.querySelector('.thermal-format') || element;
+    const pdfBlob = await html2pdf().set(opt).from(targetElement).output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    // Create a temporary hidden iframe to trigger the print dialog
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     iframe.src = url;
@@ -277,7 +295,6 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     
     iframe.onload = () => {
       iframe.contentWindow?.print();
-      // Clean up after print dialog is closed
       setTimeout(() => {
         document.body.removeChild(iframe);
         URL.revokeObjectURL(url);
@@ -285,159 +302,128 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     };
   };
 
-  const handleDownload = async () => {
-    const doc = await generateInvoicePDF(
-      { ...activeInvoice, items },
-
-      profile,
-      paperSize,
-      docTitle,
-      activeQr?.imageUrl
-    );
+  const handleDownload = () => {
+    if (!printRef.current) return;
     
+    const element = printRef.current;
     const docNo = activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || 'Doc';
     const custName = (activeInvoice.customerName || 'Customer').replace(/\s+/g, '_');
-    doc.save(`${docNo}_${custName}.pdf`);
+    const filename = `${docNo}_${custName}.pdf`;
+
+    const opt = {
+      margin: 0,
+      filename: filename,
+      image: { type: 'jpeg' as const, quality: 1.0 },
+      html2canvas: { 
+        scale: 4, 
+        useCORS: true,
+        logging: false,
+        letterRendering: true,
+        windowWidth: paperSize === "A4" || paperSize === "A5" ? 794 : 800,
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: paperSize === 'A4' ? 'a4' : (paperSize === 'A5' ? [210, 148.5] as [number, number] : [80, 200] as [number, number]), 
+        orientation: paperSize === 'A5' ? 'landscape' : 'portrait',
+        compress: true
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const }
+    };
+    
+    const targetElement = element.querySelector('.invoice-page') || element.querySelector('.thermal-format') || element;
+    html2pdf().set(opt).from(targetElement).save();
   };
 
   const printStyles = `
+   .print-container {
+     width: 100%;
+     display: flex;
+     justify-content: center;
+     background: #f5f5f5;
+     padding: 0;
+     min-height: 100%;
+   }
+
+   .invoice-page {
+     background: white;
+     box-shadow: none;
+     width: ${paperSize === "A4" || paperSize === "A5" ? "794px" : "100%"} !important;
+     min-height: ${paperSize === "A4" ? "1123px" : paperSize === "A5" ? "567px" : "auto"} !important;
+     margin: 0 auto;
+     padding: 38px !important;
+     box-sizing: border-box;
+     display: flex;
+     flex-direction: column;
+     position: relative;
+     color: black;
+     transform: none !important;
+   }
+
   @media print {
     @page {
-      size: ${paperSize === "A4" ? "A4 landscape" : paperSize === "A5" ? "A5 landscape" : "80mm auto"};
+      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : "80mm auto"};
       margin: 0;
     }
     
     html,
     body {
-      width: ${paperSize === "A4" ? "auto" : "80mm"} !important;
-      height: auto !important;
+      width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : "80mm"} !important;
       margin: 0 !important;
       padding: 0 !important;
-      overflow: visible !important;
       background: white !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
 
-    body {
-      display: block !important;
-    }
-
-    #root,
-    header,
-    aside,
-    footer,
-    .no-print {
+    /* Hide everything including Radix UI overlays/portals except our specific invoice content */
+    #root, 
+    header, 
+    aside, 
+    footer, 
+    .no-print,
+    [role="dialog"] > button,
+    [data-radix-portal] .no-print {
       display: none !important;
-    }
-
-    /* Hide any modal close controls that may still appear in print */
-    button[aria-label="Close"],
-    button[aria-label="close"],
-    [data-radix-portal] button[aria-label="Close"],
-    [data-radix-portal] button[aria-label="close"],
-    [data-radix-portal] svg.lucide-x,
-    [data-radix-portal] .lucide-x {
-      display: none !important;
-    }
-
-    ::-webkit-scrollbar {
-      display: none !important;
-    }
-    * {
-      -ms-overflow-style: none !important;
-      scrollbar-width: none !important;
     }
 
     [data-radix-portal] {
       position: static !important;
-      width: 100% !important;
-      background: white !important;
     }
 
     [data-radix-portal] > div {
       position: static !important;
-      transform: none !important;
-      width: 100% !important;
-      height: auto !important;
-      max-width: none !important;
-      max-height: none !important;
-      overflow: visible !important;
       background: white !important;
-      box-shadow: none !important;
-      border: none !important;
-      margin: 0 !important;
       padding: 0 !important;
+      margin: 0 !important;
       display: block !important;
+      width: 100% !important;
+      box-shadow: none !important;
     }
 
     .print-container {
-      width: 100% !important;
-      margin: 0 !important;
       padding: 0 !important;
-      box-sizing: border-box !important;
-      display: flex !important;
-      justify-content: ${paperSize === "A4" ? "center" : "flex-start"} !important;
-      align-items: flex-start !important;
-      overflow: visible !important;
       background: white !important;
-      color: black !important;
+      display: block !important;
+      width: 100% !important;
     }
 
     .invoice-page {
+      box-shadow: none !important;
       width: 100% !important;
-      max-width: ${paperSize === "A4" ? "277mm" : "190mm"} !important;
-      min-height: ${paperSize === "A4" ? "calc(210mm - 12mm)" : "calc(148mm - 12mm)"} !important;
-      box-sizing: border-box !important;
-      margin: 0 auto !important;
-      padding: 6mm 10mm !important;
-      background: white !important;
-      color: black !important;
-      overflow: visible !important;
-    }
-
-    .thermal-format {
-      font-size: ${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px !important;
-      line-height: 1.2 !important;
-      width: 80mm !important;   /* 👈 change to 58mm if needed */
-      max-width: 80mm !important;
-      margin: 0 auto !important;
-      padding: 2mm !important;
-      box-sizing: border-box !important;
-    }
-
-    .print-container * {
-      color: #000 !important;
-    }
-
-    .print-container .bg-black,
-    .print-container .bg-black * {
-      background-color: #000 !important;
-      color: #fff !important;
-    }
-
-    .bg-primary,
-    .bg-muted {
-      background-color: transparent !important;
-      border-color: #000 !important;
-    }
-
-    .text-primary,
-    .text-muted-foreground {
-      color: #000 !important;
-    }
-
-    img,
-    svg {
-      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 10mm !important;
+      border: none !important;
     }
   }
 `;
+
+
+
   const docTitle = docType === "estimates" ? "ESTIMATE" : docType === "quotations" ? "QUOTATION" : "TAX INVOICE";
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto bg-white p-0">
+      <DialogContent className={cn("max-h-[95vh] overflow-auto bg-white p-0 transition-all duration-300", paperSize === "thermal" ? "max-w-[400px]" : "max-w-[850px]")}>
         <DialogHeader className="sr-only">
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
@@ -452,209 +438,225 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">Thermal POS Only</Button>
             ) : (
               <>
-              <>
                 <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
                 <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")}>A5 Paper</Button>
               </>
-              </>
             )}
             <Separator orientation="vertical" className="h-8 mx-2" />
-            <Button onClick={handlePrint} className="gap-2"><Printer className="h-4 w-4" /> Print Document</Button>
-            <Button variant="outline" onClick={handleDownload} className="gap-2"><Download className="h-4 w-4" /> Download PDF</Button>
+            <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
+              <Printer className="h-4 w-4" /> Print Document
+            </Button>
+            <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50">
+              <Download className="h-4 w-4" /> Download PDF
+            </Button>
           </div>
         </div>
 
         <div
           ref={printRef}
-          className={`print-container p-2 mx-auto overflow-auto ${paperSize === "thermal" ? "thermal-format p-2" : ""}`}
+          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "thermal-format p-2" : "p-0"}`}
+          style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className="invoice-page space-y-3" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
-              {/* A4 Header */}
-              <div className="flex justify-between items-start border-b-2 border-black pb-4">
-                <div className="flex items-center">
-                  {profile.logoUrl ? (
-                    <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-4 shrink-0" alt="Logo" />
-                  ) : (
-                    <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-4 shrink-0">PW</div>
-                  )}
-                  <div>
-                    <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">{profile.name || "PRINT WORKSHOP"}</h1>
-                    <p className="text-[0.625rem] font-bold text-gray-600 uppercase mt-1 italic">{profile.slogan}</p>
-                    <p className="text-[0.625rem] font-bold text-black uppercase">DIGITAL PRINTING</p>
-                  </div>
-                </div>
-                <div className="text-right space-y-0.5 text-[0.72rem] font-bold">
-                  <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">📞</span> {profile.phone}</p>
-                  <p className="flex justify-end gap-2 items-center"><span className="text-gray-500">✉️</span> {profile.email}</p>
-                  <div className="flex justify-end gap-2 items-start max-w-[200px] mt-1 leading-tight">
-                    <span className="text-gray-500">📍</span>
-                    <span>{profile.address}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Title Strip */}
-              <div className="py-2 text-center">
-                <h2 className="text-lg font-black tracking-[0.2em]">{docTitle}</h2>
-              </div>
-
-              {/* Billing Info */}
-              <div className="grid grid-cols-2 gap-8 text-[0.6875rem]">
-                <div className="space-y-1">
-                  <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.5625rem]">To :</p>
-                  <p className="text-sm font-black">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
-                  <p className="text-gray-600">COIMBATORE</p>
-                  <p className="mt-2 text-[0.625rem] font-bold">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
-                  <p className="text-[0.625rem] font-bold">State & Code:</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <div className="flex justify-end gap-2">
-                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
-                      {isEstimate ? "Estimate No :" : docType === "quotations" ? "Quotation No :" : "Invoice No :"}
-                    </span>
-                    <span className="font-normal w-24 text-left">{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">
-                      {isEstimate ? "Estimate Date :" : docType === "quotations" ? "Quotation Date :" : "Invoice Date :"}
-                    </span>
-                    <span className="font-normal w-24 text-left">{activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-end gap-2 text-primary">
-                    <span className="text-gray-500 uppercase text-[0.5625rem] font-bold">File Ref :</span>
-                    <span className="font-normal w-24 text-left">{activeInvoice.fileName || "-"}</span>
-                  </div>
-                  <p className="mt-1 text-[0.625rem] font-bold uppercase tracking-tight">GSTIN : <span className="text-sm">{profile.gst}</span></p>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <table className="w-full border-collapse text-[0.625rem]">
-                <thead className="bg-[#ebebeb] font-bold uppercase">
-                  <tr>
-                    <th className="px-1 py-1 w-8 text-center">S.No</th>
-                    <th className="px-2 py-1 text-left">Description</th>
-                    <th className="px-1 py-1 w-12 text-center">HSN</th>
-                    <th className="px-1 py-1 w-10 text-center">QTY</th>
-                    <th className="px-1 py-1 w-16 text-right">RATE (₹)</th>
-                    {(totalTax > 0) && (
-                      isIgst ? (
-                        <>
-                          <th className="px-1 py-1 w-10 text-center">IGST %</th>
-                          <th className="px-1 py-1 w-20 text-right">IGST Amt(₹)</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="px-1 py-1 w-10 text-center">CGST %</th>
-                          <th className="px-1 py-1 w-16 text-right">CGST Amt(₹)</th>
-                          <th className="px-1 py-1 w-10 text-center">SGST %</th>
-                          <th className="px-1 py-1 w-16 text-right">SGST Amt(₹)</th>
-                        </>
-                      )
+            <div className="invoice-page" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
+              <div className="flex-grow space-y-4">
+                {/* Header Layout */}
+                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-4">
+                  <div className="flex items-center">
+                    {profile.logoUrl ? (
+                      <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
+                    ) : (
+                      <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-3 shrink-0">PW</div>
                     )}
-                    <th className="px-2 py-1 w-20 text-right">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody className="font-medium">
-                  {items.map((item: any, i: number) => {
-                    const itemRate = parseFloat(item.gstRate || 0);
-                    const itemAmount = parseFloat(item.amount || 0);
-                    const itemTax = itemAmount * (itemRate / 100);
-                    return (
-                      <tr key={i} className="border-b border-gray-100">
-                        <td className="px-1 py-1.5 text-center">{i + 1}</td>
-                        <td className="px-2 py-1.5 font-bold uppercase">{item.category || item.name || "Custom Service"}</td>
+                    <div>
+                      <h1 className="text-xl font-black tracking-tighter uppercase leading-none">{profile.name || "PRINT WORKSHOP"}</h1>
+                      <p className="text-[0.55rem] font-bold text-gray-500 uppercase mt-0.5 italic">{profile.slogan}</p>
+                      <p className="text-[0.6rem] font-bold text-black uppercase">DIGITAL PRINTING</p>
+                    </div>
+                  </div>
 
-                        <td className="px-1 py-1.5 text-center">{item.hsnCode || "-"}</td>
-                        <td className="px-1 py-1.5 text-center">{item.qty || 0}.00</td>
-                        <td className="px-1 py-1.5 text-right">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
-                        {(totalTax > 0) && (
-                          isIgst ? (
-                            <>
-                              <td className="px-1 py-1.5 text-center">{itemRate.toFixed(2)}</td>
-                              <td className="px-1 py-1.5 text-right">{itemTax.toFixed(2)}</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="px-1 py-1.5 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-1 py-1.5 text-right">{(itemTax / 2).toFixed(2)}</td>
-                              <td className="px-1 py-1.5 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-1 py-1.5 text-right">{(itemTax / 2).toFixed(2)}</td>
-                            </>
-                          )
-                        )}
-                        <td className="px-2 py-1.5 text-right font-bold">{(itemAmount + (totalTax > 0 ? itemTax : 0)).toFixed(2)}</td>
-                      </tr>
-                    );
-                  })}
+                  <div className="flex items-start gap-6 text-[0.65rem] font-bold pt-1.5">
+                     <div className="flex flex-col items-end shrink-0">
+                       <p className="flex gap-1 items-center"><span className="text-gray-400">📞</span> +91 {profile.phone}</p>
+                       <p className="mr-5">0422 2244066</p>
+                     </div>
+                     <div className="shrink-0">
+                       <p className="flex gap-1 items-center"><span className="text-gray-400">✉️</span> {profile.email}</p>
+                     </div>
+                     <div className="max-w-[180px] text-right">
+                       <p className="flex gap-1 items-start leading-tight">
+                         <span className="text-gray-400">📍</span>
+                         <span>{profile.address}</span>
+                       </p>
+                     </div>
+                  </div>
+                </div>
 
-                  {/* Empty rows removed for cleaner preview if they have no purpose in layout height here */}
+              {/* Title & Shop GST Area */}
+              <div className="grid grid-cols-12 items-center">
+                <div className="col-span-3"></div>
+                <div className="col-span-6 text-center">
+                   <h2 className="text-lg font-black tracking-widest uppercase">{docTitle}</h2>
+                </div>
+                <div className="col-span-3 text-right">
+                   <p className="text-[0.7rem] font-bold">GSTIN : <span className="font-black">{profile.gst}</span></p>
+                </div>
+              </div>
+
+              {/* Billing & Meta Info */}
+              <div className="grid grid-cols-12 gap-8 text-[0.7rem]">
+                <div className="col-span-7 space-y-0.5">
+                  <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]">To :</p>
+                  <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
+                  <p className="text-gray-600 font-bold">COIMBATORE</p>
+                  <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
+                  <p className="font-bold uppercase">State & Code:</p>
+                </div>
+                <div className="col-span-5 space-y-1">
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <span className="text-gray-500 font-bold uppercase">Invoice No</span>
+                    <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
+                    
+                    <span className="text-gray-500 font-bold uppercase">Invoice Date</span>
+                    <span className="font-black text-right">: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
+                    
+                    <span className="text-gray-500 font-bold uppercase">PO No</span>
+                    <span className="font-black text-right">: -</span>
+                  </div>
+                </div>
+              </div>
+
+               {/* Items Table */}
+               <table className="w-full border-collapse text-[0.6rem]">
+                 <thead className="bg-[#e6e6e6] font-bold uppercase border-y border-gray-300">
+                   <tr className="text-[0.62rem]">
+                     <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
+                     <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
+                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>HSN</th>
+                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>QTY</th>
+                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (₹)</th>
+                     {!isEstimate && (
+                       isIgst ? (
+                         <>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>IGST %</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(₹)</th>
+                         </>
+                       ) : (
+                         <>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>CGST %</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(₹)</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>SGST %</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(₹)</th>
+                         </>
+                       )
+                     )}
+                     <th className="px-2 py-1.5 text-right" style={{ width: '12%' }}>AMOUNT</th>
+                   </tr>
+                 </thead>
+                 <tbody className="font-medium text-[0.65rem]">
+                   {items.map((item: any, i: number) => {
+                     const itemRate = parseFloat(item.gstRate || 0);
+                     const itemAmount = parseFloat(item.amount || 0);
+                     const itemTax = itemAmount * (itemRate / 100);
+                     return (
+                       <tr key={i} className="border-b border-gray-100">
+                         <td className="px-0.5 py-2 text-center">{i + 1}</td>
+                         <td className="px-2 py-2 font-black uppercase text-[0.68rem]">{item.category || item.name || "Custom Service"}</td>
+                         <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
+                         <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
+                         <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                         {!isEstimate && (
+                           isIgst ? (
+                             <>
+                               <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
+                               <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
+                             </>
+                           ) : (
+                             <>
+                               <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                               <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                             </>
+                           )
+                         )}
+                         <td className="px-2 py-2 text-right font-black">{(itemAmount + (isEstimate ? 0 : itemTax)).toFixed(2)}</td>
+                       </tr>
+                     );
+                   })}
+                  {/* Fill empty space */}
+                  {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, i) => (
+                    <tr key={`empty-${i}`} className="border-b border-gray-50 h-8">
+                      <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
-              {/* A4 Footer */}
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-4 space-y-4">
-                  <div className="text-[0.6875rem]">
-                    <p className="font-black mb-1 w-fit uppercase">Bank Details</p>
-                    <div className="grid grid-cols-2 gap-x-2">
-                      <span className="text-gray-500">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span>
-                      <span className="text-gray-500">Bank</span><span className="font-bold">: {profile.bankName}</span>
-                      <span className="text-gray-500">Branch</span><span className="font-bold">: {profile.bankBranch}</span>
-                      <span className="text-gray-500">A/C No</span><span className="font-bold">: {profile.accountNumber}</span>
-                      <span className="text-gray-500">IFSC Code</span><span className="font-bold">: {profile.ifscCode}</span>
-                    </div>
+              </div>
+
+              {/* Footer Layout */}
+              <div className="grid grid-cols-12 gap-4 pt-6 border-t border-gray-200 mt-auto" style={{ pageBreakInside: 'avoid' }}>
+                <div className="col-span-7">
+                  <p className="font-black mb-2 uppercase text-[0.75rem]">Bank Details</p>
+                  <div className="grid grid-cols-12 gap-y-1 text-[0.7rem]">
+                    <span className="col-span-4 text-gray-500 font-bold uppercase">Account Name</span>
+                    <span className="col-span-8 font-black">: {profile.accountName || profile.name}</span>
+                    
+                    <span className="col-span-4 text-gray-500 font-bold uppercase">Bank</span>
+                    <span className="col-span-8 font-black">: {profile.bankName || "ICICI Bank"}</span>
+                    
+                    <span className="col-span-4 text-gray-500 font-bold uppercase">Branch</span>
+                    <span className="col-span-8 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
+                    
+                    <span className="col-span-4 text-gray-500 font-bold uppercase">A/C No</span>
+                    <span className="col-span-8 font-black">: {profile.accountNumber || "730705000264"}</span>
+                    
+                    <span className="col-span-4 text-gray-500 font-bold uppercase">IFSC Code</span>
+                    <span className="col-span-8 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                   </div>
-                  <p className="text-[0.625rem] font-black uppercase mt-4">THANK YOU FOR YOUR BUSINESS</p>
+                  <p className="text-sm font-black uppercase mt-8 tracking-tight">THANK YOU FOR YOUR BUSINESS</p>
                 </div>
 
-                <div className="col-span-4 flex flex-col items-center justify-center">
-                  {activeQr ? (
-                    <div className="text-center">
-                      <img src={activeQr.imageUrl} className="h-20 w-20 p-1" alt="Payment QR" />
-                      <p className="text-[0.5625rem] font-black uppercase mt-1 tracking-widest">SCAN & PAY</p>
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-[0.5rem] text-gray-400 text-center">QR CODE<br />PENDING</div>
-                  )}
-                </div>
-
-                <div className="col-span-4">
-                  <table className="w-full text-[0.6875rem] font-bold">
+                <div className="col-span-5 flex flex-col items-end">
+                  <table className="w-full text-[0.7rem] border-collapse">
                     <tbody>
-                      <tr className="border border-black">
-                        <td className="px-2 py-1 text-gray-500">Sub Total</td>
-                        <td className="px-2 py-1 text-right font-black">₹{taxableAmount.toFixed(2)}</td>
+                      <tr className="border border-gray-400">
+                        <td className="px-3 py-1.5 text-gray-600 font-bold">Sub Total</td>
+                        <td className="px-3 py-1.5 text-right font-black">₹{taxableAmount.toFixed(2)}</td>
                       </tr>
-                      {(totalTax > 0) && (
+                      {!isEstimate && (
                         isIgst ? (
-                          <tr className="border border-black">
-                            <td className="px-2 py-1 text-gray-500">IGST</td>
-                            <td className="px-2 py-1 text-right font-black">₹{igst.toFixed(2)}</td>
+                          <tr className="border border-gray-400">
+                            <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">IGST 18 %</td>
+                            <td className="px-3 py-1.5 text-right font-black">₹{igst.toFixed(2)}</td>
                           </tr>
                         ) : (
                           <>
-                            <tr className="border border-black">
-                              <td className="px-2 py-1 text-gray-500">CGST</td>
-                              <td className="px-2 py-1 text-right font-black">₹{cgst.toFixed(2)}</td>
+                            <tr className="border border-gray-400">
+                              <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">CGST 9 %</td>
+                              <td className="px-3 py-1.5 text-right font-black">₹{cgst.toFixed(2)}</td>
                             </tr>
-                            <tr className="border border-black">
-                              <td className="px-2 py-1 text-gray-500">SGST</td>
-                              <td className="px-2 py-1 text-right font-black">₹{sgst.toFixed(2)}</td>
+                            <tr className="border border-gray-400">
+                              <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">SGST 9 %</td>
+                              <td className="px-3 py-1.5 text-right font-black">₹{sgst.toFixed(2)}</td>
                             </tr>
                           </>
                         )
                       )}
-                      <tr className="border border-black bg-gray-50 font-black">
-                        <td className="px-2 py-1 text-gray-900 text-xs">Grand Total</td>
-                        <td className="px-2 py-1 text-right text-sm">₹{total.toFixed(2)}</td>
+                      <tr className="border border-gray-400">
+                        <td className="px-3 py-1.5 text-gray-600 font-bold">Round Off</td>
+                        <td className="px-3 py-1.5 text-right font-black">₹0.00</td>
+                      </tr>
+                      <tr className="border border-gray-400 bg-gray-100">
+                        <td className="px-3 py-2 text-black text-xs font-black uppercase">Grand Total</td>
+                        <td className="px-3 py-2 text-right text-base font-black">₹{total.toFixed(2)}</td>
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-[0.5rem] text-right mt-2 text-gray-500">This is computer generated document signature not required</p>
+                  <p className="text-[0.5rem] text-right mt-3 text-gray-500 italic leading-tight">This is computer generated invoice signature not required</p>
                   {activeInvoice.fileName && (
-                    <p className="text-[0.5rem] text-right font-bold uppercase text-primary mt-0.5">File: {activeInvoice.fileName}</p>
+                    <p className="text-[0.55rem] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
                   )}
                 </div>
               </div>
