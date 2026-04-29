@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-// import jsPDF from "jspdf";
-// import html2canvas from "html2canvas";
-import html2pdf from 'html2pdf.js';
-// import { generateInvoicePDF } from "@/lib/pdf-engine";
+import { useReactToPrint } from "react-to-print";
+import jsPDF from "jspdf";
+
+
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -10,7 +10,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock, Edit, FileText } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock, Edit, FileText, Phone, Mail, MapPin } from "lucide-react";
+
 import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -221,7 +222,13 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     return { ...item, category: match?.category || "" };
   });
 
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `${activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc'}_${(activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_')}`,
+  });
+
   useEffect(() => {
+
     if (docType === "estimates") {
       setPaperSize("thermal");
     } else if (activeInvoice?.items) {
@@ -256,83 +263,37 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const cgst = isEstimate ? 0 : totalTax / 2;
   const sgst = isEstimate ? 0 : totalTax / 2;
 
-  const handlePrint = async () => {
-    if (!printRef.current) return;
-    
-    const element = printRef.current;
-    const docNo = activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || 'Doc';
-    const custName = (activeInvoice.customerName || 'Customer').replace(/\s+/g, '_');
-    const filename = `${docNo}_${custName}.pdf`;
 
-    const opt = {
-      margin: 0,
-      filename: filename,
-      image: { type: 'jpeg' as const, quality: 1.0 },
-      html2canvas: { 
-        scale: 4, 
-        useCORS: true,
-        logging: false,
-        letterRendering: true,
-        windowWidth: paperSize === "A4" || paperSize === "A5" ? 794 : 800,
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: paperSize === 'A4' ? 'a4' : (paperSize === 'A5' ? [210, 148.5] as [number, number] : [80, 200] as [number, number]), 
-        orientation: paperSize === 'A5' ? 'landscape' : 'portrait',
-        compress: true
-      },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const }
-    };
-    
-    const targetElement = element.querySelector('.invoice-page') || element.querySelector('.thermal-format') || element;
-    const pdfBlob = await html2pdf().set(opt).from(targetElement).output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    
-    iframe.onload = () => {
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-        URL.revokeObjectURL(url);
-      }, 1000);
-    };
-  };
 
   const handleDownload = () => {
-    if (!printRef.current) return;
-    
     const element = printRef.current;
-    const docNo = activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || 'Doc';
-    const custName = (activeInvoice.customerName || 'Customer').replace(/\s+/g, '_');
-    const filename = `${docNo}_${custName}.pdf`;
+    if (!element) return;
 
-    const opt = {
-      margin: 0,
-      filename: filename,
-      image: { type: 'jpeg' as const, quality: 1.0 },
-      html2canvas: { 
-        scale: 4, 
-        useCORS: true,
-        logging: false,
-        letterRendering: true,
-        windowWidth: paperSize === "A4" || paperSize === "A5" ? 794 : 800,
+    const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
+    const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
+
+    // Create a client-side vector/raster wrapper PDF
+    const doc = new jsPDF({
+      orientation: "p",
+      unit: "pt",
+      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? "a5" : [226, 841]
+    });
+
+    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 419.53 : 226;
+
+    doc.html(element, {
+      x: 0,
+      y: 0,
+      width: formatWidth,
+      windowWidth: paperSize === "thermal" ? 400 : 800,
+      callback: function (pdf) {
+        pdf.save(`${docNo}_${custName}.pdf`);
       },
-      jsPDF: { 
-        unit: 'mm', 
-        format: paperSize === 'A4' ? 'a4' : (paperSize === 'A5' ? [210, 148.5] as [number, number] : [80, 200] as [number, number]), 
-        orientation: paperSize === 'A5' ? 'landscape' : 'portrait',
-        compress: true
-      },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const }
-    };
-    
-    const targetElement = element.querySelector('.invoice-page') || element.querySelector('.thermal-format') || element;
-    html2pdf().set(opt).from(targetElement).save();
+      autoPaging: 'text'
+    });
   };
+
+
 
   const printStyles = `
    .print-container {
@@ -427,7 +388,35 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
         <DialogHeader className="sr-only">
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
-        <style>{printStyles}</style>
+        <style>{`
+          ${printStyles}
+          .a5-format {
+            font-size: 11px !important;
+          }
+          .a5-format .text-xl { font-size: 1.1rem !important; }
+          .a5-format .text-lg { font-size: 0.95rem !important; }
+          .a5-format .text-base { font-size: 0.85rem !important; }
+          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.58rem !important; }
+          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.5rem !important; }
+          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.52rem !important; }
+          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.54rem !important; }
+          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.56rem !important; }
+          .a5-format .text-\\[0\\.75rem\\] { font-size: 0.62rem !important; }
+          .a5-format .text-\\[0\\.55rem\\] { font-size: 0.45rem !important; }
+          .a5-format .text-\\[0\\.5rem\\] { font-size: 0.4rem !important; }
+          .a5-format .text-sm { font-size: 0.68rem !important; }
+          
+          /* Reduce padding and spacing for A5 */
+          .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 0.6rem !important;
+          }
+          .a5-format .py-2 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
+          .a5-format .py-1\\.5 { padding-top: 0.2rem !important; padding-bottom: 0.2rem !important; }
+          .a5-format .pb-4 { padding-bottom: 0.6rem !important; }
+          .a5-format .pt-6 { padding-top: 0.8rem !important; }
+          .a5-format .mt-auto { margin-top: 1rem !important; }
+        `}</style>
+
 
         <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm">
           <span className="font-bold" title={(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}>
@@ -458,7 +447,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className="invoice-page" style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
+            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
+
               <div className="flex-grow space-y-4">
                 {/* Header Layout */}
                 <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-4">
@@ -477,17 +467,20 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
                   <div className="flex items-start gap-6 text-[0.65rem] font-bold pt-1.5">
                      <div className="flex flex-col items-end shrink-0">
-                       <p className="flex gap-1 items-center"><span className="text-gray-400">📞</span> +91 {profile.phone}</p>
+                       <p className="flex gap-1 items-center"><Phone className="h-3 w-3 text-gray-500 inline mr-0.5" /> +91 {profile.phone}</p>
+
                        <p className="mr-5">0422 2244066</p>
                      </div>
                      <div className="shrink-0">
-                       <p className="flex gap-1 items-center"><span className="text-gray-400">✉️</span> {profile.email}</p>
+                       <p className="flex gap-1 items-center"><Mail className="h-3 w-3 text-gray-500 inline mr-0.5" /> {profile.email}</p>
+
                      </div>
                      <div className="max-w-[180px] text-right">
                        <p className="flex gap-1 items-start leading-tight">
-                         <span className="text-gray-400">📍</span>
+                         <MapPin className="h-3 w-3 text-gray-500 inline mr-0.5 mt-0.5 shrink-0" />
                          <span>{profile.address}</span>
                        </p>
+
                      </div>
                   </div>
                 </div>
@@ -534,19 +527,22 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                      <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>HSN</th>
                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>QTY</th>
-                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (₹)</th>
+                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (Rs.)</th>
+
                      {!isEstimate && (
                        isIgst ? (
                          <>
                            <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>IGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(₹)</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(Rs.)</th>
+
                          </>
                        ) : (
                          <>
                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>CGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(₹)</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(Rs.)</th>
                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>SGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(₹)</th>
+                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(Rs.)</th>
+
                          </>
                        )
                      )}
@@ -585,7 +581,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                      );
                    })}
                   {/* Fill empty space */}
-                  {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, i) => (
+                  {Array.from({ length: Math.max(0, (paperSize === "A5" ? 3 : 10) - items.length) }).map((_, i) => (
+
                     <tr key={`empty-${i}`} className="border-b border-gray-50 h-8">
                       <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
                     </tr>
