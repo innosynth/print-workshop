@@ -312,8 +312,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
    .invoice-page {
      background: white;
      box-shadow: none;
-     width: ${paperSize === "A4" || paperSize === "A5" ? "794px" : "100%"} !important;
-     min-height: ${paperSize === "A4" ? "1123px" : paperSize === "A5" ? "567px" : "auto"} !important;
+     width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : "100%"} !important;
+     min-height: ${paperSize === "A4" ? "297mm" : paperSize === "A5" ? "148.5mm" : "auto"} !important;
      margin: 0 auto;
      padding: 38px !important;
      box-sizing: border-box;
@@ -325,7 +325,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
    }
 
     .thermal-format {
-      width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "80"}mm !important;
+      width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1"}mm !important;
       padding: 2mm 5mm 2mm 5mm !important;
       margin: 0 auto !important;
       background: white !important;
@@ -360,13 +360,13 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   @media print {
     @page {
-      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"};
-      margin: ${paperSize === "thermal" ? "0" : "12mm 10mm 12mm 10mm"};
+      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1") + "mm auto"};
+      margin: ${paperSize === "thermal" ? "0" : "4mm"};
     }
     
     html,
     body {
-      width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm"} !important;
+      width: ${paperSize === "thermal" ? (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm" : "auto"} !important;
       margin: 0 !important;
       padding: 0 !important;
       background: white !important;
@@ -409,8 +409,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     .invoice-page {
       box-shadow: none !important;
       width: 100% !important;
+      min-height: 100% !important;
       margin: 0 !important;
-      padding: 0 !important;
+      padding: 10mm !important;
       border: none !important;
     }
 
@@ -435,20 +436,20 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
         <style>{`
           ${printStyles}
           .a5-format {
-            font-size: 11px !important;
+            font-size: 10px !important;
           }
-          .a5-format .text-xl { font-size: 1.1rem !important; }
-          .a5-format .text-lg { font-size: 0.95rem !important; }
-          .a5-format .text-base { font-size: 0.85rem !important; }
-          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.58rem !important; }
-          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.5rem !important; }
-          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.52rem !important; }
-          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.54rem !important; }
-          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.56rem !important; }
-          .a5-format .text-\\[0\\.75rem\\] { font-size: 0.62rem !important; }
-          .a5-format .text-\\[0\\.55rem\\] { font-size: 0.45rem !important; }
-          .a5-format .text-\\[0\\.5rem\\] { font-size: 0.4rem !important; }
-          .a5-format .text-sm { font-size: 0.68rem !important; }
+          .a5-format .text-xl { font-size: 1rem !important; }
+          .a5-format .text-lg { font-size: 0.85rem !important; }
+          .a5-format .text-base { font-size: 0.75rem !important; }
+          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.52rem !important; }
+          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.45rem !important; }
+          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.47rem !important; }
+          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.49rem !important; }
+          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.5rem !important; }
+          .a5-format .text-\\[0\\.75rem\\] { font-size: 0.56rem !important; }
+          .a5-format .text-\\[0\\.55rem\\] { font-size: 0.4rem !important; }
+          .a5-format .text-\\[0\\.5rem\\] { font-size: 0.36rem !important; }
+          .a5-format .text-sm { font-size: 0.61rem !important; }
           
           /* Reduce padding and spacing for A5 */
           .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) {
@@ -459,6 +460,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           .a5-format .pb-4 { padding-bottom: 0.6rem !important; }
           .a5-format .pt-6 { padding-top: 0.8rem !important; }
           .a5-format .mt-auto { margin-top: 1rem !important; }
+          .a5-format { padding-top: 0 !important; }
         `}</style>
 
 
@@ -491,11 +493,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
 
-              <div className="flex-grow space-y-4">
+              <div className="space-y-4">
                 {/* Header Layout */}
-                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-4">
+                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-2">
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -558,7 +560,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </div>
 
                 {/* Billing & Meta Info */}
-                <div className="grid grid-cols-12 gap-8 text-[0.7rem]">
+                <div className="grid grid-cols-12 gap-4 text-[0.7rem]">
                   <div className="col-span-7 space-y-0.5">
                     <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]">To :</p>
                     <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
@@ -654,7 +656,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               {/* Footer Layout */}
-              <div className="grid grid-cols-12 gap-4 pt-6 border-t border-gray-200 mt-auto" style={{ pageBreakInside: 'avoid' }}>
+              <div className="grid grid-cols-12 gap-4 pt-4 border-t border-gray-200 mt-auto" style={{ pageBreakInside: 'avoid' }}>
                 <div className="col-span-4">
                   <p className="font-black mb-2 uppercase text-[0.75rem]">Bank Details</p>
                   <div className="grid grid-cols-12 gap-y-1 text-[0.7rem]">
@@ -673,61 +675,63 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">IFSC Code</span>
                     <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                   </div>
+                  <div className="mt-5">
+                    <p className="text-[0.6rem] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                  </div>
                 </div>
 
                 <div className="col-span-3 flex flex-col items-center justify-start pt-2">
                   {activeQr && (
                     <div className="text-center">
-                      <img src={activeQr.imageUrl} className="h-[120px] w-[120px] border-2 border-black p-1.5 mb-1" alt="Payment QR" />
+                      <img src={activeQr.imageUrl} className="h-[100px] w-[100px] p-1.5 mb-1" alt="Payment QR" />
                       <p className="text-[0.65rem] font-black uppercase text-gray-700">Scan to Pay</p>
                     </div>
                   )}
                 </div>
 
                 <div className="col-span-5 flex flex-col items-end">
-                  <table className="w-full text-[0.7rem] border-collapse">
+                  <table className="w-full text-[0.7rem] border-collapse border border-gray-300">
                     <tbody>
-                      <tr className="border border-gray-400">
+                      <tr>
                         <td className="px-3 py-1.5 text-gray-600 font-bold">Sub Total</td>
                         <td className="px-3 py-1.5 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
                       </tr>
                       {!isEstimate && (
                         isIgst ? (
-                          <tr className="border border-gray-400">
+                          <tr>
                             <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">IGST 18 %</td>
                             <td className="px-3 py-1.5 text-right font-black">Rs. {igst.toFixed(2)}</td>
                           </tr>
                         ) : (
                           <>
-                            <tr className="border border-gray-400">
+                            <tr>
                               <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">CGST 9 %</td>
                               <td className="px-3 py-1.5 text-right font-black">Rs. {cgst.toFixed(2)}</td>
                             </tr>
-                            <tr className="border border-gray-400">
+                            <tr>
                               <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">SGST 9 %</td>
                               <td className="px-3 py-1.5 text-right font-black">Rs. {sgst.toFixed(2)}</td>
                             </tr>
                           </>
                         )
                       )}
-                      <tr className="border border-gray-400">
-                        <td className="px-3 py-1.5 text-gray-600 font-bold">Round Off</td>
+                      <tr>
+                        <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">Round Off</td>
                         <td className="px-3 py-1.5 text-right font-black">Rs. 0.00</td>
                       </tr>
-                      <tr className="border-2 border-black bg-white">
+                      <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
                         <td className="px-3 py-2 text-black text-xs font-black uppercase">Grand Total</td>
                         <td className="px-3 py-2 text-right text-base font-black">Rs. {total.toFixed(2)}</td>
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-[0.5rem] text-right mt-3 text-gray-500 italic leading-tight">This is computer generated invoice signature not required</p>
-                  {activeInvoice.fileName && (
-                    <p className="text-[0.55rem] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
-                  )}
+                  <div className="mt-2 w-full">
+                    <p className="text-[0.5rem] text-right text-gray-500 italic leading-tight">This is computer generated invoice signature not required</p>
+                    {activeInvoice.fileName && (
+                      <p className="text-[0.55rem] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 text-center pt-3">
-                <p className="text-sm font-black uppercase tracking-widest">THANK YOU FOR YOUR BUSINESS</p>
               </div>
             </div>
           ) : (
@@ -740,7 +744,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 <p className="text-[0.55rem] mt-1">{profile.address || "No.68, Sarojini Road, Sidhapudur, Coimbatore-44"}</p>
                 <p className="text-[0.55rem]">Call @ {profile.phone || "+91 84352 66666"}</p>
                 <p className="text-[0.55rem] font-bold">Mail : {profile.email || "aprintworkshop@gmail.com"}</p>
-                
+
                 <h2 className="text-[0.85rem] font-black uppercase mt-2">{docTitle}</h2>
                 <div className="thermal-dashed-line" />
               </div>
