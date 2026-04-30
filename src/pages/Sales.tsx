@@ -225,7 +225,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `${activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc'}_${(activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_')}`,
-    pageStyle: `@page { size: ${paperSize === "A4" ? "A4" : paperSize === "A5" ? "A5" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"}; margin: 0; }`
+    pageStyle: `@page { size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"}; margin: ${paperSize === "thermal" ? "0" : "4mm"}; }`
   });
 
   useEffect(() => {
@@ -274,23 +274,75 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
 
     // Create a client-side vector/raster wrapper PDF
+    // A4 = 210x297mm = 595.28x841.89pt, A5 = 148x210mm = 419.53x595.28pt
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
     const elementHeight = element.offsetHeight;
-    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 419.53 : (thermalMm * 2.83465);
-    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 595.28 : (elementHeight * 0.75) + 20; // px to pt + padding
+    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
+    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 20;
 
     const doc = new jsPDF({
-      orientation: "p",
+      orientation: paperSize === "A5" ? "landscape" : "portrait",
       unit: "pt",
-      format: [formatWidth, formatHeight]
+      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? "a5" : [formatWidth, formatHeight]
     });
+
+    const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : (paperSize === "A5" ? 560 : 800);
+
+    // Temporarily adjust .invoice-page styles for PDF download:
+    // 1. Remove min-height (prevents blank page 2 from 297mm min-height overflow)
+    // 2. Reduce top padding (removes extra gap at the top)
+    const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
+    if (invoicePage) {
+      invoicePage.style.setProperty('min-height', 'auto', 'important');
+      invoicePage.style.setProperty('padding', '5px 38px 15px 38px', 'important');
+    }
+
+    // jsPDF ignores CSS page-break-inside, so we manually prevent footer from splitting.
+    // Calculate if footer would be split across a page boundary and insert a spacer to push it.
+    const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
+    let spacer: HTMLElement | null = null;
+
+    if (footerEl && paperSize !== "thermal") {
+      const scaleFactor = formatWidth / windowW;
+      const pdfMarginPt = 10; // matches margin below
+      const pageContentH = formatHeight - (pdfMarginPt * 2); // usable area per page
+
+      const footerTopPx = footerEl.offsetTop;
+      const footerHeightPx = footerEl.offsetHeight;
+      const footerTopPt = footerTopPx * scaleFactor;
+      const footerHeightPt = footerHeightPx * scaleFactor;
+
+      // Which page does the footer start on, and where on that page?
+      const pageIndex = Math.floor(footerTopPt / pageContentH);
+      const posOnPage = footerTopPt - (pageIndex * pageContentH);
+
+      // If footer would be split across the page boundary, push it to the next page
+      if (posOnPage + footerHeightPt > pageContentH && posOnPage > 0) {
+        const pushPx = (pageContentH - posOnPage) / scaleFactor;
+        spacer = document.createElement('div');
+        spacer.style.height = `${pushPx}px`;
+        spacer.style.width = '100%';
+        spacer.className = 'pdf-page-break-spacer';
+        footerEl.parentElement?.insertBefore(spacer, footerEl);
+      }
+    }
 
     doc.html(element, {
       x: 0,
       y: 0,
       width: formatWidth,
-      windowWidth: paperSize === "thermal" ? (thermalMm * 3.7795) : 800, // mm to px conversion (96dpi)
+      windowWidth: windowW,
+      margin: [10, 0, 10, 0],
       callback: function (pdf) {
+        // Clean up temporary spacer
+        if (spacer && spacer.parentElement) {
+          spacer.remove();
+        }
+        // Restore original .invoice-page styles for preview
+        if (invoicePage) {
+          invoicePage.style.removeProperty('min-height');
+          invoicePage.style.removeProperty('padding');
+        }
         pdf.save(`${docNo}_${custName}.pdf`);
       },
       autoPaging: 'text'
@@ -298,6 +350,12 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   };
 
 
+
+  const a4Width = '210mm';
+  const a4Height = '297mm';
+  const a5Width = '210mm';  // A5 landscape
+  const a5Height = '148mm'; // A5 landscape
+  const pageMargin = '4mm'; // gives print area: A4=202x289mm, A5=202x140mm
 
   const printStyles = `
    .print-container {
@@ -312,10 +370,10 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
    .invoice-page {
      background: white;
      box-shadow: none;
-     width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : "100%"} !important;
-     min-height: ${paperSize === "A4" ? "297mm" : paperSize === "A5" ? "148.5mm" : "auto"} !important;
+     width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
+     min-height: ${paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto"} !important;
      margin: 0 auto;
-     padding: 38px !important;
+     padding: ${paperSize === "A5" ? "24px" : "38px"} !important;
      box-sizing: border-box;
      display: flex;
      flex-direction: column;
@@ -358,10 +416,27 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       margin: 4mm 0 2mm 0 !important;
     }
 
+    /* Items table - thead repeats on every printed page */
+    .invoice-items-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .invoice-items-table thead {
+      display: table-header-group;
+    }
+    .invoice-items-table tbody {
+      display: table-row-group;
+    }
+    /* Footer section stays together */
+    .invoice-footer-section {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
   @media print {
     @page {
-      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1") + "mm auto"};
-      margin: ${paperSize === "thermal" ? "0" : "4mm"};
+      size: ${paperSize === "A4" ? `${a4Width} ${a4Height}` : paperSize === "A5" ? `${a5Width} ${a5Height}` : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1") + "mm auto"};
+      margin: ${paperSize === "thermal" ? "0" : "10mm 4mm 4mm 4mm"};
     }
     
     html,
@@ -409,10 +484,31 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     .invoice-page {
       box-shadow: none !important;
       width: 100% !important;
-      min-height: 100% !important;
+      min-height: auto !important;
       margin: 0 !important;
-      padding: 10mm !important;
+      padding: ${paperSize === "A5" ? "3mm" : "6mm"} !important;
       border: none !important;
+    }
+
+    /* Table header repeats on each page with top padding on continuation pages */
+    .invoice-items-table thead {
+      display: table-header-group !important;
+    }
+    .invoice-items-table thead th {
+      padding-top: 6mm !important;
+    }
+
+    /* Prevent item rows from breaking across pages */
+    .invoice-items-table tbody tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Footer never breaks */
+    .invoice-footer-section {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-before: auto;
     }
 
     .thermal-format {
@@ -424,6 +520,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 `;
 
 
+  // Determine if all items + footer fit on a single page (controls footer placement)
+  // Page 1: footer pushed to bottom (mt-auto) | Multi-page: footer immediately after items (mt-4)
+  const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
   const docTitle = docType === "estimates" ? "ESTIMATE" : docType === "quotations" ? "QUOTATION" : "TAX INVOICE";
 
@@ -583,7 +682,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </div>
 
                 {/* Items Table */}
-                <table className="w-full border-collapse text-[0.6rem]">
+                <table className="w-full border-collapse text-[0.6rem] invoice-items-table">
                   <thead className="bg-white font-bold uppercase border-y-2 border-black">
                     <tr className="text-[0.62rem]">
                       <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
@@ -618,7 +717,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       const itemAmount = parseFloat(item.amount || 0);
                       const itemTax = itemAmount * (itemRate / 100);
                       return (
-                        <tr key={i} className="border-b border-gray-100">
+                        <tr key={i} className="">
                           <td className="px-0.5 py-2 text-center">{i + 1}</td>
                           <td className="px-2 py-2 font-black uppercase text-[0.68rem]">{item.category || item.name || "Custom Service"}</td>
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
@@ -643,10 +742,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         </tr>
                       );
                     })}
-                    {/* Fill empty space */}
-                    {Array.from({ length: Math.max(0, (paperSize === "A5" ? 3 : 10) - items.length) }).map((_, i) => (
-
-                      <tr key={`empty-${i}`} className="border-b border-gray-50 h-8">
+                    {/* Fill empty rows only when items fit on a single page */}
+                    {fitsOnOnePage && Array.from({ length: Math.max(0, (paperSize === "A5" ? 5 : 15) - items.length) }).map((_, i) => (
+                      <tr key={`empty-${i}`} className="h-8">
                         <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
                       </tr>
                     ))}
@@ -655,8 +753,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
               </div>
 
-              {/* Footer Layout */}
-              <div className="grid grid-cols-12 gap-4 pt-4 border-t border-gray-200 mt-auto" style={{ pageBreakInside: 'avoid' }}>
+              {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
+              <div className={`invoice-footer-section grid grid-cols-12 gap-4 pt-4 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`}>
                 <div className="col-span-4">
                   <p className="font-black mb-2 uppercase text-[0.75rem]">Bank Details</p>
                   <div className="grid grid-cols-12 gap-y-1 text-[0.7rem]">
