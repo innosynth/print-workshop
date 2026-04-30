@@ -222,74 +222,24 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return { ...item, category: match?.category || "" };
   });
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `${activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc'}_${(activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_')}`,
-    pageStyle: `@page { size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "A5 landscape" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"}; margin: ${paperSize === "thermal" ? "0" : "4mm"}; }`
-  });
-
-  useEffect(() => {
-
-    if (docType === "estimates") {
-      setPaperSize("thermal");
-    } else if (activeInvoice?.items) {
-      if (activeInvoice.items.length <= 5) {
-        setPaperSize("A5");
-      } else {
-        setPaperSize("A4");
-      }
-    }
-  }, [activeInvoice?.id, docType]);
-
-  useEffect(() => {
-    if (autoDownload && activeInvoice?.id) {
-      // Delay slightly to ensure fonts and styles are loaded
-      const timer = setTimeout(() => {
-        handleDownload().then(() => {
-          onClose();
-        });
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [autoDownload, activeInvoice?.id]);
-
-  if (invoiceLoading) return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="p-20 flex items-center justify-center">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Loading Document</DialogTitle>
-        </DialogHeader>
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </DialogContent>
-    </Dialog>
-  );
   const isEstimate = docType === "estimates";
   const isIgst = activeInvoice.isIgst === true;
-
   const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
   const totalTax = isEstimate ? 0 : items.reduce((sum: number, item: any) => {
     const rate = parseFloat(item.gstRate || 0);
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
   const total = isEstimate ? taxableAmount : (taxableAmount + totalTax);
-  const igst = isEstimate ? 0 : totalTax;
-  const cgst = isEstimate ? 0 : totalTax / 2;
-  const sgst = isEstimate ? 0 : totalTax / 2;
-
-
+  
+  const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
   const handleDownload = async () => {
-    // ... existing handleDownload logic ...
-    // Note: I'll need to keep the full body here to ensure it works, 
-    // but I'll use a placeholder for now to identify the insertion point.
     const element = printRef.current;
     if (!element) return;
 
     const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
 
-    // Create a client-side vector/raster wrapper PDF
-    // A4 = 210x297mm = 595.28x841.89pt, A5 = 148x210mm = 419.53x595.28pt
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
     const elementHeight = element.offsetHeight;
     const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
@@ -302,28 +252,18 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     });
 
     const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
-
-    // Temporarily adjust .invoice-page styles for PDF download:
-    // 1. Remove min-height (prevents blank page 2 from 297mm min-height overflow)
-    // 2. Reduce top padding (removes extra gap at the top)
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
-      // Set min-height slightly less than the page height to avoid overflow and extra blank pages
-      // A4 is 297mm, A5 is 148mm. We use 0 margin in jsPDF so we can use almost the full height.
       invoicePage.style.setProperty('min-height', paperSize === "thermal" ? 'auto' : (paperSize === "A4" ? '296.5mm' : '138mm'), 'important');
       invoicePage.style.setProperty('padding', paperSize === "thermal" ? '5px 38px 15px 38px' : (paperSize === "A5" ? "0 24px 8px 24px" : "0 38px 50px 38px"), 'important');
     }
 
-    // jsPDF ignores CSS page-break-inside, so we manually prevent footer from splitting.
-    // Calculate if footer would be split across a page boundary and insert a spacer to push it.
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
     let spacer: HTMLElement | null = null;
 
     if (footerEl && paperSize !== "thermal") {
       const scaleFactor = formatWidth / windowW;
-      const pageContentH = formatHeight; // Using full height as margin is 0
-
-      // Use getBoundingClientRect for more accurate positioning relative to the container
+      const pageContentH = formatHeight;
       const elementRect = element.getBoundingClientRect();
       const footerRect = footerEl.getBoundingClientRect();
       const footerTopPx = footerRect.top - elementRect.top;
@@ -331,13 +271,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       
       const footerTopPt = footerTopPx * scaleFactor;
       const footerHeightPt = footerHeightPx * scaleFactor;
-
       const pageIndex = Math.floor(footerTopPt / pageContentH);
       const posOnPage = footerTopPt - (pageIndex * pageContentH);
-
-      // If footer would be split across the page boundary, push it to the next page
-      // ONLY apply this if we are not already fitting everything on one page
       const safetyBuffer = paperSize === "A5" ? 40 : 10;
+      
       if (!fitsOnOnePage && posOnPage + footerHeightPt + safetyBuffer > pageContentH && posOnPage > 0) {
         const pushPx = (pageContentH - posOnPage) / scaleFactor;
         spacer = document.createElement('div');
@@ -348,35 +285,60 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       }
     }
 
-    doc.html(element, {
-      x: 0,
-      y: 0,
-      width: formatWidth,
-      windowWidth: windowW,
-      margin: [0, 0, 0, 0],
+    await doc.html(element, {
+      x: 0, y: 0, width: formatWidth, windowWidth: windowW, margin: [0, 0, 0, 0],
       callback: function (pdf) {
-        // Clean up temporary spacer
-        if (spacer && spacer.parentElement) {
-          spacer.remove();
-        }
-        // Restore original .invoice-page styles for preview
+        if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
         if (invoicePage) {
           invoicePage.style.removeProperty('min-height');
           invoicePage.style.removeProperty('padding');
         }
         pdf.save(`${docNo}_${custName}.pdf`);
-      },
-      autoPaging: (paperSize === "thermal" || fitsOnOnePage) ? false : 'text'
+      }
     });
   };
 
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `${activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc'}_${(activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_')}`,
+    pageStyle: `@page { size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "A5 landscape" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"}; margin: ${paperSize === "thermal" ? "0" : "4mm"}; }`
+  });
 
+  useEffect(() => {
+    if (docType === "estimates") {
+      setPaperSize("thermal");
+    } else if (activeInvoice?.items) {
+      if (activeInvoice.items.length <= 5) setPaperSize("A5");
+      else setPaperSize("A4");
+    }
+  }, [activeInvoice?.id, docType]);
 
+  useEffect(() => {
+    if (autoDownload && activeInvoice?.id) {
+      const timer = setTimeout(() => {
+        handleDownload().then(() => onClose());
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [autoDownload, activeInvoice?.id]);
+
+  if (invoiceLoading) return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="p-20 flex items-center justify-center">
+        <DialogHeader className="sr-only"><DialogTitle>Loading Document</DialogTitle></DialogHeader>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </DialogContent>
+    </Dialog>
+  );
+
+  const igst = isEstimate ? 0 : totalTax;
+  const cgst = isEstimate ? 0 : totalTax / 2;
+  const sgst = isEstimate ? 0 : totalTax / 2;
+  
   const a4Width = '210mm';
   const a4Height = '297mm';
-  const a5Width = '210mm';  // A5 landscape
-  const a5Height = '148mm'; // A5 landscape
-  const pageMargin = '4mm'; // gives print area: A4=202x289mm, A5=202x140mm
+  const a5Width = '210mm'; 
+  const a5Height = '148mm';
 
   const printStyles = `
    .print-container {
@@ -548,9 +510,6 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 `;
 
 
-  // Determine if all items + footer fit on a single page (controls footer placement)
-  // Page 1: footer pushed to bottom (mt-auto) | Multi-page: footer immediately after items (mt-4)
-  const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
   const docTitle = docType === "estimates" ? "ESTIMATE" : docType === "quotations" ? "QUOTATION" : "TAX INVOICE";
 
