@@ -260,10 +260,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
     let spacer: HTMLElement | null = null;
+    const pdfMargin = paperSize === "thermal" ? 0 : (paperSize === "A5" ? 25 : 35);
+    const usablePageHeight = formatHeight - (pdfMargin * 2);
 
     if (footerEl && paperSize !== "thermal") {
       const scaleFactor = formatWidth / windowW;
-      const pageContentH = formatHeight;
       const elementRect = element.getBoundingClientRect();
       const footerRect = footerEl.getBoundingClientRect();
       const footerTopPx = footerRect.top - elementRect.top;
@@ -271,12 +272,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       
       const footerTopPt = footerTopPx * scaleFactor;
       const footerHeightPt = footerHeightPx * scaleFactor;
-      const pageIndex = Math.floor(footerTopPt / pageContentH);
-      const posOnPage = footerTopPt - (pageIndex * pageContentH);
-      const safetyBuffer = paperSize === "A5" ? 40 : 10;
+      const pageIndex = Math.floor(footerTopPt / usablePageHeight);
+      const posOnPage = footerTopPt - (pageIndex * usablePageHeight);
+      const safetyBuffer = 30;
       
-      if (!fitsOnOnePage && posOnPage + footerHeightPt + safetyBuffer > pageContentH && posOnPage > 0) {
-        const pushPx = (pageContentH - posOnPage) / scaleFactor;
+      if (!fitsOnOnePage && (posOnPage + footerHeightPt + safetyBuffer) > usablePageHeight && posOnPage > 0) {
+        const pushPt = (usablePageHeight - posOnPage) + 10;
+        const pushPx = pushPt / scaleFactor;
         spacer = document.createElement('div');
         spacer.style.height = `${pushPx}px`;
         spacer.style.width = '100%';
@@ -286,7 +288,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     }
 
     await doc.html(element, {
-      x: 0, y: 0, width: formatWidth, windowWidth: windowW, margin: [0, 0, 0, 0],
+      x: 0, y: 0, width: formatWidth, windowWidth: windowW, 
+      margin: [pdfMargin, 0, pdfMargin, 0],
       callback: function (pdf) {
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
         if (invoicePage) {
@@ -490,8 +493,12 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
     /* Prevent item rows from breaking across pages */
     .invoice-items-table tbody tr {
-      page-break-inside: avoid;
-      break-inside: avoid;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .invoice-items-table tbody td {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
 
     /* Footer never breaks */
@@ -499,6 +506,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       page-break-inside: avoid !important;
       break-inside: avoid !important;
       page-break-before: auto;
+      display: block !important;
     }
 
     .thermal-format {
