@@ -169,7 +169,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
 
             <table className={`w-full border-collapse border border-black mb-2 ${paperSize === "thermal" ? "text-xs" : ""}`}>
               <thead>
-                <tr className="bg-gray-200">
+                <tr className="border-b-2 border-black bg-white">
                   <th className="border border-black p-1 text-left">SL#</th>
                   <th className="border border-black p-1 text-left">Description</th>
                   <th className="border border-black p-1 text-center">Qty</th>

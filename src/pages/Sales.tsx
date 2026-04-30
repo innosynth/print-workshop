@@ -225,6 +225,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `${activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc'}_${(activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_')}`,
+    pageStyle: `@page { size: ${paperSize === "A4" ? "A4" : paperSize === "A5" ? "A5" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"}; margin: 0; }`
   });
 
   useEffect(() => {
@@ -273,19 +274,22 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
 
     // Create a client-side vector/raster wrapper PDF
+    const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
+    const elementHeight = element.offsetHeight;
+    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 419.53 : (thermalMm * 2.83465);
+    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 595.28 : (elementHeight * 0.75) + 20; // px to pt + padding
+
     const doc = new jsPDF({
       orientation: "p",
       unit: "pt",
-      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? "a5" : [226, 841]
+      format: [formatWidth, formatHeight]
     });
-
-    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 419.53 : 226;
 
     doc.html(element, {
       x: 0,
       y: 0,
       width: formatWidth,
-      windowWidth: paperSize === "thermal" ? 400 : 800,
+      windowWidth: paperSize === "thermal" ? (thermalMm * 3.7795) : 800, // mm to px conversion (96dpi)
       callback: function (pdf) {
         pdf.save(`${docNo}_${custName}.pdf`);
       },
@@ -300,7 +304,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
      width: 100%;
      display: flex;
      justify-content: center;
-     background: #f5f5f5;
+     background: white;
      padding: 0;
      min-height: 100%;
    }
@@ -320,15 +324,41 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
      transform: none !important;
    }
 
+    .thermal-format {
+      width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "80"}mm !important;
+      padding: 5mm !important;
+      margin: 0 auto !important;
+      background: white !important;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-sizing: border-box !important;
+    }
+
+    .thermal-format table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      table-layout: fixed !important;
+    }
+
+    .thermal-format th, .thermal-format td {
+      padding: 8px 2px !important;
+      line-height: 1.4 !important;
+      vertical-align: middle !important;
+    }
+    
+    .thermal-format thead th {
+      border-bottom: 1.5pt solid black !important;
+      padding-bottom: 10px !important;
+    }
+
   @media print {
     @page {
-      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : "80mm auto"};
+      size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"};
       margin: 0;
     }
     
     html,
     body {
-      width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : "80mm"} !important;
+      width: ${paperSize === "A4" || paperSize === "A5" ? "210mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm"} !important;
       margin: 0 !important;
       padding: 0 !important;
       background: white !important;
@@ -375,6 +405,12 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       padding: 10mm !important;
       border: none !important;
     }
+
+    .thermal-format {
+      width: 100% !important;
+      padding: 5mm !important;
+      box-shadow: none !important;
+    }
   }
 `;
 
@@ -384,7 +420,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className={cn("max-h-[95vh] overflow-auto bg-white p-0 transition-all duration-300", paperSize === "thermal" ? "max-w-[400px]" : "max-w-[850px]")}>
+      <DialogContent className={cn("max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", paperSize === "thermal" ? "max-w-fit min-w-[360px]" : "max-w-[850px]")}>
         <DialogHeader className="sr-only">
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
@@ -424,7 +460,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           </span>
           <div className="flex gap-2">
             {isEstimate ? (
-              <Button variant="default" size="sm" className="bg-primary/10 text-primary border-primary/20 cursor-default hover:bg-primary/10">Thermal POS Only</Button>
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest border border-primary/30 text-primary rounded-full bg-white">Thermal POS Only</div>
             ) : (
               <>
                 <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
@@ -443,7 +479,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
         <div
           ref={printRef}
-          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "thermal-format p-2" : "p-0"}`}
+          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "p-8" : "p-0"}`}
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
@@ -521,7 +557,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
                {/* Items Table */}
                <table className="w-full border-collapse text-[0.6rem]">
-                 <thead className="bg-[#e6e6e6] font-bold uppercase border-y border-gray-300">
+                 <thead className="bg-white font-bold uppercase border-y-2 border-black">
                    <tr className="text-[0.62rem]">
                      <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
                      <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
@@ -645,7 +681,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="px-3 py-1.5 text-gray-600 font-bold">Round Off</td>
                         <td className="px-3 py-1.5 text-right font-black">₹0.00</td>
                       </tr>
-                      <tr className="border border-gray-400 bg-gray-100">
+                      <tr className="border-2 border-black bg-white">
                         <td className="px-3 py-2 text-black text-xs font-black uppercase">Grand Total</td>
                         <td className="px-3 py-2 text-right text-base font-black">₹{total.toFixed(2)}</td>
                       </tr>
@@ -659,11 +695,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
             </div>
           ) : (
-            <div className="space-y-1 text-center tracking-tight leading-tight" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div className="space-y-1 text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
               {/* Thermal Format Header */}
               <div className="pt-4 mb-2">
-                {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-1 object-contain" alt="Logo" />}
-                <h1 className="text-2xl font-black">{profile.name}</h1>
+                {profile.logoUrl && <img src={profile.logoUrl} className="h-10 mx-auto mb-1 object-contain" alt="Logo" />}
+                <h1 className="text-lg font-black uppercase tracking-tight">{profile.name}</h1>
                 <p className="text-[0.625rem] font-normal leading-none">( {profile.slogan} )</p>
                 <p className="text-[0.625rem] font-normal mt-1">{profile.address}</p>
                 <p className="text-[0.625rem] font-normal">Call @ {profile.phone}</p>
@@ -671,7 +707,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 <h2 className="text-[0.75rem] font-bold mt-1 uppercase">{docTitle}</h2>
               </div>
 
-              <div className="text-[0.625rem] py-0.5 border-t border-dashed border-black">
+              <div className="text-[0.625rem] py-1 border-t border-black">
                 <div className="flex justify-between font-normal">
                   <span>
                     No.{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}
@@ -683,20 +719,20 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </div>
               </div>
 
-              <div className="border-t border-dashed border-black pt-1">
+              <div className="border-t border-black pt-1">
                 <table className="w-full text-[0.625rem]">
                   <thead className="font-bold">
-                    <tr className="text-left border-b border-dashed border-black">
-                      <th className="py-1">Product Name</th>
-                      <th className="text-right py-1">Qty</th>
-                      <th className="text-right py-1">Rate</th>
-                      <th className="text-right py-1">Amount</th>
+                    <tr className="text-left border-b border-black">
+                      <th className="py-1 text-left" style={{ width: '40%' }}>Product</th>
+                      <th className="text-right py-1" style={{ width: '15%' }}>Qty</th>
+                      <th className="text-right py-1" style={{ width: '20%' }}>Rate</th>
+                      <th className="text-right py-1" style={{ width: '25%' }}>Amount</th>
                     </tr>
                   </thead>
                   <tbody className="font-normal pt-1">
                     {activeInvoice.items && activeInvoice.items.length > 0 ? activeInvoice.items.map((item: any, i: number) => (
-                      <tr key={i} className="align-top">
-                        <td className="text-left py-1 uppercase">{item.category || item.name}</td>
+                      <tr key={i} className="align-top border-b border-black/10">
+                        <td className="text-left py-1 uppercase break-words leading-tight">{item.category || item.name}</td>
 
                         <td className="text-right py-1">{item.qty}</td>
                         <td className="text-right py-1">{parseFloat(item.rate || 0).toFixed(0)}</td>
@@ -714,7 +750,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </table>
               </div>
 
-              <div className="border-t border-dashed border-black py-2 space-y-1">
+              <div className="border-t border-black py-2 space-y-1">
                 <div className="text-left font-bold text-[0.6875rem]">
                   <p>Total Items : {activeInvoice.items?.length || 0}</p>
                   <div className="flex justify-between items-center">
@@ -724,7 +760,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </div>
               </div>
 
-              <div className="border-t border-dashed border-black pt-2 flex flex-col items-center gap-1">
+              <div className="border-t border-black pt-2 flex flex-col items-center gap-1">
                 <div className="w-full text-left font-bold text-[0.5625rem] space-y-0.5 mt-1">
                   <p>File : {activeInvoice.fileName || "-"}</p>
                   <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
