@@ -293,8 +293,10 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     // 2. Reduce top padding (removes extra gap at the top)
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
-      invoicePage.style.setProperty('min-height', 'auto', 'important');
-      invoicePage.style.setProperty('padding', '5px 38px 15px 38px', 'important');
+      // Set min-height slightly less than the page height to avoid overflow and extra blank pages
+      // A4 is 297mm, A5 is 148mm. We use 0 margin in jsPDF so we can use almost the full height.
+      invoicePage.style.setProperty('min-height', paperSize === "thermal" ? 'auto' : (paperSize === "A4" ? '296.5mm' : '147.5mm'), 'important');
+      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '5px 38px 15px 38px' : (paperSize === "A5" ? "24px" : "0 38px 50px 38px"), 'important');
     }
 
     // jsPDF ignores CSS page-break-inside, so we manually prevent footer from splitting.
@@ -332,7 +334,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       y: 0,
       width: formatWidth,
       windowWidth: windowW,
-      margin: (isEstimate && paperSize === "thermal") ? [2, 0, 2, 0] : [10, 0, 10, 0],
+      margin: [0, 0, 0, 0],
       callback: function (pdf) {
         // Clean up temporary spacer
         if (spacer && spacer.parentElement) {
@@ -345,7 +347,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
         }
         pdf.save(`${docNo}_${custName}.pdf`);
       },
-      autoPaging: (isEstimate && paperSize === "thermal") ? false : 'text'
+      autoPaging: (paperSize === "thermal" || fitsOnOnePage) ? false : 'text'
     });
   };
 
@@ -373,7 +375,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
      width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
      min-height: ${paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto"} !important;
      margin: 0 auto;
-     padding: ${paperSize === "A5" ? "24px" : "38px"} !important;
+     padding: ${paperSize === "A5" ? "24px" : "0 38px 50px 38px"} !important;
      box-sizing: border-box;
      display: flex;
      flex-direction: column;
@@ -423,6 +425,13 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     }
     .invoice-items-table thead {
       display: table-header-group;
+    }
+    .invoice-items-table thead th {
+      height: 28px !important;
+      line-height: 28px !important;
+      padding: 0 !important;
+      vertical-align: middle !important;
+      box-sizing: border-box !important;
     }
     .invoice-items-table tbody {
       display: table-row-group;
@@ -611,7 +620,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                   </div>
 
                   <div className="pt-4">
-                    <table className="text-[0.6rem] font-bold border-separate border-spacing-x-3" style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
+                    <table className={`${paperSize === "A4" && !isEstimate ? "text-[0.7rem]" : "text-[0.6rem]"} font-bold border-separate border-spacing-x-3`} style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
                       <tbody>
                         <tr className="align-top">
                           <td className="text-right pr-3 shrink-0">
@@ -684,31 +693,31 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 {/* Items Table */}
                 <table className="w-full border-collapse text-[0.6rem] invoice-items-table">
                   <thead className="bg-white font-bold uppercase border-y-2 border-black">
-                    <tr className="text-[0.62rem]">
-                      <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
-                      <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
-                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>HSN</th>
-                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>QTY</th>
-                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (Rs.)</th>
+                    <tr className="text-[10px] align-middle leading-none">
+                      <th className="px-0.5 text-center align-middle" style={{ width: '5%' }}>S.No</th>
+                      <th className="px-2 text-left align-middle" style={{ width: '25%' }}>Description</th>
+                      <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>HSN</th>
+                      <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>QTY</th>
+                      <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>RATE (RS.)</th>
 
                       {!isEstimate && (
                         isIgst ? (
                           <>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>IGST %</th>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(Rs.)</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>IGST %</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '12%' }}>IGST Amt(RS.)</th>
 
                           </>
                         ) : (
                           <>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>CGST %</th>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(Rs.)</th>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>SGST %</th>
-                            <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(Rs.)</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '7%' }}>CGST %</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '10%' }}>CGST(RS.)</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '7%' }}>SGST %</th>
+                            <th className="px-0.5 text-center align-middle" style={{ width: '10%' }}>SGST(RS.)</th>
 
                           </>
                         )
                       )}
-                      <th className="px-2 py-1.5 text-right" style={{ width: '12%' }}>AMOUNT</th>
+                      <th className="px-2 text-right align-middle" style={{ width: '12%' }}>AMOUNT</th>
                     </tr>
                   </thead>
                   <tbody className="font-medium text-[0.65rem]">
@@ -754,79 +763,79 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
 
               {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
-              <div className={`invoice-footer-section grid grid-cols-12 gap-4 pt-4 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`}>
+              <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                 <div className="col-span-4">
-                  <p className="font-black mb-2 uppercase text-[0.75rem]">Bank Details</p>
-                  <div className="grid grid-cols-12 gap-y-1 text-[0.7rem]">
-                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Account Name</span>
+                  <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
+                  <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Account Name</span>
                     <span className="col-span-7 font-black">: {profile.accountName || profile.name}</span>
 
-                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Bank</span>
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Bank</span>
                     <span className="col-span-7 font-black">: {profile.bankName || "ICICI Bank"}</span>
 
-                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Branch</span>
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Branch</span>
                     <span className="col-span-7 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
 
-                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">A/C No</span>
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">A/C No</span>
                     <span className="col-span-7 font-black">: {profile.accountNumber || "730705000264"}</span>
 
-                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">IFSC Code</span>
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span>
                     <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                   </div>
-                  <div className="mt-5">
-                    <p className="text-[0.6rem] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                  <div className="mt-4">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
                   </div>
                 </div>
 
-                <div className="col-span-3 flex flex-col items-center justify-start pt-2">
+                <div className="col-span-3 flex flex-col items-center justify-start pt-1">
                   {activeQr && (
                     <div className="text-center">
-                      <img src={activeQr.imageUrl} className="h-[100px] w-[100px] p-1.5 mb-1" alt="Payment QR" />
-                      <p className="text-[0.65rem] font-black uppercase text-gray-700">Scan to Pay</p>
+                      <img src={activeQr.imageUrl} className="h-[135px] w-[135px] p-1 mb-1" alt="Payment QR" />
+                      <p className="text-[10px] font-black uppercase text-gray-700">Scan to Pay</p>
                     </div>
                   )}
                 </div>
 
                 <div className="col-span-5 flex flex-col items-end">
-                  <table className="w-full text-[0.7rem] border-collapse border border-gray-300">
+                  <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
                     <tbody>
                       <tr>
-                        <td className="px-3 py-1.5 text-gray-600 font-bold">Sub Total</td>
-                        <td className="px-3 py-1.5 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
+                        <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
+                        <td className="px-2 py-1 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
                       </tr>
                       {!isEstimate && (
                         isIgst ? (
                           <tr>
-                            <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">IGST 18 %</td>
-                            <td className="px-3 py-1.5 text-right font-black">Rs. {igst.toFixed(2)}</td>
+                            <td className="px-2 py-1 text-gray-600 font-bold uppercase">IGST 18 %</td>
+                            <td className="px-2 py-1 text-right font-black">Rs. {igst.toFixed(2)}</td>
                           </tr>
                         ) : (
                           <>
                             <tr>
-                              <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">CGST 9 %</td>
-                              <td className="px-3 py-1.5 text-right font-black">Rs. {cgst.toFixed(2)}</td>
+                              <td className="px-2 py-1 text-gray-600 font-bold uppercase">CGST 9 %</td>
+                              <td className="px-2 py-1 text-right font-black">Rs. {cgst.toFixed(2)}</td>
                             </tr>
                             <tr>
-                              <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">SGST 9 %</td>
-                              <td className="px-3 py-1.5 text-right font-black">Rs. {sgst.toFixed(2)}</td>
+                              <td className="px-2 py-1 text-gray-600 font-bold uppercase">SGST 9 %</td>
+                              <td className="px-2 py-1 text-right font-black">Rs. {sgst.toFixed(2)}</td>
                             </tr>
                           </>
                         )
                       )}
                       <tr>
-                        <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">Round Off</td>
-                        <td className="px-3 py-1.5 text-right font-black">Rs. 0.00</td>
+                        <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
+                        <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
                       </tr>
                       <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                        <td className="px-3 py-2 text-black text-xs font-black uppercase">Grand Total</td>
-                        <td className="px-3 py-2 text-right text-base font-black">Rs. {total.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-black text-[13.5px] font-black uppercase">Grand Total</td>
+                        <td className="px-3 py-2 text-right text-black text-[13.5px] font-black">Rs. {total.toFixed(2)}</td>
                       </tr>
                     </tbody>
                   </table>
                   <div className="mt-2 w-full">
-                    <p className="text-[0.5rem] text-right text-gray-500 italic leading-tight">This is computer generated invoice signature not required</p>
+                    <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated invoice signature not required</p>
                     {activeInvoice.fileName && (
-                      <p className="text-[0.55rem] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
+                      <p className="text-[10px] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
                     )}
                   </div>
                 </div>
