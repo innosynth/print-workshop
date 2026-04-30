@@ -44,7 +44,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   const justClosed = useRef(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   useEffect(() => {
     if (autoOpen) {
       const timer = setTimeout(() => setOpen(true), 150);
@@ -215,7 +215,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   });
 
   const activeInvoice = fullInvoice || invoice;
-  
+
   const items = (activeInvoice?.items || []).map((item: any) => {
     if (item.category) return item;
     const match = allProducts.find((p: any) => p.name === item.name || (item.sku && p.sku === item.sku));
@@ -353,7 +353,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
   @media print {
     @page {
       size: ${paperSize === "A4" ? "210mm 297mm" : paperSize === "A5" ? "210mm 148.5mm" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") + "mm auto"};
-      margin: 0;
+      margin: ${paperSize === "thermal" ? "0" : "12mm 10mm 12mm 10mm"};
     }
     
     html,
@@ -402,7 +402,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       box-shadow: none !important;
       width: 100% !important;
       margin: 0 !important;
-      padding: 10mm !important;
+      padding: 0 !important;
       border: none !important;
     }
 
@@ -456,7 +456,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
         <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm">
           <span className="font-bold" title={(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}>
-            { (activeInvoice.invoiceNo || activeInvoice.quotationNo || invoice.invoiceNo || invoice.quotationNo || "Draft") }_{ (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').length > 15 ? (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').substring(0, 15) + "..." : (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_') }
+            {(activeInvoice.invoiceNo || activeInvoice.quotationNo || invoice.invoiceNo || invoice.quotationNo || "Draft")}_{(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').length > 15 ? (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').substring(0, 15) + "..." : (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}
           </span>
           <div className="flex gap-2">
             {isEstimate ? (
@@ -483,7 +483,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px` }}>
+            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${settingsData?.settings?.a4FontSize || settings.a4FontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
 
               <div className="flex-grow space-y-4">
                 {/* Header Layout */}
@@ -495,160 +495,185 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                       <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mr-3 shrink-0">PW</div>
                     )}
                     <div>
-                      <h1 className="text-xl font-black tracking-tighter uppercase leading-none">{profile.name || "PRINT WORKSHOP"}</h1>
+                      <h1 className="text-xl font-black tracking-tighter uppercase leading-none whitespace-nowrap">{profile.name || "PRINT WORKSHOP"}</h1>
                       <p className="text-[0.55rem] font-bold text-gray-500 uppercase mt-0.5 italic">{profile.slogan}</p>
                       <p className="text-[0.6rem] font-bold text-black uppercase">DIGITAL PRINTING</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-6 text-[0.65rem] font-bold pt-1.5">
-                     <div className="flex flex-col items-end shrink-0">
-                       <p className="flex gap-1 items-center"><Phone className="h-3 w-3 text-gray-500 inline mr-0.5" /> +91 {profile.phone}</p>
-
-                       <p className="mr-5">0422 2244066</p>
-                     </div>
-                     <div className="shrink-0">
-                       <p className="flex gap-1 items-center"><Mail className="h-3 w-3 text-gray-500 inline mr-0.5" /> {profile.email}</p>
-
-                     </div>
-                     <div className="max-w-[180px] text-right">
-                       <p className="flex gap-1 items-start leading-tight">
-                         <MapPin className="h-3 w-3 text-gray-500 inline mr-0.5 mt-0.5 shrink-0" />
-                         <span>{profile.address}</span>
-                       </p>
-
-                     </div>
+                  <div className="pt-4">
+                    <table className="text-[0.6rem] font-bold border-separate border-spacing-x-3" style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
+                      <tbody>
+                        <tr className="align-top">
+                          <td className="text-right pr-3 shrink-0">
+                            <p className="flex items-center justify-end gap-1" style={{ whiteSpace: 'nowrap' }}>
+                              <Mail className="h-2.5 w-2.5 text-gray-500" />
+                              <span style={{ letterSpacing: '-0.3px' }}>{profile.email.replace(/\s+/g, '')}</span>
+                            </p>
+                          </td>
+                          <td className="text-center px-3 border-l border-gray-300 shrink-0">
+                            <div className="flex flex-col items-center">
+                              <p className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
+                                <Phone className="h-2.5 w-2.5 text-gray-500" />
+                                <span style={{ letterSpacing: '-0.2px' }}>{profile.phone.startsWith('+91') ? '' : '+91 '} {profile.phone}</span>
+                              </p>
+                              <p className="flex items-center gap-1 mt-0.5" style={{ whiteSpace: 'nowrap' }}>
+                                <Phone className="h-2.5 w-2.5 text-gray-500 invisible" />
+                                <span style={{ letterSpacing: '-0.2px' }}>0422 2244066</span>
+                              </p>
+                            </div>
+                          </td>
+                          <td className="text-right pl-3 border-l border-gray-300 shrink-0">
+                            <div className="flex flex-col items-end">
+                              <p className="flex items-start justify-end gap-1" style={{ whiteSpace: 'nowrap' }}>
+                                <MapPin className="h-2.5 w-2.5 text-gray-500 mt-0.5 shrink-0" />
+                                <span style={{ letterSpacing: '-0.2px' }}>No.68, Sarojini Road,</span>
+                              </p>
+                              <p style={{ whiteSpace: 'nowrap', letterSpacing: '-0.2px' }}>Sidhapudur, Coimbatore-44</p>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-              {/* Title & Shop GST Area */}
-              <div className="grid grid-cols-12 items-center">
-                <div className="col-span-3"></div>
-                <div className="col-span-6 text-center">
-                   <h2 className="text-lg font-black tracking-widest uppercase">{docTitle}</h2>
-                </div>
-                <div className="col-span-3 text-right">
-                   <p className="text-[0.7rem] font-bold">GSTIN : <span className="font-black">{profile.gst}</span></p>
-                </div>
-              </div>
-
-              {/* Billing & Meta Info */}
-              <div className="grid grid-cols-12 gap-8 text-[0.7rem]">
-                <div className="col-span-7 space-y-0.5">
-                  <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]">To :</p>
-                  <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
-                  <p className="text-gray-600 font-bold">COIMBATORE</p>
-                  <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
-                  <p className="font-bold uppercase">State & Code:</p>
-                </div>
-                <div className="col-span-5 space-y-1">
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                    <span className="text-gray-500 font-bold uppercase">Invoice No</span>
-                    <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
-                    
-                    <span className="text-gray-500 font-bold uppercase">Invoice Date</span>
-                    <span className="font-black text-right">: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
-                    
-                    <span className="text-gray-500 font-bold uppercase">PO No</span>
-                    <span className="font-black text-right">: -</span>
+                {/* Title & Shop GST Area */}
+                <div className="grid grid-cols-12 items-center">
+                  <div className="col-span-3"></div>
+                  <div className="col-span-6 text-center">
+                    <h2 className="text-lg font-black tracking-widest uppercase">{docTitle}</h2>
+                  </div>
+                  <div className="col-span-3 text-right">
+                    <p className="text-[0.7rem] font-bold">GSTIN : <span className="font-black">{profile.gst}</span></p>
                   </div>
                 </div>
-              </div>
 
-               {/* Items Table */}
-               <table className="w-full border-collapse text-[0.6rem]">
-                 <thead className="bg-white font-bold uppercase border-y-2 border-black">
-                   <tr className="text-[0.62rem]">
-                     <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
-                     <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
-                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>HSN</th>
-                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>QTY</th>
-                     <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (Rs.)</th>
+                {/* Billing & Meta Info */}
+                <div className="grid grid-cols-12 gap-8 text-[0.7rem]">
+                  <div className="col-span-7 space-y-0.5">
+                    <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]">To :</p>
+                    <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
+                    <p className="text-gray-600 font-bold">COIMBATORE</p>
+                    <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
+                    <p className="font-bold uppercase">State & Code:</p>
+                  </div>
+                  <div className="col-span-5 space-y-1">
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                      <span className="text-gray-500 font-bold uppercase">Invoice No</span>
+                      <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
 
-                     {!isEstimate && (
-                       isIgst ? (
-                         <>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>IGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(Rs.)</th>
+                      <span className="text-gray-500 font-bold uppercase">Invoice Date</span>
+                      <span className="font-black text-right">: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
 
-                         </>
-                       ) : (
-                         <>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>CGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(Rs.)</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>SGST %</th>
-                           <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(Rs.)</th>
+                      <span className="text-gray-500 font-bold uppercase">PO No</span>
+                      <span className="font-black text-right">: -</span>
+                    </div>
+                  </div>
+                </div>
 
-                         </>
-                       )
-                     )}
-                     <th className="px-2 py-1.5 text-right" style={{ width: '12%' }}>AMOUNT</th>
-                   </tr>
-                 </thead>
-                 <tbody className="font-medium text-[0.65rem]">
-                   {items.map((item: any, i: number) => {
-                     const itemRate = parseFloat(item.gstRate || 0);
-                     const itemAmount = parseFloat(item.amount || 0);
-                     const itemTax = itemAmount * (itemRate / 100);
-                     return (
-                       <tr key={i} className="border-b border-gray-100">
-                         <td className="px-0.5 py-2 text-center">{i + 1}</td>
-                         <td className="px-2 py-2 font-black uppercase text-[0.68rem]">{item.category || item.name || "Custom Service"}</td>
-                         <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
-                         <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
-                         <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
-                         {!isEstimate && (
-                           isIgst ? (
-                             <>
-                               <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
-                               <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
-                             </>
-                           ) : (
-                             <>
-                               <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
-                               <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
-                             </>
-                           )
-                         )}
-                         <td className="px-2 py-2 text-right font-black">{(itemAmount + (isEstimate ? 0 : itemTax)).toFixed(2)}</td>
-                       </tr>
-                     );
-                   })}
-                  {/* Fill empty space */}
-                  {Array.from({ length: Math.max(0, (paperSize === "A5" ? 3 : 10) - items.length) }).map((_, i) => (
+                {/* Items Table */}
+                <table className="w-full border-collapse text-[0.6rem]">
+                  <thead className="bg-white font-bold uppercase border-y-2 border-black">
+                    <tr className="text-[0.62rem]">
+                      <th className="px-0.5 py-1.5 text-center" style={{ width: '5%' }}>S.No</th>
+                      <th className="px-2 py-1.5 text-left" style={{ width: '25%' }}>Description</th>
+                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>HSN</th>
+                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>QTY</th>
+                      <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>RATE (Rs.)</th>
 
-                    <tr key={`empty-${i}`} className="border-b border-gray-50 h-8">
-                      <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
+                      {!isEstimate && (
+                        isIgst ? (
+                          <>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '8%' }}>IGST %</th>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '12%' }}>IGST Amt(Rs.)</th>
+
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>CGST %</th>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>CGS Amt(Rs.)</th>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '7%' }}>SGST %</th>
+                            <th className="px-0.5 py-1.5 text-center" style={{ width: '10%' }}>SGST Amt(Rs.)</th>
+
+                          </>
+                        )
+                      )}
+                      <th className="px-2 py-1.5 text-right" style={{ width: '12%' }}>AMOUNT</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="font-medium text-[0.65rem]">
+                    {items.map((item: any, i: number) => {
+                      const itemRate = parseFloat(item.gstRate || 0);
+                      const itemAmount = parseFloat(item.amount || 0);
+                      const itemTax = itemAmount * (itemRate / 100);
+                      return (
+                        <tr key={i} className="border-b border-gray-100">
+                          <td className="px-0.5 py-2 text-center">{i + 1}</td>
+                          <td className="px-2 py-2 font-black uppercase text-[0.68rem]">{item.category || item.name || "Custom Service"}</td>
+                          <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
+                          <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
+                          <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                          {!isEstimate && (
+                            isIgst ? (
+                              <>
+                                <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
+                                <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                                <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                                <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                                <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              </>
+                            )
+                          )}
+                          <td className="px-2 py-2 text-right font-black">{(itemAmount + (isEstimate ? 0 : itemTax)).toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Fill empty space */}
+                    {Array.from({ length: Math.max(0, (paperSize === "A5" ? 3 : 10) - items.length) }).map((_, i) => (
+
+                      <tr key={`empty-${i}`} className="border-b border-gray-50 h-8">
+                        <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
               </div>
 
               {/* Footer Layout */}
               <div className="grid grid-cols-12 gap-4 pt-6 border-t border-gray-200 mt-auto" style={{ pageBreakInside: 'avoid' }}>
-                <div className="col-span-7">
+                <div className="col-span-4">
                   <p className="font-black mb-2 uppercase text-[0.75rem]">Bank Details</p>
                   <div className="grid grid-cols-12 gap-y-1 text-[0.7rem]">
-                    <span className="col-span-4 text-gray-500 font-bold uppercase">Account Name</span>
-                    <span className="col-span-8 font-black">: {profile.accountName || profile.name}</span>
-                    
-                    <span className="col-span-4 text-gray-500 font-bold uppercase">Bank</span>
-                    <span className="col-span-8 font-black">: {profile.bankName || "ICICI Bank"}</span>
-                    
-                    <span className="col-span-4 text-gray-500 font-bold uppercase">Branch</span>
-                    <span className="col-span-8 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
-                    
-                    <span className="col-span-4 text-gray-500 font-bold uppercase">A/C No</span>
-                    <span className="col-span-8 font-black">: {profile.accountNumber || "730705000264"}</span>
-                    
-                    <span className="col-span-4 text-gray-500 font-bold uppercase">IFSC Code</span>
-                    <span className="col-span-8 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Account Name</span>
+                    <span className="col-span-7 font-black">: {profile.accountName || profile.name}</span>
+
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Bank</span>
+                    <span className="col-span-7 font-black">: {profile.bankName || "ICICI Bank"}</span>
+
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">Branch</span>
+                    <span className="col-span-7 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
+
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">A/C No</span>
+                    <span className="col-span-7 font-black">: {profile.accountNumber || "730705000264"}</span>
+
+                    <span className="col-span-5 text-gray-500 font-bold uppercase text-[0.65rem]">IFSC Code</span>
+                    <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                   </div>
-                  <p className="text-sm font-black uppercase mt-8 tracking-tight">THANK YOU FOR YOUR BUSINESS</p>
+                </div>
+
+                <div className="col-span-3 flex flex-col items-center justify-start pt-2">
+                  {activeQr && (
+                    <div className="text-center">
+                      <img src={activeQr.imageUrl} className="h-[120px] w-[120px] border-2 border-black p-1.5 mb-1" alt="Payment QR" />
+                      <p className="text-[0.65rem] font-black uppercase text-gray-700">Scan to Pay</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-span-5 flex flex-col items-end">
@@ -656,34 +681,34 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <tbody>
                       <tr className="border border-gray-400">
                         <td className="px-3 py-1.5 text-gray-600 font-bold">Sub Total</td>
-                        <td className="px-3 py-1.5 text-right font-black">₹{taxableAmount.toFixed(2)}</td>
+                        <td className="px-3 py-1.5 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
                       </tr>
                       {!isEstimate && (
                         isIgst ? (
                           <tr className="border border-gray-400">
                             <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">IGST 18 %</td>
-                            <td className="px-3 py-1.5 text-right font-black">₹{igst.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 text-right font-black">Rs. {igst.toFixed(2)}</td>
                           </tr>
                         ) : (
                           <>
                             <tr className="border border-gray-400">
                               <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">CGST 9 %</td>
-                              <td className="px-3 py-1.5 text-right font-black">₹{cgst.toFixed(2)}</td>
+                              <td className="px-3 py-1.5 text-right font-black">Rs. {cgst.toFixed(2)}</td>
                             </tr>
                             <tr className="border border-gray-400">
                               <td className="px-3 py-1.5 text-gray-600 font-bold uppercase">SGST 9 %</td>
-                              <td className="px-3 py-1.5 text-right font-black">₹{sgst.toFixed(2)}</td>
+                              <td className="px-3 py-1.5 text-right font-black">Rs. {sgst.toFixed(2)}</td>
                             </tr>
                           </>
                         )
                       )}
                       <tr className="border border-gray-400">
                         <td className="px-3 py-1.5 text-gray-600 font-bold">Round Off</td>
-                        <td className="px-3 py-1.5 text-right font-black">₹0.00</td>
+                        <td className="px-3 py-1.5 text-right font-black">Rs. 0.00</td>
                       </tr>
                       <tr className="border-2 border-black bg-white">
                         <td className="px-3 py-2 text-black text-xs font-black uppercase">Grand Total</td>
-                        <td className="px-3 py-2 text-right text-base font-black">₹{total.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-base font-black">Rs. {total.toFixed(2)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -692,6 +717,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                     <p className="text-[0.55rem] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
                   )}
                 </div>
+              </div>
+              <div className="mt-4 text-center pt-3">
+                <p className="text-sm font-black uppercase tracking-widest">THANK YOU FOR YOUR BUSINESS</p>
               </div>
             </div>
           ) : (
@@ -737,8 +765,8 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                         <td className="text-right py-1">{item.qty}</td>
                         <td className="text-right py-1">{parseFloat(item.rate || 0).toFixed(0)}</td>
                         <td className="text-right py-1">
-                          {isEstimate 
-                            ? parseFloat(item.amount || 0).toFixed(2) 
+                          {isEstimate
+                            ? parseFloat(item.amount || 0).toFixed(2)
                             : (parseFloat(item.amount || 0) * (1 + parseFloat(item.gstRate || 0) / 100)).toFixed(2)
                           }
                         </td>
@@ -990,12 +1018,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       toast({ variant: "destructive", title: "Missing information", description: "Please select or type a customer name" });
       return;
     }
-    
+
     if (grandTotal <= 0) {
-      toast({ 
-        variant: "destructive", 
-        title: "Invalid Bill Value", 
-        description: "0 bill value is not allowed to store. Add any items and try again." 
+      toast({
+        variant: "destructive",
+        title: "Invalid Bill Value",
+        description: "0 bill value is not allowed to store. Add any items and try again."
       });
       return;
     }
@@ -1089,43 +1117,43 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
             <div className="p-3 md:p-4 pb-2 space-y-2 shrink-0">
               {/* Header info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              <div className="space-y-0.5">
-                <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
-                <FormCombobox
-                  triggerRef={customerRef}
-                  onKeyDown={(e) => handleEnter(e, categoryRefs.current[0])}
-                  autoOpen={!initialData}
-                  allowCustom
-                  label="Customer"
-                  value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
-                  options={Array.from(new Set(contacts.filter((c: any) => c.status !== "Inactive" && (c.type === "B2B" || c.type === "B2C")).map((c: any) => c.name)))}
-                  onSelect={(v) => {
-                    const contact = contacts.find((c: any) => c.name === v && (c.type === "B2B" || c.type === "B2C"));
-                    if (contact) {
-                      setCustomerId(contact.id.toString());
-                      setCustomerName("");
-                    } else {
-                      setCustomerId("");
-                      setCustomerName(v);
+                <div className="space-y-0.5">
+                  <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
+                  <FormCombobox
+                    triggerRef={customerRef}
+                    onKeyDown={(e) => handleEnter(e, categoryRefs.current[0])}
+                    autoOpen={!initialData}
+                    allowCustom
+                    label="Customer"
+                    value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
+                    options={Array.from(new Set(contacts.filter((c: any) => c.status !== "Inactive" && (c.type === "B2B" || c.type === "B2C")).map((c: any) => c.name)))}
+                    onSelect={(v) => {
+                      const contact = contacts.find((c: any) => c.name === v && (c.type === "B2B" || c.type === "B2C"));
+                      if (contact) {
+                        setCustomerId(contact.id.toString());
+                        setCustomerName("");
+                      } else {
+                        setCustomerId("");
+                        setCustomerName(v);
+                      }
+                    }}
+                    action={
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-primary h-8 px-2 text-xs gap-2 hover:bg-primary/5"
+                        onClick={() => navigate("/contacts?tab=b2b&action=add")}
+                      >
+                        <Plus className="h-3 w-3" /> Add New Customer
+                      </Button>
                     }
-                  }}
-                  action={
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-primary h-8 px-2 text-xs gap-2 hover:bg-primary/5"
-                      onClick={() => navigate("/contacts?tab=b2b&action=add")}
-                    >
-                      <Plus className="h-3 w-3" /> Add New Customer
-                    </Button>
-                  }
-                />
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[0.6875rem] font-bold text-muted-foreground">Date</Label>
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-8 text-xs px-2" />
+                </div>
               </div>
-              <div className="space-y-0.5">
-                <Label className="text-[0.6875rem] font-bold text-muted-foreground">Date</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-8 text-xs px-2" />
-              </div>
-            </div>
-            <Separator />
+              <Separator />
 
               {/* Line Items Section Header */}
               <div className="flex justify-between items-center bg-muted/40 p-1.5 rounded-md shrink-0">
@@ -1178,8 +1206,8 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 {items.map((item, index) => {
                   const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
                   const productNames = Array.from(new Set(products.filter((p: any) => !item.category || p.category === item.category).map((p: any) => p.name))).filter(Boolean) as string[];
-                  const subCategories = Array.from(new Set(products.filter((p: any) => 
-                    (!item.category || p.category === item.category) && 
+                  const subCategories = Array.from(new Set(products.filter((p: any) =>
+                    (!item.category || p.category === item.category) &&
                     (!item.name || p.name === item.name)
                   ).map((p: any) => p.subCategory))).filter(Boolean) as string[];
 
@@ -1245,14 +1273,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             options={subCategories}
                             onSelect={(v) => {
                               updateItem(index, "subCategory", v);
-                              
+
                               // Once sub-category is selected, pick the exact product record
-                              const exactProd = products.find((p: any) => 
-                                p.name === item.name && 
-                                p.subCategory === v && 
+                              const exactProd = products.find((p: any) =>
+                                p.name === item.name &&
+                                p.subCategory === v &&
                                 (!item.category || p.category === item.category)
                               );
-                              
+
                               if (exactProd) {
                                 updateItem(index, "sku", exactProd.sku || "");
                                 updateItem(index, "rate", parseFloat(exactProd.sellPrice || 0));
@@ -1824,9 +1852,9 @@ export default function Sales() {
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
-    { 
-      key: "status", 
-      label: "Status", 
+    {
+      key: "status",
+      label: "Status",
       render: (r: any) => <StatusBadge status={r.status} />,
       filterOptions: [
         { label: "Draft", value: "Draft" },
@@ -1842,9 +1870,9 @@ export default function Sales() {
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
-    { 
-      key: "status", 
-      label: "Status", 
+    {
+      key: "status",
+      label: "Status",
       render: (r: any) => <StatusBadge status={r.status} />,
       filterOptions: [
         { label: "Pending", value: "Pending" },
@@ -1859,9 +1887,9 @@ export default function Sales() {
     { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
-    { 
-      key: "status", 
-      label: "Status", 
+    {
+      key: "status",
+      label: "Status",
       render: (r: any) => <StatusBadge status={r.status} />,
       filterOptions: [
         { label: "Pending", value: "Pending" },
@@ -1872,9 +1900,9 @@ export default function Sales() {
 
   const srCols = [
     ...qtCols.slice(0, -1),
-    { 
-      key: "status", 
-      label: "Status", 
+    {
+      key: "status",
+      label: "Status",
       render: (r: any) => <StatusBadge status={r.status} />,
       filterOptions: [
         { label: "Pending", value: "Pending" },
