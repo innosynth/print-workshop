@@ -278,7 +278,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
     const elementHeight = element.offsetHeight;
     const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
-    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 20;
+    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + (isEstimate ? 5 : 20);
 
     const doc = new jsPDF({
       orientation: paperSize === "A5" ? "landscape" : "portrait",
@@ -332,7 +332,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
       y: 0,
       width: formatWidth,
       windowWidth: windowW,
-      margin: [10, 0, 10, 0],
+      margin: (isEstimate && paperSize === "thermal") ? [2, 0, 2, 0] : [10, 0, 10, 0],
       callback: function (pdf) {
         // Clean up temporary spacer
         if (spacer && spacer.parentElement) {
@@ -345,7 +345,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
         }
         pdf.save(`${docNo}_${custName}.pdf`);
       },
-      autoPaging: 'text'
+      autoPaging: (isEstimate && paperSize === "thermal") ? false : 'text'
     });
   };
 
@@ -384,7 +384,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
     .thermal-format {
       width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1"}mm !important;
-      padding: 2mm 5mm 2mm 5mm !important;
+      padding: ${isEstimate ? '0' : '2mm'} 5mm 2mm 5mm !important;
       margin: 0 auto !important;
       background: white !important;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -588,7 +588,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
         <div
           ref={printRef}
-          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "p-4" : "p-0"}`}
+          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? (isEstimate ? "p-0" : "p-4") : "p-0"}`}
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
@@ -836,20 +836,20 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
             <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
               {/* Thermal Format Header */}
               <div>
-                {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-2 object-contain" alt="Logo" />}
+                {profile.logoUrl && !isEstimate && <img src={profile.logoUrl} className="h-12 mx-auto mb-2 object-contain" alt="Logo" />}
                 <h1 className="text-xl font-black uppercase tracking-tight leading-none">{profile.name || "Print Workshop"}</h1>
                 <p className="text-[0.6rem] mt-1">( {profile.slogan || "Innovation in Impression"} )</p>
-                <p className="text-[0.55rem] mt-1">{profile.address || "No.68, Sarojini Road, Sidhapudur, Coimbatore-44"}</p>
-                <p className="text-[0.55rem]">Call @ {profile.phone || "+91 84352 66666"}</p>
-                <p className="text-[0.55rem] font-bold">Mail : {profile.email || "aprintworkshop@gmail.com"}</p>
+                <p className={`${isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'} mt-1`}>{profile.address || "No.68, Sarojini Road, Sidhapudur, Coimbatore-44"}</p>
+                <p className={isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'}>Call @ {profile.phone || "+91 84352 66666"}</p>
+                <p className={`${isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'} font-bold`}>Mail : {profile.email || "aprintworkshop@gmail.com"}</p>
 
                 <h2 className="text-[0.85rem] font-black uppercase mt-2">{docTitle}</h2>
                 <div className="thermal-dashed-line" />
               </div>
 
-              <div className="text-[0.6rem] space-y-0.5">
+              <div className={`${isEstimate ? 'text-[0.69rem]' : 'text-[0.6rem]'} space-y-0.5`}>
                 <div className="flex justify-between font-normal">
-                  <span>No.{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
+                  <span>No.<span className={isEstimate ? "font-black" : ""}>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
                   <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString('en-GB').split('/').reverse().join('-')}</span>
                 </div>
                 <div className="text-left font-normal">
@@ -860,7 +860,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <div className="thermal-dashed-line" />
 
               <div className="mt-1">
-                <table className="w-full text-[0.625rem]">
+                <table className={`w-full ${isEstimate ? 'text-[0.72rem]' : 'text-[0.625rem]'}`}>
                   <thead>
                     <tr className="font-black">
                       <th className="py-1 text-left px-0.5" style={{ width: '45%' }}>Product Name</th>
@@ -906,7 +906,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               <div className="thermal-dashed-line" />
 
               <div className="pt-1 space-y-1">
-                <div className="text-left font-normal text-[0.55rem] space-y-0.5">
+                <div className={`text-left font-normal ${isEstimate ? 'text-[0.63rem]' : 'text-[0.55rem]'} space-y-0.5`}>
                   <p>File : {activeInvoice.fileName || "-"}</p>
                   <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
                 </div>
@@ -917,7 +917,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
               {activeQr && (
                 <div className="flex flex-col items-center mt-4">
-                  <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
+                  <img src={activeQr.imageUrl} className={isEstimate ? "h-32 w-32" : "h-24 w-24"} alt="QA" />
                   <p className="text-[0.55rem] font-black mt-0.5 uppercase tracking-tighter">SCAN & PAY</p>
                 </div>
               )}
