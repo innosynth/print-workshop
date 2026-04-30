@@ -175,7 +175,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   );
 }
 
-function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onClose: () => void, docType?: string }) {
+function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invoice: any, onClose: () => void, docType?: string, autoDownload?: boolean }) {
   const { settings } = usePrintSettings();
   const [paperSize, setPaperSize] = useState<"A4" | "A5" | "thermal">("A4");
   const printRef = useRef<HTMLDivElement>(null);
@@ -241,6 +241,18 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     }
   }, [activeInvoice?.id, docType]);
 
+  useEffect(() => {
+    if (autoDownload && activeInvoice?.id) {
+      // Delay slightly to ensure fonts and styles are loaded
+      const timer = setTimeout(() => {
+        handleDownload().then(() => {
+          onClose();
+        });
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [autoDownload, activeInvoice?.id]);
+
   if (invoiceLoading) return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="p-20 flex items-center justify-center">
@@ -266,7 +278,10 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
 
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    // ... existing handleDownload logic ...
+    // Note: I'll need to keep the full body here to ensure it works, 
+    // but I'll use a placeholder for now to identify the insertion point.
     const element = printRef.current;
     if (!element) return;
 
@@ -541,7 +556,11 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className={cn("max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", paperSize === "thermal" ? "max-w-fit min-w-[360px]" : "max-w-[850px]")}>
+      <DialogContent className={cn(
+        "max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", 
+        paperSize === "thermal" ? "max-w-fit min-w-[360px]" : "max-w-[850px]",
+        autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
+      )}>
         <DialogHeader className="sr-only">
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
@@ -596,9 +615,9 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </>
             )}
             <Separator orientation="vertical" className="h-8 mx-2" />
-            <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
+            {/* <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
               <Printer className="h-4 w-4" /> Print Document
-            </Button>
+            </Button> */}
             <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50">
               <Download className="h-4 w-4" /> Download PDF
             </Button>
@@ -1721,7 +1740,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDownload }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -1730,7 +1749,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   onToggleStatus?: (r: any) => void,
   loadingId?: number | null,
   onWhatsApp?: (r: any) => void,
-  onEdit?: (r: any) => void
+  onEdit?: (r: any) => void,
+  onDownload?: (r: any) => void
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -1810,6 +1830,11 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                             {onPrint && (
                               <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onPrint(row)}>
                                 <Printer className="h-3.5 w-3.5" />Print
+                              </Button>
+                            )}
+                            {onDownload && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onDownload(row)} title="Download">
+                                <Download className="h-4 w-4 text-green-600" />
                               </Button>
                             )}
                             {onEdit && (
@@ -2068,11 +2093,24 @@ export default function Sales() {
   };
 
   const estCols = [
-    { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
+    { key: "invoiceNo", label: "Estimate No", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
-    { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
-    { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
+    { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
+    { 
+      key: "totalQty", 
+      label: "Qty", 
+      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    },
+    { 
+      key: "amount", 
+      label: "E-Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
+    },
+    { 
+      key: "tax", 
+      label: "Tax Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+    },
     {
       key: "status",
       label: "Status",
@@ -2088,9 +2126,22 @@ export default function Sales() {
   const invCols = [
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "invoices" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
-    { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
-    { key: "total", label: "Total", render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.total).toLocaleString("en-IN")}</span> },
+    { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
+    { 
+      key: "totalQty", 
+      label: "Qty", 
+      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    },
+    { 
+      key: "amount", 
+      label: "E-Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
+    },
+    { 
+      key: "tax", 
+      label: "Tax Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+    },
     {
       key: "status",
       label: "Status",
@@ -2105,9 +2156,22 @@ export default function Sales() {
   const qtCols = [
     { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "quotations" })}>{r.quotationNo}</span> },
     { key: "date", label: "Date" },
-    { key: "customerName", label: "Customer", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { key: "productSummary", label: "Items", render: (r: any) => <span className="text-[0.625rem] text-muted-foreground line-clamp-1 max-w-[250px] italic">{r.productSummary || '—'}</span> },
-    { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
+    { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
+    { 
+      key: "totalQty", 
+      label: "Qty", 
+      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    },
+    { 
+      key: "amount", 
+      label: "E-Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
+    },
+    { 
+      key: "tax", 
+      label: "Tax Amount", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+    },
     {
       key: "status",
       label: "Status",
@@ -2173,7 +2237,8 @@ export default function Sales() {
             data={Array.isArray(invoices) ? invoices.filter((i: any) => i.invoiceNo?.startsWith('EST-')) : []}
             cols={estCols}
             isLoading={invLoading}
-            onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates" })}
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: false })}
+            onDownload={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: true })}
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "estimates" })}
             onConvert={(r) => setConvertDialog({ open: true, data: r, type: "estimates" })}
@@ -2185,7 +2250,8 @@ export default function Sales() {
             data={quotations}
             cols={qtCols}
             isLoading={qtLoading}
-            onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations" })}
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations", autoDownload: false })}
+            onDownload={(r) => setSelectedInvoice({ data: r, type: "quotations", autoDownload: true })}
             onConvert={(r) => handleConvert(r, "quotations", "invoices")}
             loadingId={convertingId}
             onWhatsApp={handleWhatsApp}
@@ -2197,7 +2263,8 @@ export default function Sales() {
             data={Array.isArray(invoices) ? invoices.filter((i: any) => i.invoiceNo?.startsWith('INV-')) : []}
             cols={invCols}
             isLoading={invLoading}
-            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices" })}
+            onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices", autoDownload: false })}
+            onDownload={(r) => setSelectedInvoice({ data: r, type: "invoices", autoDownload: true })}
             onToggleStatus={handleToggleStatus}
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "invoices" })}
@@ -2325,6 +2392,7 @@ export default function Sales() {
         <InvoicePrintPreview
           invoice={selectedInvoice.data}
           docType={selectedInvoice.type}
+          autoDownload={selectedInvoice.autoDownload}
           onClose={() => setSelectedInvoice({ data: null, type: "invoices" })}
         />
       )}

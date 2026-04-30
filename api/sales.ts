@@ -31,12 +31,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
           status: invoices.status, customerId: contacts.id,
           isIgst: invoices.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
-          productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`
+          productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`,
+          totalQty: sql<number>`SUM(CAST(${invoiceItems.qty} AS NUMERIC))`
         })
         .from(invoices)
         .leftJoin(contacts, eq(invoices.customerId, contacts.id))
         .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
-        .groupBy(invoices.id, contacts.id, invoices.customerName)
+        .groupBy(invoices.id, contacts.id, invoices.customerName, invoices.invoiceNo, invoices.date, invoices.amount, invoices.tax, invoices.total, invoices.status, invoices.isIgst)
         .orderBy(desc(invoices.createdAt));
         return response.status(200).json(data);
       }
@@ -90,12 +91,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
           amount: quotations.amount, status: quotations.status, customerId: contacts.id,
           isIgst: quotations.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
-          productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`
+          productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`,
+          totalQty: sql<number>`SUM(CAST(${quotationItems.qty} AS NUMERIC))`
         })
         .from(quotations)
         .leftJoin(contacts, eq(quotations.customerId, contacts.id))
         .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-        .groupBy(quotations.id, contacts.id, quotations.customerName)
+        .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.status, quotations.isIgst)
         .orderBy(desc(quotations.createdAt));
         return response.status(200).json(data);
       }
