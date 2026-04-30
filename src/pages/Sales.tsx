@@ -326,11 +326,12 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
     .thermal-format {
       width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "80"}mm !important;
-      padding: 5mm !important;
+      padding: 2mm 5mm 2mm 5mm !important;
       margin: 0 auto !important;
       background: white !important;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       box-sizing: border-box !important;
+      color: black !important;
     }
 
     .thermal-format table {
@@ -340,14 +341,21 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
     }
 
     .thermal-format th, .thermal-format td {
-      padding: 8px 2px !important;
-      line-height: 1.4 !important;
-      vertical-align: middle !important;
+      padding: 4px 2px !important;
+      line-height: 1.2 !important;
+      vertical-align: top !important;
+      word-break: break-word !important;
     }
     
     .thermal-format thead th {
-      border-bottom: 1.5pt solid black !important;
-      padding-bottom: 10px !important;
+      background: white !important;
+      font-weight: bold !important;
+    }
+
+    .thermal-dashed-line {
+      border-top: 1px dashed black !important;
+      width: 100% !important;
+      margin: 4mm 0 2mm 0 !important;
     }
 
   @media print {
@@ -479,7 +487,7 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
 
         <div
           ref={printRef}
-          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "p-8" : "p-0"}`}
+          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? "p-4" : "p-0"}`}
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
@@ -723,48 +731,49 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
               </div>
             </div>
           ) : (
-            <div className="space-y-1 text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
               {/* Thermal Format Header */}
-              <div className="pt-4 mb-2">
-                {profile.logoUrl && <img src={profile.logoUrl} className="h-10 mx-auto mb-1 object-contain" alt="Logo" />}
-                <h1 className="text-lg font-black uppercase tracking-tight">{profile.name}</h1>
-                <p className="text-[0.625rem] font-normal leading-none">( {profile.slogan} )</p>
-                <p className="text-[0.625rem] font-normal mt-1">{profile.address}</p>
-                <p className="text-[0.625rem] font-normal">Call @ {profile.phone}</p>
-                <p className="text-[0.625rem] font-bold">Mail : {profile.email}</p>
-                <h2 className="text-[0.75rem] font-bold mt-1 uppercase">{docTitle}</h2>
+              <div>
+                {profile.logoUrl && <img src={profile.logoUrl} className="h-12 mx-auto mb-2 object-contain" alt="Logo" />}
+                <h1 className="text-xl font-black uppercase tracking-tight leading-none">{profile.name || "Print Workshop"}</h1>
+                <p className="text-[0.6rem] mt-1">( {profile.slogan || "Innovation in Impression"} )</p>
+                <p className="text-[0.55rem] mt-1">{profile.address || "No.68, Sarojini Road, Sidhapudur, Coimbatore-44"}</p>
+                <p className="text-[0.55rem]">Call @ {profile.phone || "+91 84352 66666"}</p>
+                <p className="text-[0.55rem] font-bold">Mail : {profile.email || "aprintworkshop@gmail.com"}</p>
+                
+                <h2 className="text-[0.85rem] font-black uppercase mt-2">{docTitle}</h2>
+                <div className="thermal-dashed-line" />
               </div>
 
-              <div className="text-[0.625rem] py-1 border-t border-black">
+              <div className="text-[0.6rem] space-y-0.5">
                 <div className="flex justify-between font-normal">
-                  <span>
-                    No.{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}
-                  </span>
-                  <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
+                  <span>No.{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
+                  <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString('en-GB').split('/').reverse().join('-')}</span>
                 </div>
                 <div className="text-left font-normal">
                   C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
                 </div>
               </div>
 
-              <div className="border-t border-black pt-1">
+              <div className="thermal-dashed-line" />
+
+              <div className="mt-1">
                 <table className="w-full text-[0.625rem]">
-                  <thead className="font-bold">
-                    <tr className="text-left border-b border-black">
-                      <th className="py-1 text-left" style={{ width: '40%' }}>Product</th>
-                      <th className="text-right py-1" style={{ width: '15%' }}>Qty</th>
-                      <th className="text-right py-1" style={{ width: '20%' }}>Rate</th>
-                      <th className="text-right py-1" style={{ width: '25%' }}>Amount</th>
+                  <thead>
+                    <tr className="font-black">
+                      <th className="py-1 text-left px-0.5" style={{ width: '45%' }}>Product Name</th>
+                      <th className="text-right py-1 px-0.5" style={{ width: '10%' }}>Qty</th>
+                      <th className="text-right py-1 px-0.5" style={{ width: '20%' }}>Rate</th>
+                      <th className="text-right py-1 px-0.5" style={{ width: '25%' }}>Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="font-normal pt-1">
-                    {activeInvoice.items && activeInvoice.items.length > 0 ? activeInvoice.items.map((item: any, i: number) => (
-                      <tr key={i} className="align-top border-b border-black/10">
-                        <td className="text-left py-1 uppercase break-words leading-tight">{item.category || item.name}</td>
-
-                        <td className="text-right py-1">{item.qty}</td>
-                        <td className="text-right py-1">{parseFloat(item.rate || 0).toFixed(0)}</td>
-                        <td className="text-right py-1">
+                  <tbody className="font-normal">
+                    {items && items.length > 0 ? items.map((item: any, i: number) => (
+                      <tr key={i} className="align-top">
+                        <td className="text-left py-1 px-0.5 uppercase leading-tight">{item.category || item.name}</td>
+                        <td className="text-right py-1 px-0.5">{item.qty}</td>
+                        <td className="text-right py-1 px-0.5">{parseFloat(item.rate || 0).toFixed(0)}</td>
+                        <td className="text-right py-1 px-0.5">
                           {isEstimate
                             ? parseFloat(item.amount || 0).toFixed(2)
                             : (parseFloat(item.amount || 0) * (1 + parseFloat(item.gstRate || 0) / 100)).toFixed(2)
@@ -778,29 +787,38 @@ function InvoicePrintPreview({ invoice, onClose, docType }: { invoice: any, onCl
                 </table>
               </div>
 
-              <div className="border-t border-black py-2 space-y-1">
-                <div className="text-left font-bold text-[0.6875rem]">
-                  <p>Total Items : {activeInvoice.items?.length || 0}</p>
-                  <div className="flex justify-between items-center">
-                    <span>Total Qty : {activeInvoice.items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</span>
-                    <span className="text-sm font-black">Total: {total.toFixed(2)}</span>
+              <div className="thermal-dashed-line" />
+
+              <div className="text-left font-bold text-[0.625rem] py-1">
+                <div className="flex items-center">
+                  <div className="space-y-1">
+                    <p>Total Items : {items?.length || 0}</p>
+                    <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <span className="text-[0.8rem] font-black tabular-nums">Total: {total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-black pt-2 flex flex-col items-center gap-1">
-                <div className="w-full text-left font-bold text-[0.5625rem] space-y-0.5 mt-1">
+              <div className="thermal-dashed-line" />
+
+              <div className="pt-1 space-y-1">
+                <div className="text-left font-normal text-[0.55rem] space-y-0.5">
                   <p>File : {activeInvoice.fileName || "-"}</p>
                   <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
                 </div>
-                <div className="space-y-0.5">
-                  <p className="font-bold text-[0.625rem]">{profile.website || 'www.printworkshop.in'}</p>
-                  <p className="font-bold text-[0.6875rem] uppercase">Thank For Your Business</p>
+                <div className="mt-2 space-y-0.5">
+                  <p className="font-bold text-[0.6rem]">{profile.website || 'www.printworkshop.in'}</p>
+                  <p className="font-bold text-[0.625rem] uppercase">Thank For Your Business</p>
                 </div>
-                {activeQr && (
-                  <img src={activeQr.imageUrl} className="h-32 w-32 border border-black p-1 mt-1" alt="QA" />
-                )}
               </div>
+              {activeQr && (
+                <div className="flex flex-col items-center mt-4">
+                  <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
+                  <p className="text-[0.55rem] font-black mt-0.5 uppercase tracking-tighter">SCAN & PAY</p>
+                </div>
+              )}
             </div>
           )}
         </div>
