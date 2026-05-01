@@ -674,10 +674,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
                   <div className="col-span-5 space-y-1">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                      <span className="text-gray-500 font-bold uppercase">Invoice No</span>
+                      <span className="text-gray-500 font-bold uppercase">{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</span>
                       <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
 
-                      <span className="text-gray-500 font-bold uppercase">Invoice Date</span>
+                      <span className="text-gray-500 font-bold uppercase">{docType === "quotations" ? "Quotation Date" : docType === "estimates" ? "Estimate Date" : "Invoice Date"}</span>
                       <span className="font-black text-right">: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
 
                       <span className="text-gray-500 font-bold uppercase">PO No</span>
@@ -831,7 +831,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                         </tbody>
                       </table>
                       <div className="mt-2 w-full">
-                        <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated invoice signature not required</p>
+                        <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                         {activeInvoice.fileName && (
                           <p className="text-[10px] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
                         )}
@@ -910,7 +910,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       </tbody>
                     </table>
                     <div className="mt-2 w-full">
-                      <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated invoice signature not required</p>
+                      <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                       {activeInvoice.fileName && (
                         <p className="text-[10px] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
                       )}
@@ -2001,8 +2001,10 @@ export default function Sales() {
     msg += `*City:* ${waDialog.contact.city || '—'}\n`;
     msg += `*GSTIN:* ${waDialog.contact.gst || 'N/A'}\n`;
     msg += `--------------------------\n`;
-    msg += `*Invoice No:* ${docNo}\n`;
-    msg += `*Date:* ${waDialog.data.date}\n`;
+    const noLabel = waDialog.data.invoiceNo ? "Invoice No" : waDialog.data.quotationNo ? "Quotation No" : "Estimate No";
+    const dateLabel = waDialog.data.invoiceNo ? "Invoice Date" : waDialog.data.quotationNo ? "Quotation Date" : "Estimate Date";
+    msg += `*${noLabel}:* ${docNo}\n`;
+    msg += `*${dateLabel}:* ${waDialog.data.date}\n`;
     msg += `*Status:* ${waDialog.data.status === 'Paid' ? 'Paid' : 'Yet to Pay'}\n`;
     msg += `*GSTIN:* ${p.gst}\n\n`;
 
