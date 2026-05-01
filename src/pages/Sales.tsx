@@ -582,9 +582,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               </>
             )}
             <Separator orientation="vertical" className="h-8 mx-2" />
-            {/* <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
-              <Printer className="h-4 w-4" /> Print Document
-            </Button> */}
+            {isEstimate && (
+              <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
+                <Printer className="h-4 w-4" /> Print Document
+              </Button>
+            )}
             <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50">
               <Download className="h-4 w-4" /> Download PDF
             </Button>
