@@ -37,7 +37,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpen, openOnFocus, includeBlank, allowCustom }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpen?: boolean, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean }) {
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
   const [search, setSearch] = useState("");
@@ -46,11 +46,14 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (autoOpen) {
-      const timer = setTimeout(() => setOpen(true), 150);
+    if (autoOpenTrigger && autoOpenTrigger > 0) {
+      const timer = setTimeout(() => {
+        setOpen(true);
+        justClosed.current = false;
+      }, 150);
       return () => clearTimeout(timer);
     }
-  }, [autoOpen]);
+  }, [autoOpenTrigger]);
 
   useEffect(() => {
     if (open) {
@@ -232,7 +235,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
   const total = taxableAmount + totalTax;
-  
+
   const taxGroups = items.reduce((acc: any, item: any) => {
     const rate = parseFloat(item.gstRate || 0);
     if (rate > 0) {
@@ -243,7 +246,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     }
     return acc;
   }, {});
-  
+
   const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
   const handleDownload = async () => {
@@ -282,13 +285,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       const footerRect = footerEl.getBoundingClientRect();
       const footerTopPx = footerRect.top - elementRect.top;
       const footerHeightPx = footerRect.height;
-      
+
       const footerTopPt = footerTopPx * scaleFactor;
       const footerHeightPt = footerHeightPx * scaleFactor;
       const pageIndex = Math.floor(footerTopPt / usablePageHeight);
       const posOnPage = footerTopPt - (pageIndex * usablePageHeight);
       const safetyBuffer = 30;
-      
+
       if (!fitsOnOnePage && (posOnPage + footerHeightPt + safetyBuffer) > usablePageHeight && posOnPage > 0) {
         const pushPt = (usablePageHeight - posOnPage) + 10;
         const pushPx = pushPt / scaleFactor;
@@ -301,7 +304,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     }
 
     await doc.html(element, {
-      x: 0, y: 0, width: formatWidth, windowWidth: windowW, 
+      x: 0, y: 0, width: formatWidth, windowWidth: windowW,
       margin: [pdfMargin, 0, pdfMargin, 0],
       callback: function (pdf) {
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
@@ -350,10 +353,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const igst = totalTax;
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
-  
+
   const a4Width = '210mm';
   const a4Height = '297mm';
-  const a5Width = '210mm'; 
+  const a5Width = '210mm';
   const a5Height = '148mm';
 
   const printStyles = `
@@ -537,7 +540,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className={cn(
-        "h-[58rem] max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", 
+        "h-[58rem] max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none",
         paperSize === "thermal" ? "max-w-fit min-w-[22.5rem]" : "max-w-[63.75rem]",
         autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
       )}>
@@ -743,19 +746,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
                           <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
                           <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
-                            {isIgst ? (
-                              <>
-                                <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
-                                <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                                <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
-                                <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                                <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
-                              </>
-                            )}
+                          {isIgst ? (
+                            <>
+                              <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                            </>
+                          )}
                           <td className="px-2 py-2 text-right font-black">{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
@@ -931,7 +934,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
                 </div>
               )}
-          </div>
+            </div>
           ) : (
             <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
               {/* Thermal Format Header */}
@@ -996,7 +999,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <span className="text-[0.85rem] font-black tabular-nums">Total: {total.toFixed(2)}</span>
                   </div>
                 </div>
-                
+
                 <div className="mt-1 space-y-0.5 font-normal text-[0.55rem] text-right">
                   {Object.values(taxGroups).map((group: any) => (
                     isIgst ? (
@@ -1049,10 +1052,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
 
-  const [items, setItems] = useState([{
+  const [items, setItems] = useState<any[]>([]);
+  const [pendingItem, setPendingItem] = useState({
     name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
     category: "", subCategory: "", sku: ""
-  }]);
+  });
+  const [focusNextItemTrigger, setFocusNextItemTrigger] = useState(0);
+  const [productTrigger, setProductTrigger] = useState(0);
+  const [subCategoryTrigger, setSubCategoryTrigger] = useState(0);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [fileName, setFileName] = useState("");
@@ -1066,11 +1073,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
   // Navigation Refs
   const customerRef = useRef<HTMLButtonElement>(null);
-  const categoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const productRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const subCategoryRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const rateRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const pendingCategoryRef = useRef<HTMLButtonElement>(null);
+  const pendingProductRef = useRef<HTMLButtonElement>(null);
+  const pendingSubCategoryRef = useRef<HTMLButtonElement>(null);
+  const pendingQtyRef = useRef<HTMLInputElement>(null);
+  const pendingRateRef = useRef<HTMLInputElement>(null);
+  const pendingAddBtnRef = useRef<HTMLButtonElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
@@ -1122,6 +1130,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     if (!open) {
       formInitialized.current = false;
       initialFocusDone.current = false;
+      setFocusNextItemTrigger(0);
+      setProductTrigger(0);
+      setSubCategoryTrigger(0);
     }
   }, [open]);
 
@@ -1164,10 +1175,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         formInitialized.current = true;
       } else {
         // Create new mode
-        setItems([{
-          name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
-          category: "", subCategory: "", sku: ""
-        }]);
+        setItems([]);
         setCustomerId("");
         setCustomerName("");
         setFileName("");
@@ -1190,18 +1198,40 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     }
   }, [open]);
 
-  // Handle auto-scroll to bottom when new item added
+  const addPendingItem = () => {
+    if (!pendingItem.name) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a product first" });
+      return;
+    }
+    const itemToAdd = {
+      ...pendingItem,
+      amount: pendingItem.qty * pendingItem.rate
+    };
+    setItems([...items, itemToAdd]);
+    setPendingItem({
+      name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+      category: "", subCategory: "", sku: ""
+    });
+    setFocusNextItemTrigger(prev => prev + 1);
+  };
+
+  // Focus category after item is added and handle auto-scroll
   useEffect(() => {
-    if (scrollViewportRef.current && items.length > 1) {
+    if (focusNextItemTrigger > 0 && open) {
       const timer = setTimeout(() => {
-        scrollViewportRef.current?.scrollTo({
-          top: scrollViewportRef.current.scrollHeight,
-          behavior: 'smooth'
-        });
-      }, 100);
+        pendingCategoryRef.current?.focus();
+        
+        // Handle scroll
+        if (scrollViewportRef.current) {
+          scrollViewportRef.current.scrollTo({
+            top: scrollViewportRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 150);
       return () => clearTimeout(timer);
     }
-  }, [items.length]);
+  }, [focusNextItemTrigger, open]);
 
 
 
@@ -1221,6 +1251,22 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       }
       newItems[index] = updated;
       return newItems;
+    });
+  };
+
+  const updatePendingItem = (fieldOrUpdates: string | Record<string, any>, value?: any) => {
+    setPendingItem(prev => {
+      let updated: any;
+      if (typeof fieldOrUpdates === 'string') {
+        updated = { ...prev, [fieldOrUpdates]: value };
+      } else {
+        updated = { ...prev, ...fieldOrUpdates };
+      }
+      
+      if (updated.qty !== undefined || updated.rate !== undefined) {
+        updated.amount = (Number(updated.qty || 0)) * (Number(updated.rate || 0));
+      }
+      return updated;
     });
   };
 
@@ -1349,8 +1395,8 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
                   <FormCombobox
                     triggerRef={customerRef}
-                    onKeyDown={(e) => handleEnter(e, categoryRefs.current[0])}
-                    autoOpen={!initialData}
+                    onKeyDown={(e) => handleEnter(e, pendingCategoryRef.current)}
+                    openOnFocus
                     allowCustom
                     label="Customer"
                     value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
@@ -1383,219 +1429,213 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               </div>
               <Separator />
 
-              {/* Line Items Section Header */}
-              <div className="flex justify-between items-center bg-muted/40 p-1.5 rounded-md shrink-0">
-                <Label className="text-[0.6875rem] font-black uppercase tracking-wider text-muted-foreground ml-2">Line Items</Label>
-                <div className="flex items-center gap-3">
-                  {true && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center space-x-2 bg-white/50 px-3 py-1 rounded-full border border-primary/10 transition-all hover:bg-white">
-                        <Checkbox
-                          id="use-igst"
-                          checked={isIgst}
-                          onCheckedChange={(checked) => setIsIgst(checked as boolean)}
-                          className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
-                        />
-                        <label
-                          htmlFor="use-igst"
-                          className="text-[0.625rem] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-blue-700"
-                          data-enabled={isIgst}
-                        >
-                          Use IGST
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2 bg-white/50 px-3 py-1 rounded-full border border-primary/10 transition-all hover:bg-white">
-                        <Checkbox
-                          id="enable-gst"
-                          checked={gstEnabled}
-                          onCheckedChange={(checked) => setGstEnabled(checked as boolean)}
-                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-4 w-4"
-                        />
-                        <label
-                          htmlFor="enable-gst"
-                          className="text-[0.625rem] font-black uppercase cursor-pointer select-none text-muted-foreground data-[enabled=true]:text-green-700"
-                          data-enabled={gstEnabled}
-                        >
-                          Enable GST
-                        </label>
-                      </div>
+              {/* Quick Add Section */}
+              <div className="bg-muted/30 p-2.5 rounded-lg border border-primary/10 space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <Label className="text-[0.6875rem] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+                    <Plus className="h-3 w-3" /> Quick Add Item
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="use-igst"
+                        checked={isIgst}
+                        onCheckedChange={(checked) => setIsIgst(checked as boolean)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <label htmlFor="use-igst" className="text-[0.625rem] font-bold uppercase cursor-pointer text-muted-foreground">IGST</label>
                     </div>
-                  )}
-                  <Button variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 border-primary/20 hover:bg-primary/5">
-                    <Plus className="h-3.5 w-3.5" /> Add Item
-                  </Button>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="enable-gst"
+                        checked={gstEnabled}
+                        onCheckedChange={(checked) => setGstEnabled(checked as boolean)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <label htmlFor="enable-gst" className="text-[0.625rem] font-bold uppercase cursor-pointer text-muted-foreground">GST</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-2 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Category</Label>
+                    <FormCombobox
+                      triggerRef={pendingCategoryRef}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !pendingItem.category && items.length > 0) {
+                          saveBtnRef.current?.focus();
+                        } else {
+                          handleEnter(e, pendingProductRef.current);
+                        }
+                      }}
+                      openOnFocus
+                      autoOpenTrigger={focusNextItemTrigger}
+                      label="Category"
+                      value={pendingItem.category}
+                      options={Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[]}
+                      onSelect={(v) => {
+                        updatePendingItem({ category: v, name: "", subCategory: "" });
+                        if (v) {
+                          setProductTrigger(prev => prev + 1);
+                          setTimeout(() => pendingProductRef.current?.focus(), 250);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-3 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Product</Label>
+                    <FormCombobox
+                      triggerRef={pendingProductRef}
+                      onKeyDown={(e) => handleEnter(e, pendingSubCategoryRef.current)}
+                      openOnFocus
+                      label="Product"
+                      value={pendingItem.name}
+                      autoOpenTrigger={productTrigger}
+                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => p.name))).filter(Boolean) as string[]}
+                      onSelect={(v) => {
+                        updatePendingItem({ name: v, subCategory: "" });
+                        setSubCategoryTrigger(prev => prev + 1);
+                        setTimeout(() => pendingSubCategoryRef.current?.focus(), 250);
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Sub Category</Label>
+                    <FormCombobox
+                      triggerRef={pendingSubCategoryRef}
+                      onKeyDown={(e) => handleEnter(e, pendingQtyRef.current)}
+                      openOnFocus
+                      label="Sub Category"
+                      value={pendingItem.subCategory}
+                      autoOpenTrigger={subCategoryTrigger}
+                      options={Array.from(new Set(products.filter((p: any) =>
+                        (!pendingItem.category || p.category === pendingItem.category) &&
+                        (!pendingItem.name || p.name === pendingItem.name)
+                      ).map((p: any) => p.subCategory))).filter(Boolean) as string[]}
+                      onSelect={(v) => {
+                        const exactProd = products.find((p: any) =>
+                          p.name === pendingItem.name && p.subCategory === v &&
+                          (!pendingItem.category || p.category === pendingItem.category)
+                        );
+                        if (exactProd) {
+                          updatePendingItem({
+                            subCategory: v,
+                            sku: exactProd.sku || "",
+                            rate: parseFloat(exactProd.sellPrice || 0),
+                            hsnCode: exactProd.hsnCode || "",
+                            gstRate: exactProd.gstRate || "0",
+                            category: exactProd.category || pendingItem.category
+                          });
+                        } else {
+                          updatePendingItem("subCategory", v);
+                        }
+                        setTimeout(() => pendingQtyRef.current?.focus(), 250);
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-1 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block">Qty</Label>
+                    <Input
+                      ref={pendingQtyRef}
+                      type="number"
+                      value={pendingItem.qty}
+                      className="h-8 font-bold text-center text-xs"
+                      onKeyDown={(e) => handleEnter(e, pendingRateRef.current)}
+                      onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Rate</Label>
+                    <Input
+                      ref={pendingRateRef}
+                      type="number"
+                      value={pendingItem.rate}
+                      className="h-8 font-bold text-xs"
+                      onKeyDown={(e) => { if (e.key === "Enter") addPendingItem(); }}
+                      onChange={e => updatePendingItem("rate", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Button onClick={addPendingItem} size="sm" className="h-8 w-full gap-1.5 shadow-sm">
+                      <Plus className="h-3 w-3" /> Add Item
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Scrollable Items Section */}
-            <div ref={scrollViewportRef} className="flex-1 overflow-y-auto p-3 md:p-4 pt-1">
-              <div className="space-y-2">
-                {items.map((item, index) => {
-                  const uniqueCategories = Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[];
-                  const productNames = Array.from(new Set(products.filter((p: any) => !item.category || p.category === item.category).map((p: any) => p.name))).filter(Boolean) as string[];
-                  const subCategories = Array.from(new Set(products.filter((p: any) =>
-                    (!item.category || p.category === item.category) &&
-                    (!item.name || p.name === item.name)
-                  ).map((p: any) => p.subCategory))).filter(Boolean) as string[];
-
-                  return (
-                    <div key={index} className="relative p-2.5 border rounded-lg bg-white shadow-sm hover:shadow-md transition-all group border-muted-foreground/10">
-                      {/* Responsive Grid Layout */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2 items-end">
-                        {/* Row 1/Top section on mobile, Left section on desktop */}
-                        <div className="md:col-span-2 space-y-0.5">
-                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Category</Label>
-                          <FormCombobox
-                            triggerRef={(el: any) => categoryRefs.current[index] = el}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !item.category) {
-                                e.preventDefault();
-                                saveBtnRef.current?.focus();
-                              } else {
-                                handleEnter(e, productRefs.current[index]);
-                              }
-                            }}
-                            openOnFocus
-                            label="Category"
-                            value={item.category}
-                            options={uniqueCategories}
-                            onSelect={(v) => {
-                              if (!v) {
-                                saveBtnRef.current?.focus();
-                                return;
-                              }
-                              updateItem(index, "category", v);
-                              updateItem(index, "name", "");
-                              updateItem(index, "subCategory", "");
-                              updateItem(index, "sku", "");
-                              setTimeout(() => productRefs.current[index]?.focus(), 150);
-                            }}
+            {/* Scrollable Items Table Section */}
+            <div ref={scrollViewportRef} className="flex-1 overflow-auto border-t bg-muted/5">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead className="sticky top-0 bg-white border-b z-10 shadow-sm">
+                  <tr>
+                    <th className="p-2 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest">Product Details</th>
+                    <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-24">Qty</th>
+                    <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-32">Rate</th>
+                    {gstEnabled && <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>}
+                    <th className="p-2 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
+                    <th className="p-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y bg-white">
+                  {items.map((item, index) => (
+                    <tr key={index} className="hover:bg-muted/20 transition-colors group">
+                      <td className="p-2 pl-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-primary leading-tight uppercase tracking-tight">{item.name}</span>
+                          <span className="text-[0.625rem] font-bold text-muted-foreground leading-tight mt-0.5">
+                            {item.category && `${item.category} • `}{item.subCategory}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-2 py-3">
+                        <Input
+                          type="number"
+                          value={item.qty}
+                          className="h-8 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
+                          onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
+                          title={item.qty.toString()}
+                        />
+                      </td>
+                      <td className="p-2 py-3">
+                        <div className="relative group/rate">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.625rem] font-bold text-muted-foreground opacity-0 group-focus-within/rate:opacity-100 transition-opacity">₹</span>
+                          <Input
+                            type="number"
+                            value={item.rate}
+                            className="h-8 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
+                            onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
+                            title={item.rate.toString()}
                           />
                         </div>
-                        <div className="sm:col-span-2 md:col-span-3 space-y-0.5">
-                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Product</Label>
-                          <FormCombobox
-                            triggerRef={(el: any) => productRefs.current[index] = el}
-                            onKeyDown={(e) => handleEnter(e, subCategoryRefs.current[index])}
-                            openOnFocus
-                            label="Product"
-                            value={item.name}
-                            options={productNames}
-                            onSelect={(v) => {
-                              updateItem(index, "name", v);
-                              updateItem(index, "subCategory", "");
-                              updateItem(index, "sku", "");
-                              setTimeout(() => subCategoryRefs.current[index]?.focus(), 150);
-                            }}
-                          />
-                        </div>
-                        <div className="md:col-span-2 space-y-0.5">
-                          <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Sub Category</Label>
-                          <FormCombobox
-                            triggerRef={(el: any) => subCategoryRefs.current[index] = el}
-                            onKeyDown={(e) => handleEnter(e, qtyRefs.current[index])}
-                            openOnFocus
-                            label="Sub Category"
-                            value={item.subCategory}
-                            options={subCategories}
-                            onSelect={(v) => {
-                              updateItem(index, "subCategory", v);
-
-                              // Once sub-category is selected, pick the exact product record
-                              const exactProd = products.find((p: any) =>
-                                p.name === item.name &&
-                                p.subCategory === v &&
-                                (!item.category || p.category === item.category)
-                              );
-
-                              if (exactProd) {
-                                updateItem(index, "sku", exactProd.sku || "");
-                                updateItem(index, "rate", parseFloat(exactProd.sellPrice || 0));
-                                updateItem(index, "hsnCode", exactProd.hsnCode || "");
-                                updateItem(index, "gstRate", exactProd.gstRate || "0");
-                                if (exactProd.category && !item.category) {
-                                  updateItem(index, "category", exactProd.category);
-                                }
-                              }
-                              setTimeout(() => qtyRefs.current[index]?.focus(), 150);
-                            }}
-                          />
-                        </div>
-
-                        {/* Financials Row */}
-                        <div className={cn("grid gap-2 items-end md:col-span-4", (!gstEnabled) ? "grid-cols-3" : "grid-cols-4")}>
-                          <div className="space-y-0.5">
-                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">Qty</Label>
-                            <Input
-                              ref={el => qtyRefs.current[index] = el}
-                              onKeyDown={(e) => handleEnter(e, rateRefs.current[index])}
-                              type="number"
-                              value={item.qty}
-                              className="h-8 font-bold px-1 text-center text-xs"
-                              title={item.qty.toString()}
-                              onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
-                            />
+                      </td>
+                      {gstEnabled && (
+                        <td className="p-2 py-3">
+                          <div className="text-[0.6875rem] font-black text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
+                            {item.gstRate}%
                           </div>
-                          <div className="space-y-0.5">
-                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Rate</Label>
-                            <Input
-                              ref={el => rateRefs.current[index] = el}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  if (index === items.length - 1) {
-                                    addItem();
-                                    setTimeout(() => categoryRefs.current[index + 1]?.focus(), 100);
-                                  } else {
-                                    categoryRefs.current[index + 1]?.focus();
-                                  }
-                                }
-                              }}
-                              type="number"
-                              value={item.rate}
-                              className="h-8 font-bold text-xs"
-                              title={item.rate.toString()}
-                              onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
-                            />
-                          </div>
-
-                          {gstEnabled && (
-                            <div className="space-y-0.5">
-                              <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight text-center block">GST %</Label>
-                              <Input
-                                type="number"
-                                value={item.gstRate}
-                                className="h-8 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200 text-xs"
-                                title={`${item.gstRate}%`}
-                                onChange={e => updateItem(index, "gstRate", e.target.value)}
-                              />
-                            </div>
-                          )}
-                          <div className="space-y-0.5">
-                            <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
-                            <div className="h-8 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate" title={`₹${item.amount.toFixed(2)}`}>
-                              ₹{item.amount.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="md:col-span-1 flex justify-end">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                            onClick={() => removeItem(index)}
-                            disabled={items.length === 1}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                        </td>
+                      )}
+                      <td className="p-2 pr-4 py-3 text-right">
+                        <span className="text-xs font-black text-primary tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
+                          ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="p-2 py-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                          onClick={() => removeItem(index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             {/* Static Bottom Section */}
@@ -2089,19 +2129,19 @@ export default function Sales() {
     { key: "invoiceNo", label: "Estimate No", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { 
-      key: "totalQty", 
-      label: "Qty", 
-      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    {
+      key: "totalQty",
+      label: "Qty",
+      render: (r: any) => <span>{r.totalQty || 0}</span>
     },
-    { 
-      key: "amount", 
-      label: "E-Amount", 
+    {
+      key: "amount",
+      label: "E-Amount",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
-    { 
-      key: "total", 
-      label: "Total", 
+    {
+      key: "total",
+      label: "Total",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
@@ -2120,19 +2160,19 @@ export default function Sales() {
     { key: "invoiceNo", label: "Invoice #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "invoices" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { 
-      key: "totalQty", 
-      label: "Qty", 
-      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    {
+      key: "totalQty",
+      label: "Qty",
+      render: (r: any) => <span>{r.totalQty || 0}</span>
     },
-    { 
-      key: "amount", 
-      label: "E-Amount", 
+    {
+      key: "amount",
+      label: "E-Amount",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
-    { 
-      key: "total", 
-      label: "Total", 
+    {
+      key: "total",
+      label: "Total",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
@@ -2150,19 +2190,19 @@ export default function Sales() {
     { key: "quotationNo", label: "Quotation #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "quotations" })}>{r.quotationNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
-    { 
-      key: "totalQty", 
-      label: "Qty", 
-      render: (r: any) => <span>{r.totalQty || 0}</span> 
+    {
+      key: "totalQty",
+      label: "Qty",
+      render: (r: any) => <span>{r.totalQty || 0}</span>
     },
-    { 
-      key: "amount", 
-      label: "E-Amount", 
+    {
+      key: "amount",
+      label: "E-Amount",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
-    { 
-      key: "total", 
-      label: "Total", 
+    {
+      key: "total",
+      label: "Total",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
