@@ -69,7 +69,7 @@ function CreateMovementModal({ trigger, title, type }: { trigger: React.ReactNod
             <Select value={productId} onValueChange={setProductId}>
               <SelectTrigger><SelectValue placeholder="Choose product..." /></SelectTrigger>
               <SelectContent>
-                {products.map((p: any) => (
+                {products.filter((p: any) => p.id).map((p: any) => (
                   <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.sku})</SelectItem>
                 ))}
               </SelectContent>

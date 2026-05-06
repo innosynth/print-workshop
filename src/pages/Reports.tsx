@@ -302,7 +302,7 @@ function InventoryReport({ onRegisterExport }: { onRegisterExport: (fn: () => vo
     onRegisterExport(() => exportToCSV(filteredProducts, `Inventory_Report_${new Date().toISOString().split('T')[0]}`));
   }, [filteredProducts]);
 
-  const categories = Array.from(new Set((inv.products || []).map((p: any) => p.category)));
+  const categories = Array.from(new Set((inv.products || []).map((p: any) => p.category).filter(Boolean)));
 
   const handleClear = () => {
     setSearchTerm("");
@@ -419,7 +419,7 @@ function ExpenseReport({ onRegisterExport }: { onRegisterExport: (fn: () => void
     onRegisterExport(() => exportToCSV(filteredExpenses, `Expense_Report_${startDate || 'all'}_to_${endDate || 'all'}`));
   }, [filteredExpenses]);
 
-  const categories = Array.from(new Set(expenses.map((e: any) => e.category)));
+  const categories = Array.from(new Set(expenses.map((e: any) => e.category).filter(Boolean)));
 
   const handleClear = () => {
     setStartDate("");

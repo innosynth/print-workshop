@@ -244,7 +244,7 @@ function EmployeesManager() {
                 <Select value={formData.roleId} onValueChange={v => setFormData({ ...formData, roleId: v })}>
                   <SelectTrigger><SelectValue placeholder="Select Role" /></SelectTrigger>
                   <SelectContent>
-                    {roles.map((r: any) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
+                    {roles.filter((r: any) => r.id).map((r: any) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
