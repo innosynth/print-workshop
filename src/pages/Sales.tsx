@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Fragment } from "react";
 import { useReactToPrint } from "react-to-print";
 import jsPDF from "jspdf";
 
@@ -225,11 +225,22 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const isEstimate = docType === "estimates";
   const isIgst = activeInvoice.isIgst === true;
   const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
-  const totalTax = isEstimate ? 0 : items.reduce((sum: number, item: any) => {
+  const totalTax = items.reduce((sum: number, item: any) => {
     const rate = parseFloat(item.gstRate || 0);
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0);
-  const total = isEstimate ? taxableAmount : (taxableAmount + totalTax);
+  const total = taxableAmount + totalTax;
+  
+  const taxGroups = items.reduce((acc: any, item: any) => {
+    const rate = parseFloat(item.gstRate || 0);
+    if (rate > 0) {
+      const amt = parseFloat(item.amount || 0);
+      const tax = amt * (rate / 100);
+      if (!acc[rate]) acc[rate] = { rate, tax: 0 };
+      acc[rate].tax += tax;
+    }
+    return acc;
+  }, {});
   
   const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
@@ -334,9 +345,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     </Dialog>
   );
 
-  const igst = isEstimate ? 0 : totalTax;
-  const cgst = isEstimate ? 0 : totalTax / 2;
-  const sgst = isEstimate ? 0 : totalTax / 2;
+  const igst = totalTax;
+  const cgst = totalTax / 2;
+  const sgst = totalTax / 2;
   
   const a4Width = '210mm';
   const a4Height = '297mm';
@@ -730,8 +741,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
                           <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
                           <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
-                          {!isEstimate && (
-                            isIgst ? (
+                            {isIgst ? (
                               <>
                                 <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
                                 <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
@@ -743,9 +753,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                                 <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
                                 <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
                               </>
-                            )
-                          )}
-                          <td className="px-2 py-2 text-right font-black">{(itemAmount + (isEstimate ? 0 : itemTax)).toFixed(2)}</td>
+                            )}
+                          <td className="px-2 py-2 text-right font-black">{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
                     })}
@@ -803,25 +812,25 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
                             <td className="px-2 py-1 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
                           </tr>
-                          {!isEstimate && (
+                          {Object.values(taxGroups).map((group: any) => (
                             isIgst ? (
-                              <tr>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase">IGST 18 %</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {igst.toFixed(2)}</td>
+                              <tr key={`igst-${group.rate}`}>
+                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
+                                <td className="px-2 py-1 text-right font-black">Rs. {group.tax.toFixed(2)}</td>
                               </tr>
                             ) : (
-                              <>
+                              <Fragment key={`gst-${group.rate}`}>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase">CGST 9 %</td>
-                                  <td className="px-2 py-1 text-right font-black">Rs. {cgst.toFixed(2)}</td>
+                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase">SGST 9 %</td>
-                                  <td className="px-2 py-1 text-right font-black">Rs. {sgst.toFixed(2)}</td>
+                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                                 </tr>
-                              </>
+                              </Fragment>
                             )
-                          )}
+                          ))}
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
                             <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
@@ -882,25 +891,25 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
                           <td className="px-2 py-1 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
                         </tr>
-                        {!isEstimate && (
+                        {Object.values(taxGroups).map((group: any) => (
                           isIgst ? (
-                            <tr>
-                              <td className="px-2 py-1 text-gray-600 font-bold uppercase">IGST 18 %</td>
-                              <td className="px-2 py-1 text-right font-black">Rs. {igst.toFixed(2)}</td>
+                            <tr key={`igst-${group.rate}`}>
+                              <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
+                              <td className="px-2 py-1 text-right font-black">Rs. {group.tax.toFixed(2)}</td>
                             </tr>
                           ) : (
-                            <>
+                            <Fragment key={`gst-${group.rate}`}>
                               <tr>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase">CGST 9 %</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {cgst.toFixed(2)}</td>
+                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
+                                <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                               </tr>
                               <tr>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase">SGST 9 %</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {sgst.toFixed(2)}</td>
+                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
+                                <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                               </tr>
-                            </>
+                            </Fragment>
                           )
-                        )}
+                        ))}
                         <tr>
                           <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
                           <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
@@ -964,12 +973,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                         <td className="text-left py-1 px-0.5 uppercase leading-tight">{item.category || item.name}</td>
                         <td className="text-right py-1 px-0.5">{item.qty}</td>
                         <td className="text-right py-1 px-0.5">{parseFloat(item.rate || 0).toFixed(0)}</td>
-                        <td className="text-right py-1 px-0.5">
-                          {isEstimate
-                            ? parseFloat(item.amount || 0).toFixed(2)
-                            : (parseFloat(item.amount || 0) * (1 + parseFloat(item.gstRate || 0) / 100)).toFixed(2)
-                          }
-                        </td>
+                        <td className="text-right py-1 px-0.5">{parseFloat(item.amount || 0).toFixed(2)}</td>
                       </tr>
                     )) : (
                       <tr className="h-10"><td colSpan={4} className="text-center italic opacity-50">No items listed</td></tr>
@@ -987,8 +991,21 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
                   </div>
                   <div className="ml-auto text-right">
-                    <span className="text-[0.8rem] font-black tabular-nums">Total: {total.toFixed(2)}</span>
+                    <span className="text-[0.85rem] font-black tabular-nums">Total: {total.toFixed(2)}</span>
                   </div>
+                </div>
+                
+                <div className="mt-1 space-y-0.5 font-normal text-[0.55rem] text-right">
+                  {Object.values(taxGroups).map((group: any) => (
+                    isIgst ? (
+                      <p key={`igst-${group.rate}`}>IGST {group.rate}% : {group.tax.toFixed(2)}</p>
+                    ) : (
+                      <Fragment key={`gst-${group.rate}`}>
+                        <p>CGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
+                        <p>SGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
+                      </Fragment>
+                    )
+                  ))}
                 </div>
               </div>
 
@@ -1140,7 +1157,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setCustomerName(source.customerName || "");
         setFileName(source.fileName || "");
         setDate(source.date || new Date().toISOString().split('T')[0]);
-        setGstEnabled(parseFloat(source.tax || 0) > 0 || type !== 'estimates');
+        setGstEnabled(true);
         setIsIgst(source.isIgst === true);
         formInitialized.current = true;
       } else {
@@ -1153,7 +1170,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setCustomerName("");
         setFileName("");
         setDate(new Date().toISOString().split('T')[0]);
-        setGstEnabled(type !== 'estimates');
+        setGstEnabled(true);
         setIsIgst(false);
         formInitialized.current = true;
       }
@@ -1218,7 +1235,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     setCustomerId("");
     setCustomerName("");
     setFileName("");
-    setGstEnabled(type !== 'estimates');
+    setGstEnabled(true);
     setIsIgst(false);
   };
 
