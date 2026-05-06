@@ -338,7 +338,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           <DialogTrigger asChild>
             <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
+          <DialogContent className="max-w-lg overflow-y-auto max-h-[45rem]">
             <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
               {formFields.map((field) => (

@@ -410,7 +410,7 @@ function PriceListRatesModal({ priceList, products, trigger }: { priceList: any,
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="max-w-4xl h-[58rem] max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 border-b">
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -714,7 +714,7 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[45rem] overflow-y-auto">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
           {fields.map((f, i) => (

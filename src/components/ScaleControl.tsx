@@ -20,9 +20,10 @@ import {
  */
 
 const SCALE_OPTIONS: { level: UIScaleLevel; label: string; ariaLabel: string }[] = [
-  { level: "small", label: "A−", ariaLabel: "Decrease text size" },
-  { level: "default", label: "A", ariaLabel: "Reset to default text size" },
-  { level: "large", label: "A+", ariaLabel: "Increase text size" },
+  { level: "xsmall", label: "A−−", ariaLabel: "Extra small text size" },
+  { level: "small", label: "A−", ariaLabel: "Small text size" },
+  { level: "default", label: "A", ariaLabel: "Default text size" },
+  { level: "large", label: "A+", ariaLabel: "Large text size" },
 ];
 
 export function ScaleControl() {

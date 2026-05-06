@@ -301,7 +301,7 @@ function CreatePurchaseModal({ trigger, title, type }: { trigger: React.ReactNod
       setSupplierId(""); setInvNo(""); setOrderNo(""); setOurPoNo(""); setOurDcNo("");
     }}}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col transition-all duration-300">
+      <DialogContent className="max-w-5xl h-[58rem] max-h-[90vh] p-0 overflow-hidden flex flex-col transition-all duration-300">
         <DialogHeader className="p-4 border-b flex flex-row items-center justify-between space-y-0 pr-12">
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-primary" /> {title}

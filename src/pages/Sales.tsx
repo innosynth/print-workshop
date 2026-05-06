@@ -68,7 +68,8 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           ref={triggerRef}
           variant="outline"
           role="combobox"
-          className="w-full mt-1 h-10 justify-between font-normal"
+          className="w-full mt-1 h-8 justify-between font-normal text-[0.75rem] px-2"
+          title={value || `Select ${label.toLowerCase()}`}
           onFocus={() => {
             if (openOnFocus && !justClosed.current) {
               setOpen(true);
@@ -77,7 +78,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           }}
           onKeyDown={onKeyDown}
         >
-          <span className="truncate">{value || `Select ${label.toLowerCase()}`}</span>
+          <span className="truncate" title={value || `Select ${label.toLowerCase()}`}>{value || `Select ${label.toLowerCase()}`}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -86,7 +87,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           <CommandInput
             ref={inputRef}
             placeholder={`Search ${label.toLowerCase()}...`}
-            className="h-9"
+            className="h-7 text-xs"
             onValueChange={setSearch}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -154,9 +155,10 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
                     onSelect(opt);
                     setOpen(false);
                   }}
+                  className="text-xs whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2"
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
-                  {String(opt)}
+                  <Check className={cn("mr-1.5 h-3.5 w-3.5", value === opt ? "opacity-100" : "opacity-0")} />
+                  <span className="truncate">{String(opt)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -535,8 +537,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className={cn(
-        "max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", 
-        paperSize === "thermal" ? "max-w-fit min-w-[360px]" : "max-w-[850px]",
+        "h-[58rem] max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none", 
+        paperSize === "thermal" ? "max-w-fit min-w-[22.5rem]" : "max-w-[63.75rem]",
         autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
       )}>
         <DialogHeader className="sr-only">
@@ -1305,7 +1307,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-5xl w-[95vw] h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
+      <DialogContent className="max-w-[76.8rem] w-[95vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
         <div className="flex flex-col h-full bg-white relative">
           <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
             <DialogTitle>{title}</DialogTitle>
@@ -1531,6 +1533,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                               type="number"
                               value={item.qty}
                               className="h-8 font-bold px-1 text-center text-xs"
+                              title={item.qty.toString()}
                               onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
                             />
                           </div>
@@ -1552,6 +1555,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                               type="number"
                               value={item.rate}
                               className="h-8 font-bold text-xs"
+                              title={item.rate.toString()}
                               onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
                             />
                           </div>
@@ -1563,13 +1567,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                                 type="number"
                                 value={item.gstRate}
                                 className="h-8 font-black text-center text-orange-600 bg-orange-50/10 border-orange-200 text-xs"
+                                title={`${item.gstRate}%`}
                                 onChange={e => updateItem(index, "gstRate", e.target.value)}
                               />
                             </div>
                           )}
                           <div className="space-y-0.5">
                             <Label className="text-[0.625rem] uppercase font-bold text-muted-foreground tracking-tight">Total</Label>
-                            <div className="h-8 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate">
+                            <div className="h-8 flex items-center px-1 bg-primary/5 border border-primary/20 rounded-md font-black text-[0.6875rem] text-primary overflow-hidden truncate" title={`₹${item.amount.toFixed(2)}`}>
                               ₹{item.amount.toFixed(2)}
                             </div>
                           </div>
@@ -2095,9 +2100,9 @@ export default function Sales() {
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
     { 
-      key: "tax", 
-      label: "Tax Amount", 
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+      key: "total", 
+      label: "Total", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",
@@ -2126,9 +2131,9 @@ export default function Sales() {
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
     { 
-      key: "tax", 
-      label: "Tax Amount", 
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+      key: "total", 
+      label: "Total", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",
@@ -2156,9 +2161,9 @@ export default function Sales() {
       render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
     { 
-      key: "tax", 
-      label: "Tax Amount", 
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.tax || 0).toLocaleString("en-IN")}</span>
+      key: "total", 
+      label: "Total", 
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",

@@ -12,7 +12,7 @@
    *  changing this single variable scales the ENTIRE app —
    *  typography, spacing, padding, margins, etc.
    *
-   *  Values:  small=0.875  default=1  large=1.125
+   *  Values:  xsmall=0.75  small=0.875  default=1  large=1.125
    *  Applied via: <html data-scale="..."> + inline script
    * ──────────────────────────────────────────────────
    */

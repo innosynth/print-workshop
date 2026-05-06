@@ -17,11 +17,12 @@ import { useState, useEffect, useCallback } from "react";
  *   large   → 1.125 (root ~18px, everything ~12.5% larger)
  */
 
-export type UIScaleLevel = "small" | "default" | "large";
+export type UIScaleLevel = "xsmall" | "small" | "default" | "large";
 
 const STORAGE_KEY = "ui-scale";
 
 const SCALE_VALUES: Record<UIScaleLevel, number> = {
+  xsmall: 0.70,
   small: 0.875,
   default: 1,
   large: 1.125,
@@ -64,7 +65,9 @@ export function useUIScale() {
   }, []);
 
   const decrease = useCallback(() => {
-    setScale(scale === "large" ? "default" : "small");
+    if (scale === "large") setScale("default");
+    else if (scale === "default") setScale("small");
+    else if (scale === "small") setScale("xsmall");
   }, [scale, setScale]);
 
   const reset = useCallback(() => {
@@ -72,7 +75,9 @@ export function useUIScale() {
   }, [setScale]);
 
   const increase = useCallback(() => {
-    setScale(scale === "small" ? "default" : "large");
+    if (scale === "xsmall") setScale("small");
+    else if (scale === "small") setScale("default");
+    else if (scale === "default") setScale("large");
   }, [scale, setScale]);
 
   return {
@@ -81,6 +86,7 @@ export function useUIScale() {
     decrease,
     reset,
     increase,
+    isXSmall: scale === "xsmall",
     isSmall: scale === "small",
     isDefault: scale === "default",
     isLarge: scale === "large",
