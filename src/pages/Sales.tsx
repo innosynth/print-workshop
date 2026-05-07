@@ -231,14 +231,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const isEstimate = docType === "estimates";
   const isIgst = activeInvoice.isIgst === true;
   const taxableAmount = items.reduce((sum: number, item: any) => sum + parseFloat(item.amount || 0), 0);
-  const totalTax = items.reduce((sum: number, item: any) => {
-    const rate = parseFloat(item.gstRate || 0);
+
+  // Use the saved tax value to determine if GST should be shown
+  const savedTax = parseFloat(activeInvoice.tax || "0");
+
+  const totalTax = savedTax > 0 ? items.reduce((sum: number, item: any) => {
+    const rate = parseFloat(item.gstRate || "0") || 0;
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
-  }, 0);
+  }, 0) : 0;
+
   const total = taxableAmount + totalTax;
 
-  const taxGroups = items.reduce((acc: any, item: any) => {
-    const rate = parseFloat(item.gstRate || 0);
+  const taxGroups = savedTax > 0 ? items.reduce((acc: any, item: any) => {
+    const rate = parseFloat(item.gstRate || "0") || 0;
     if (rate > 0) {
       const amt = parseFloat(item.amount || 0);
       const tax = amt * (rate / 100);
@@ -246,7 +251,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       acc[rate].tax += tax;
     }
     return acc;
-  }, {});
+  }, {}) : {};
 
   const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
 
@@ -258,9 +263,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
 
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
-    const elementHeight = element.offsetHeight;
+    const thermalContent = element.querySelector('.thermal-format') as HTMLElement;
+    
+    // TEMPORARY: Reset container height constraints for accurate measurement
+    const originalMinHeight = element.style.minHeight;
+    element.style.minHeight = 'auto';
+    element.style.height = 'auto';
+    
+    const elementHeight = paperSize === "thermal" && thermalContent ? thermalContent.getBoundingClientRect().height : element.offsetHeight;
     const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
-    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + (isEstimate ? 5 : 20);
+    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 5;
 
     const doc = new jsPDF({
       orientation: paperSize === "A5" ? "landscape" : "portrait",
@@ -272,7 +284,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
       invoicePage.style.setProperty('min-height', paperSize === "thermal" ? 'auto' : (paperSize === "A4" ? '296.5mm' : '138mm'), 'important');
-      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '5px 38px 15px 38px' : (paperSize === "A5" ? "0 24px 8px 24px" : "0 38px 50px 38px"), 'important');
+      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "0 24px 8px 24px" : "0 38px 50px 38px"), 'important');
     }
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
@@ -309,6 +321,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       margin: [pdfMargin, 0, pdfMargin, 0],
       callback: function (pdf) {
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
+        element.style.minHeight = originalMinHeight;
+        element.style.removeProperty('height');
         if (invoicePage) {
           invoicePage.style.removeProperty('min-height');
           invoicePage.style.removeProperty('padding');
@@ -361,14 +375,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const a5Height = '148mm';
 
   const printStyles = `
-   .print-container {
-     width: 100%;
-     display: flex;
-     justify-content: center;
-     background: white;
-     padding: 0;
-     min-height: 100%;
-   }
+    .print-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      background: white;
+      padding: 0;
+    }
 
    .invoice-page {
      background: white;
@@ -416,7 +429,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     .thermal-dashed-line {
       border-top: 1px dashed black !important;
       width: 100% !important;
-      margin: 4mm 0 2mm 0 !important;
+      margin: 2mm 0 1mm 0 !important;
     }
 
     /* Items table - thead repeats on every printed page */
@@ -541,7 +554,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className={cn(
-        "h-[58rem] max-h-[95vh] overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none",
+        paperSize === "thermal" ? "h-auto max-h-[95vh]" : "h-[58rem] max-h-[95vh]",
+        "overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none",
         paperSize === "thermal" ? "max-w-fit min-w-[22.5rem]" : "max-w-[63.75rem]",
         autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
       )}>
@@ -616,7 +630,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial, sans-serif" }}>
 
               <div className="space-y-4">
                 {/* Header Layout */}
@@ -786,7 +800,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
               {paperSize === "A5" ? (
                 <div className={`invoice-footer-section ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block', width: '100%' }}>
-                  <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                  <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial, sans-serif" }}>
                     <div className="col-span-4">
                       <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
                       <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
@@ -820,7 +834,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
 
                     <div className="col-span-5 flex flex-col items-end">
-                      <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                      <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, sans-serif" }}>
                         <tbody>
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
@@ -865,7 +879,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
                 </div>
               ) : (
-                <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial, sans-serif" }}>
                   <div className="col-span-4">
                     <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
                     <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
@@ -899,7 +913,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
 
                   <div className="col-span-5 flex flex-col items-end">
-                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, sans-serif" }}>
                       <tbody>
                         <tr>
                           <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
@@ -945,57 +959,57 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               )}
             </div>
           ) : (
-            <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontSize: `${settingsData?.settings?.thermalFontSize || settings.thermalFontSize}px`, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontFamily: "Arial, sans-serif", height: 'auto', minHeight: 'auto' }}>
               {/* Thermal Format Header */}
               <div>
                 {profile.logoUrl && !isEstimate && <img src={profile.logoUrl} className="h-12 mx-auto mb-2 object-contain" alt="Logo" />}
-                <h1 className="text-xl font-black uppercase tracking-tight leading-none">{profile.name || "Print Workshop"}</h1>
-                <p className="text-[0.6rem] mt-1">( {profile.slogan || "Innovation in Impression"} )</p>
-                <p className={`${isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'} mt-1`}>{profile.address || "No.68, Sarojini Road, Sidhapudur, Coimbatore-44"}</p>
-                <p className={isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'}>Call @ {profile.phone || "+91 84352 66666"}</p>
-                <p className={`${isEstimate ? 'text-[0.61rem]' : 'text-[0.55rem]'} font-bold`}>Mail : {profile.email || "aprintworkshop@gmail.com"}</p>
+                <h1 style={{ fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', lineHeight: '1.1' }}>{profile.name || "Print Workshop"}</h1>
+                <p style={{ fontSize: '8px', marginTop: '2px' }}>( {profile.slogan || "Innovation in Impression"} )</p>
+                <p style={{ fontSize: '8px', marginTop: '1px' }}>{profile.address || "No.4 Dhanlakshminagar, Sidhapudur, CBE-44"}</p>
+                <p style={{ fontSize: '8px' }}>Call @ {profile.phone || "0422 2244066 | 84352 66666"}</p>
+                {profile.email && <p style={{ fontSize: '8px', fontWeight: 900 }}>Mail : {profile.email}</p>}
+                {profile.gst && !isEstimate && <p style={{ fontSize: '8px', fontWeight: 700 }}>GSTIN : {profile.gst}</p>}
 
-                <h2 className="text-[0.85rem] font-black uppercase mt-2">{docTitle}</h2>
-                <div className="thermal-dashed-line" />
+                <h2 style={{ fontSize: '12.5px', fontWeight: 900, textTransform: 'uppercase', marginTop: '4px' }}>{docTitle}</h2>
+                <div className="thermal-dashed-line" style={{ margin: '2px 0' }} />
               </div>
 
-              <div className={`${isEstimate ? 'text-[0.69rem]' : 'text-[0.6rem]'} space-y-0.5`}>
-                <div className="flex justify-between font-normal">
-                  <span>No.<span className={isEstimate ? "font-black" : ""}>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
+              <div style={{ fontSize: '8px', fontStyle: 'normal' }}>
+                <div className="flex justify-between">
+                  <span>No.<span>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
                   <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString('en-GB').split('/').reverse().join('-')}</span>
                 </div>
-                <div className="text-left font-normal">
+                <div className="text-left mt-0.5" style={{ fontSize: '8px' }}>
                   C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
                 </div>
+                {activeInvoice.customerGst && !isEstimate && (
+                  <div className="text-left mt-0.5" style={{ fontSize: '8px' }}>
+                    GSTIN : {activeInvoice.customerGst}
+                  </div>
+                )}
               </div>
 
-              <div className="thermal-dashed-line" />
+              <div className="thermal-dashed-line" style={{ margin: '4px 0' }} />
 
               <div className="mt-1">
-                <table className={`w-full ${isEstimate ? 'text-[0.72rem]' : 'text-[0.625rem]'}`}>
+                <table className="w-full" style={{ fontSize: '8px' }}>
                   <thead>
-                    <tr className="font-black">
+                    <tr style={{ fontWeight: 900 }}>
                       <th className="py-1 text-left px-0.5" style={{ width: '45%' }}>Product Name</th>
                       <th className="text-right py-1 px-0.5" style={{ width: '10%' }}>Qty</th>
                       <th className="text-right py-1 px-0.5" style={{ width: '20%' }}>Rate</th>
                       <th className="text-right py-1 px-0.5" style={{ width: '25%' }}>Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="font-normal">
+                  <tbody>
                     {items && items.length > 0 ? items.map((item: any, i: number) => (
                       <tr key={i} className="align-top">
-                        <td className="text-left py-1 px-0.5 uppercase leading-tight">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {item.category && <span className="text-[0.55rem] opacity-70 font-bold">{item.category}</span>}
-                            {item.category && <span className="opacity-30">.</span>}
-                            <span className="font-black">{item.name}</span>
-                            {item.subCategory && <span className="opacity-30">.</span>}
-                            {item.subCategory && <span className="text-[0.55rem] opacity-70 font-bold">{item.subCategory}</span>}
-                          </div>
+                        <td className="text-left py-1 px-0.5 uppercase leading-tight" style={{ fontSize: '7px', fontWeight: 400 }}>
+                          {item.category || item.name}
                         </td>
-                        <td className="text-right py-1 px-0.5">{item.qty}</td>
-                        <td className="text-right py-1 px-0.5">{parseFloat(item.rate || 0).toFixed(0)}</td>
-                        <td className="text-right py-1 px-0.5">{parseFloat(item.amount || 0).toFixed(2)}</td>
+                        <td className="text-right py-1 px-0.5" style={{ fontSize: '8px' }}>{item.qty}</td>
+                        <td className="text-right py-1 px-0.5" style={{ fontSize: '8px' }}>{parseFloat(item.rate || 0).toFixed(0)}</td>
+                        <td className="text-right py-1 px-0.5" style={{ fontSize: '8px' }}>{parseFloat(item.amount || 0).toFixed(2)}</td>
                       </tr>
                     )) : (
                       <tr className="h-10"><td colSpan={4} className="text-center italic opacity-50">No items listed</td></tr>
@@ -1004,20 +1018,20 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 </table>
               </div>
 
-              <div className="thermal-dashed-line" />
+              <div className="thermal-dashed-line" style={{ margin: '4px 0' }} />
 
-              <div className="text-left font-bold text-[0.625rem] py-1">
-                <div className="flex items-center">
-                  <div className="space-y-1">
+              <div className="text-left py-1">
+                <div className="flex items-center" style={{ fontSize: '8px' }}>
+                  <div className="space-y-0.5 font-bold">
                     <p>Total Items : {items?.length || 0}</p>
                     <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
                   </div>
                   <div className="ml-auto text-right">
-                    <span className="text-[0.85rem] font-black tabular-nums">Total: {total.toFixed(2)}</span>
+                    <span style={{ fontSize: '9px', fontWeight: 900 }}>Total: {total.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="mt-1 space-y-0.5 font-normal text-[0.55rem] text-right">
+                <div className="mt-1 space-y-0.5" style={{ fontSize: '8px', textAlign: 'right' }}>
                   {Object.values(taxGroups).map((group: any) => (
                     isIgst ? (
                       <p key={`igst-${group.rate}`}>IGST {group.rate}% : {group.tax.toFixed(2)}</p>
@@ -1031,22 +1045,22 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 </div>
               </div>
 
-              <div className="thermal-dashed-line" />
+              <div className="thermal-dashed-line" style={{ margin: '4px 0' }} />
 
               <div className="pt-1 space-y-1">
-                <div className={`text-left font-normal ${isEstimate ? 'text-[0.63rem]' : 'text-[0.55rem]'} space-y-0.5`}>
+                <div className="text-left space-y-0.5" style={{ fontSize: '8px' }}>
                   <p>File : {activeInvoice.fileName || "-"}</p>
-                  <p>User :admin | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
+                  <p>User :{profile.name?.split(' ')[0] || "Admin"} | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
                 </div>
-                <div className="mt-2 space-y-0.5">
-                  <p className="font-bold text-[0.6rem]">{profile.website || 'www.printworkshop.in'}</p>
-                  <p className="font-bold text-[0.625rem] uppercase">Thank For Your Business</p>
+                <div className="mt-1 space-y-0.5">
+                  <p style={{ fontSize: '9px', fontWeight: 700 }}>{profile.website || 'www.printworkshop.in'}</p>
+                  <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' }}>Thank For Your Business</p>
                 </div>
               </div>
               {activeQr && (
-                <div className="flex flex-col items-center mt-4">
-                  <img src={activeQr.imageUrl} className={isEstimate ? "h-32 w-32" : "h-24 w-24"} alt="QA" />
-                  <p className="text-[0.55rem] font-black mt-0.5 uppercase tracking-tighter">SCAN & PAY</p>
+                <div className="flex flex-col items-center mt-2">
+                  <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
+                  <p style={{ fontSize: '7px', fontWeight: 900, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>SCAN & PAY</p>
                 </div>
               )}
             </div>
@@ -1254,7 +1268,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     if (focusNextItemTrigger > 0 && open) {
       const timer = setTimeout(() => {
         pendingCategoryRef.current?.focus();
-        
+
         // Handle scroll
         if (scrollViewportRef.current) {
           scrollViewportRef.current.scrollTo({
@@ -1296,7 +1310,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       } else {
         updated = { ...prev, ...fieldOrUpdates };
       }
-      
+
       if (updated.qty !== undefined || updated.rate !== undefined) {
         updated.amount = (Number(updated.qty || 0)) * (Number(updated.rate || 0));
       }
