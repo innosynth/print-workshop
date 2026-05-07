@@ -402,6 +402,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       }
     }
 
+    // Capture content height BEFORE rendering (while spacers are in the DOM)
+    // This must be measured here, not in the callback, because spacers get removed in the callback
+    const finalContentHeightPx = element.scrollHeight || element.offsetHeight;
+    const scaleForPages = formatWidth / windowW;
+    const finalContentHeightPt = finalContentHeightPx * scaleForPages;
+    const pageUsable = formatHeight - pdfMarginTop - pdfMarginBottom;
+    const expectedPages = Math.ceil(finalContentHeightPt / pageUsable);
+
     await doc.html(element, {
       x: 0, y: 0, width: formatWidth, windowWidth: windowW,
       margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
@@ -418,18 +426,26 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           invoicePage.style.removeProperty('min-height');
           invoicePage.style.removeProperty('padding');
         }
-        // Remove trailing blank pages
+        // Remove trailing blank/overflow pages
+        // Method 1: Delete pages beyond what the content actually needs
         const totalPages = pdf.getNumberOfPages();
-        for (let p = totalPages; p > 1; p--) {
+
+        // Delete pages beyond what the content actually needs
+        for (let p = totalPages; p > Math.max(expectedPages, 1); p--) {
+          pdf.deletePage(p);
+        }
+
+        // Method 2: Fallback — also check remaining trailing pages by content size
+        const remainingPages = pdf.getNumberOfPages();
+        for (let p = remainingPages; p > 1; p--) {
           const pageContent = (pdf as any).internal.pages[p];
           const contentStr = Array.isArray(pageContent) ? pageContent.join('') : String(pageContent || '');
           const stripped = contentStr.replace(/[\s\n\r]/g, '');
-          // Compare with previous page to detect blank — a real content page is much larger
           const prevContent = (pdf as any).internal.pages[p - 1];
           const prevStr = Array.isArray(prevContent) ? prevContent.join('') : String(prevContent || '');
           const prevStripped = prevStr.replace(/[\s\n\r]/g, '');
-          // A blank page is either very small absolutely, or tiny compared to the previous page
-          if (stripped.length < 5000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.15)) {
+          // A blank page: small absolutely OR tiny compared to the previous page
+          if (stripped.length < 20000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.3)) {
             pdf.deletePage(p);
           } else {
             break;
@@ -686,11 +702,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           .a5-format .text-xl { font-size: 1rem !important; }
           .a5-format .text-lg { font-size: 0.85rem !important; }
           .a5-format .text-base { font-size: 0.75rem !important; }
-          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.52rem !important; }
-          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.52rem !important; }
-          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.47rem !important; }
-          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.56rem !important; }
-          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.58rem !important; }
+          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.57rem !important; }
+          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.57rem !important; }
+          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.52rem !important; }
+          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.62rem !important; }
+          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.64rem !important; }
           .a5-format .text-\\[0\\.75rem\\] { font-size: 0.56rem !important; }
           .a5-format .text-\\[0\\.55rem\\] { font-size: 0.4rem !important; }
           .a5-format .text-\\[0\\.5rem\\] { font-size: 0.36rem !important; }
@@ -716,7 +732,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           .a5-format .w-16.h-16 { width: 3rem !important; height: 3rem !important; }
           
           /* Shrink Table for A5 */
-          .a5-format .invoice-items-table thead th { height: 20px !important; line-height: 20px !important; font-size: 8px !important; }
+          .a5-format .invoice-items-table thead th { height: 20px !important; line-height: 20px !important; font-size: 8.8px !important; }
 
           /* Header Text Scaling for A5 */
           .a5-format .header-brand-name { font-size: 1.2rem !important; }
@@ -971,12 +987,12 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             qrBlobUrl ? (
                               <img
                                 src={qrBlobUrl}
-                                style={{ height: '90px', width: '90px', objectFit: 'contain' }}
+                                style={{ height: '130px', width: '130px', objectFit: 'contain' }}
                                 className="p-1 mb-1 mx-auto"
                                 alt="Dynamic UPI QR"
                               />
                             ) : (
-                              <div style={{ height: '90px', width: '90px' }} className="flex items-center justify-center mx-auto">
+                              <div style={{ height: '130px', width: '130px' }} className="flex items-center justify-center mx-auto">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
                               </div>
                             )
