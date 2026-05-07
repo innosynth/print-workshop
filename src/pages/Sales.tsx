@@ -264,12 +264,12 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
     const thermalContent = element.querySelector('.thermal-format') as HTMLElement;
-    
+
     // TEMPORARY: Reset container height constraints for accurate measurement
     const originalMinHeight = element.style.minHeight;
     element.style.minHeight = 'auto';
     element.style.height = 'auto';
-    
+
     const elementHeight = paperSize === "thermal" && thermalContent ? thermalContent.getBoundingClientRect().height : element.offsetHeight;
     const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
     const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 5;
@@ -283,14 +283,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
-      invoicePage.style.setProperty('min-height', paperSize === "thermal" ? 'auto' : (paperSize === "A4" ? '296.5mm' : '138mm'), 'important');
-      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "0 24px 8px 24px" : "0 38px 50px 38px"), 'important');
+      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '284mm' : '135mm') : 'auto');
+      invoicePage.style.setProperty('min-height', minH, 'important');
+      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "0 24px 8px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
     }
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
     let spacer: HTMLElement | null = null;
-    const pdfMargin = paperSize === "thermal" ? 0 : (paperSize === "A5" ? 25 : 35);
-    const usablePageHeight = formatHeight - (pdfMargin * 2);
+    const pdfMarginTop = paperSize === "thermal" ? 0 : 15;
+    const pdfMarginBottom = paperSize === "thermal" ? 0 : 20;
+    const usablePageHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
 
     if (footerEl && paperSize !== "thermal") {
       const scaleFactor = formatWidth / windowW;
@@ -301,12 +303,15 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
       const footerTopPt = footerTopPx * scaleFactor;
       const footerHeightPt = footerHeightPx * scaleFactor;
-      const pageIndex = Math.floor(footerTopPt / usablePageHeight);
-      const posOnPage = footerTopPt - (pageIndex * usablePageHeight);
-      const safetyBuffer = 30;
+      // Account for margins: each page loses (marginTop + marginBottom) from usable space
+      const pageContentHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
+      const pageIndex = Math.floor(footerTopPt / pageContentHeight);
+      const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
+      const safetyBuffer = 20;
 
-      if (!fitsOnOnePage && (posOnPage + footerHeightPt + safetyBuffer) > usablePageHeight && posOnPage > 0) {
-        const pushPt = (usablePageHeight - posOnPage) + 10;
+      // If the footer won't fit on the current page, push it to the next page
+      if (!fitsOnOnePage && (posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
+        const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
         const pushPx = pushPt / scaleFactor;
         spacer = document.createElement('div');
         spacer.style.height = `${pushPx}px`;
@@ -318,7 +323,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
     await doc.html(element, {
       x: 0, y: 0, width: formatWidth, windowWidth: windowW,
-      margin: [pdfMargin, 0, pdfMargin, 0],
+      margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
       callback: function (pdf) {
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
         element.style.minHeight = originalMinHeight;
@@ -326,6 +331,23 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         if (invoicePage) {
           invoicePage.style.removeProperty('min-height');
           invoicePage.style.removeProperty('padding');
+        }
+        // Remove trailing blank pages
+        const totalPages = pdf.getNumberOfPages();
+        for (let p = totalPages; p > 1; p--) {
+          const pageContent = (pdf as any).internal.pages[p];
+          const contentStr = Array.isArray(pageContent) ? pageContent.join('') : String(pageContent || '');
+          const stripped = contentStr.replace(/[\s\n\r]/g, '');
+          // Compare with previous page to detect blank — a real content page is much larger
+          const prevContent = (pdf as any).internal.pages[p - 1];
+          const prevStr = Array.isArray(prevContent) ? prevContent.join('') : String(prevContent || '');
+          const prevStripped = prevStr.replace(/[\s\n\r]/g, '');
+          // A blank page is either very small absolutely, or tiny compared to the previous page
+          if (stripped.length < 5000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.15)) {
+            pdf.deletePage(p);
+          } else {
+            break;
+          }
         }
         pdf.save(`${docNo}_${custName}.pdf`);
       }
@@ -370,9 +392,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const sgst = totalTax / 2;
 
   const a4Width = '210mm';
-  const a4Height = '297mm';
+  const a4Height = '287mm';
   const a5Width = '210mm';
-  const a5Height = '148mm';
+  const a5Height = '145mm';
 
   const printStyles = `
     .print-container {
@@ -387,9 +409,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
      background: white;
      box-shadow: none;
      width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
-     min-height: ${paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto"} !important;
+     min-height: ${fitsOnOnePage ? (paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto") : "auto"} !important;
      margin: 0 auto;
-     padding: ${paperSize === "A5" ? "24px" : "0 38px 50px 38px"} !important;
+     padding: ${paperSize === "A5" ? "24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")} !important;
      box-sizing: border-box;
      display: flex;
      flex-direction: column;
@@ -705,8 +727,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
                     <p className="font-bold uppercase">State & Code:</p>
                   </div>
-                  <div className="col-span-5 space-y-1">
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <div className="col-span-5 space-y-0.5">
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-0">
                       <span className="text-gray-500 font-bold uppercase">{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</span>
                       <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
 
@@ -759,11 +781,17 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           <td className="px-0.5 py-2 text-center">{i + 1}</td>
                           <td className="px-2 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {item.category && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.category}</span>}
-                              {item.category && <span className="text-gray-300">.</span>}
-                              <span className="font-black uppercase text-[0.7rem]">{item.name}</span>
-                              {item.subCategory && <span className="text-gray-300">.</span>}
-                              {item.subCategory && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.subCategory}</span>}
+                              {paperSize === "A4" ? (
+                                <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
+                              ) : (
+                                <>
+                                  {item.category && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.category}</span>}
+                                  {item.category && <span className="text-gray-300">.</span>}
+                                  <span className="font-black uppercase text-[0.7rem]">{item.name}</span>
+                                  {item.subCategory && <span className="text-gray-300">.</span>}
+                                  {item.subCategory && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.subCategory}</span>}
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
@@ -827,7 +855,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <div className="col-span-3 flex flex-col items-center justify-start pt-1">
                       {activeQr && (
                         <div className="text-center">
-                          <img src={activeQr.imageUrl} className="h-[135px] w-[135px] p-1 mb-1" alt="Payment QR" />
+                          <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                           <p className="text-[10px] font-black uppercase text-gray-700">Scan to Pay</p>
                         </div>
                       )}
@@ -906,7 +934,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   <div className="col-span-3 flex flex-col items-center justify-start pt-1">
                     {activeQr && (
                       <div className="text-center">
-                        <img src={activeQr.imageUrl} className="h-[135px] w-[135px] p-1 mb-1" alt="Payment QR" />
+                        <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                         <p className="text-[10px] font-black uppercase text-gray-700">Scan to Pay</p>
                       </div>
                     )}
