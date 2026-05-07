@@ -199,7 +199,7 @@ function InvoicePrintPreview({ invoice, onClose }: { invoice: any, onClose: () =
                   <span className={`${paperSize === "thermal" ? "text-xs" : "text-sm"} font-semibold`}>₹{parseFloat(invoice.tax).toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between py-1 border-t-2 border-black mt-1 pt-1">
-                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>Total:</span>
+                  <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>{paperSize === "thermal" ? "Grand Total:" : "Total:"}</span>
                   <span className={paperSize === "thermal" ? "text-sm font-bold" : "font-bold"}>₹{parseFloat(invoice.total).toLocaleString("en-IN")}</span>
                 </div>
               </div>
