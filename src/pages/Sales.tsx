@@ -867,10 +867,30 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
 
                     <div className="col-span-3 flex flex-col items-center justify-start pt-1">
-                      {activeQr && (
+                      {activeQr && total > 0 && (
                         <div className="text-center">
-                          <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
-                          <p className="text-[10px] font-black uppercase text-gray-700">Scan to Pay</p>
+                          {activeQr.isDynamic ? (
+                            <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
+                              <QRCodeCanvas
+                                value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
+                                size={220}
+                                level="H"
+                                marginSize={1}
+                                includeMargin={true}
+                                imageSettings={{
+                                  src: "/favicon.png",
+                                  x: undefined,
+                                  y: undefined,
+                                  height: 24,
+                                  width: 24,
+                                  excavate: true,
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                          )}
+                          <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                         </div>
                       )}
                     </div>
@@ -946,10 +966,30 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
 
                   <div className="col-span-3 flex flex-col items-center justify-start pt-1">
-                    {activeQr && (
+                    {activeQr && total > 0 && (
                       <div className="text-center">
-                        <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
-                        <p className="text-[10px] font-black uppercase text-gray-700">Scan to Pay</p>
+                        {activeQr.isDynamic ? (
+                          <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
+                            <QRCodeCanvas
+                              value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
+                              size={220}
+                              level="H"
+                              marginSize={1}
+                              includeMargin={true}
+                              imageSettings={{
+                                src: "/favicon.png",
+                                x: undefined,
+                                y: undefined,
+                                height: 24,
+                                width: 24,
+                                excavate: true,
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                        )}
+                        <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                       </div>
                     )}
                   </div>
@@ -1099,10 +1139,22 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   <p style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' }}>Thank For Your Business</p>
                 </div>
               </div>
-              {activeQr && (
+              {activeQr && total > 0 && (
                 <div className="flex flex-col items-center mt-2">
-                  <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
-                  <p style={{ fontSize: '7px', fontWeight: 900, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>SCAN & PAY</p>
+                  {activeQr.isDynamic ? (
+                    <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
+                      <QRCodeCanvas
+                        value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
+                        size={160}
+                        level="H"
+                        marginSize={1}
+                        includeMargin={true}
+                      />
+                    </div>
+                  ) : (
+                    <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
+                  )}
+                  <p style={{ fontSize: '7px', fontWeight: 900, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>SCAN and PAY</p>
                 </div>
               )}
             </div>

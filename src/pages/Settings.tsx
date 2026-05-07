@@ -304,11 +304,23 @@ function PaymentQrManager() {
   const { toast } = useToast();
   const [qrName, setQrName] = useState("");
   const [qrImage, setQrImage] = useState("");
+  const [isDynamic, setIsDynamic] = useState(false);
+  const [upiId, setUpiId] = useState("vyapar.172141864859@hdfcbank.com");
+  const [payeeName, setPayeeName] = useState("InnoSynth");
 
-  const { data: qrs = [], isLoading } = useQuery({
+  const { data: qrsData, isLoading, error } = useQuery({
     queryKey: ["payment_qrs"],
-    queryFn: () => fetch("/api/core?resource=payment_qrs").then(res => res.json())
+    queryFn: async () => {
+      const res = await fetch("/api/core?resource=payment_qrs");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch QR codes");
+      }
+      return res.json();
+    }
   });
+
+  const qrs = Array.isArray(qrsData) ? qrsData : [];
 
   const createQrMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -323,6 +335,9 @@ function PaymentQrManager() {
       queryClient.invalidateQueries({ queryKey: ["payment_qrs"] });
       setQrName("");
       setQrImage("");
+      setIsDynamic(false);
+      setUpiId("vyapar.172141864859@hdfcbank.com");
+      setPayeeName("InnoSynth");
       toast({ title: "QR added", description: "Payment QR has been added." });
     }
   });
@@ -377,34 +392,87 @@ function PaymentQrManager() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-primary/20 bg-primary/5 h-fit">
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-2">
-              <Label>QR Name / Label</Label>
-              <Input placeholder="e.g. PhonePe - General" value={qrName} onChange={e => setQrName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>QR Image</Label>
-              <div className="border-2 border-dashed border-primary/20 rounded-lg p-4 text-center hover:bg-primary/10 transition-all cursor-pointer relative">
-                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleFileUpload} />
-                {qrImage ? (
-                  <img src={qrImage} className="h-32 mx-auto rounded shadow-lg" alt="Preview" />
-                ) : (
-                  <div className="py-4">
-                    <Plus className="h-8 w-8 mx-auto text-primary/50 mb-2" />
-                    <p className="text-xs text-primary/70 font-medium">Click to upload QR image</p>
-                  </div>
-                )}
+        <Card className="border-primary/20 bg-primary/5 h-fit shadow-lg shadow-primary/5">
+          <CardContent className="pt-6 space-y-5">
+            <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-primary/20">
+              <div>
+                <Label className="text-xs font-black uppercase tracking-widest text-primary">Dynamic UPI QR</Label>
+                <p className="text-[0.625rem] text-muted-foreground font-bold">Generate QR based on Invoice amount</p>
               </div>
+              <Switch checked={isDynamic} onCheckedChange={setIsDynamic} />
             </div>
-            <Button className="w-full" onClick={() => createQrMutation.mutate({ name: qrName, imageUrl: qrImage })} disabled={!qrName || !qrImage || createQrMutation.isPending}>
+
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-[0.625rem] uppercase font-black text-muted-foreground ml-1">QR Label Name</Label>
+                <Input placeholder="e.g. PhonePe - General" value={qrName} onChange={e => setQrName(e.target.value)} className="h-10 bg-white" />
+              </div>
+
+              {isDynamic ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
+                    <Label className="text-[0.625rem] uppercase font-black text-muted-foreground ml-1">UPI ID (VPA)</Label>
+                    <Input placeholder="e.g. name@bank" value={upiId} onChange={e => setUpiId(e.target.value)} className="h-10 bg-white" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[0.625rem] uppercase font-black text-muted-foreground ml-1">Payee Business Name</Label>
+                    <Input placeholder="e.g. InnoSynth" value={payeeName} onChange={e => setPayeeName(e.target.value)} className="h-10 bg-white" />
+                  </div>
+                  <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                    <p className="text-[0.625rem] font-bold text-primary uppercase leading-tight">
+                      <ShieldCheck className="h-3 w-3 inline mr-1 mb-0.5" /> 
+                      Amount & Invoice No will be automatically embedded in the QR code for every transaction.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label className="text-[0.625rem] uppercase font-black text-muted-foreground ml-1">Static QR Image</Label>
+                  <div className="border-2 border-dashed border-primary/20 rounded-lg p-4 text-center hover:bg-primary/5 transition-all cursor-pointer relative bg-white min-h-[140px] flex flex-col items-center justify-center">
+                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleFileUpload} />
+                    {qrImage ? (
+                      <div className="relative group">
+                        <img src={qrImage} className="h-28 mx-auto rounded shadow-lg border border-border" alt="Preview" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
+                          <Plus className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-2">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <Plus className="h-5 w-5 text-primary" />
+                        </div>
+                        <p className="text-[0.625rem] text-primary/70 font-black uppercase tracking-widest">Click to upload QR image</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Button 
+              className="w-full h-11 font-black uppercase tracking-widest shadow-lg shadow-primary/20" 
+              onClick={() => createQrMutation.mutate({ 
+                name: qrName, 
+                imageUrl: isDynamic ? null : qrImage, 
+                isDynamic, 
+                upiId: isDynamic ? upiId : null, 
+                payeeName: isDynamic ? payeeName : null 
+              })} 
+              disabled={!qrName || (!isDynamic && !qrImage) || (isDynamic && (!upiId || !payeeName)) || createQrMutation.isPending}
+            >
               {createQrMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Save QR Code
+              {isDynamic ? "Create Dynamic QR" : "Save Static QR"}
             </Button>
           </CardContent>
         </Card>
 
         <div className="space-y-3 px-1 overflow-y-auto max-h-[500px]">
+          {error && (
+            <div className="p-4 bg-destructive/10 text-destructive text-xs rounded-lg border border-destructive/20 font-bold">
+              Error: {(error as Error).message}
+            </div>
+          )}
           {qrs.map((qr: any) => (
             <QrCard key={qr.id} qr={qr} toggleMutation={toggleMutation} deleteMutation={deleteMutation} />
           ))}
@@ -425,21 +493,35 @@ function QrCard({ qr, toggleMutation, deleteMutation }: any) {
   return (
     <Card className="border-border bg-white shadow-sm overflow-hidden group">
       <CardContent className="p-4 flex gap-4">
-        <div className="relative h-20 w-20 shrink-0 bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden">
-          {!imgLoaded && <Loader2 className="absolute h-5 w-5 animate-spin text-primary/30" />}
-          <img 
-            src={qr.imageUrl} 
-            className={`h-full w-full rounded-lg border border-border p-1 bg-white transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`} 
-            alt={qr.name} 
-            onLoad={() => setImgLoaded(true)}
-          />
-          <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg ${imgLoaded ? 'block' : 'hidden'}`}>
-            <Printer className="h-5 w-5 text-white" />
+        <div className="relative h-20 w-20 shrink-0 bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden border border-border/50">
+          {qr.isDynamic ? (
+            <div className="flex flex-col items-center justify-center bg-primary/10 h-full w-full">
+              <div className="bg-white p-1 rounded shadow-sm">
+                <ShieldCheck className="h-8 w-8 text-primary" />
+              </div>
+              <p className="text-[0.5rem] font-black uppercase text-primary mt-1 tracking-tighter">DYNAMIC</p>
+            </div>
+          ) : (
+            <>
+              {!imgLoaded && <Loader2 className="absolute h-5 w-5 animate-spin text-primary/30" />}
+              <img 
+                src={qr.imageUrl} 
+                className={`h-full w-full rounded-lg border border-border p-1 bg-white transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`} 
+                alt={qr.name} 
+                onLoad={() => setImgLoaded(true)}
+              />
+            </>
+          )}
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+            {qr.isDynamic ? <ShieldCheck className="h-5 w-5 text-white" /> : <Printer className="h-5 w-5 text-white" />}
           </div>
         </div>
         <div className="flex-1 space-y-3">
           <div className="flex justify-between items-start">
-            <h4 className="font-bold text-sm text-foreground">{qr.name}</h4>
+            <div>
+              <h4 className="font-bold text-sm text-foreground leading-tight">{qr.name}</h4>
+              {qr.isDynamic && <p className="text-[0.625rem] text-primary font-black uppercase tracking-widest mt-0.5">{qr.payeeName}</p>}
+            </div>
             <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteMutation.mutate(qr.id)}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

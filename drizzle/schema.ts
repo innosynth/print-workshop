@@ -1,4 +1,4 @@
-import { pgTable, unique, serial, text, numeric, timestamp, date, integer, foreignKey, boolean } from "drizzle-orm/pg-core"
+import { pgTable, unique, serial, text, numeric, timestamp, date, foreignKey, integer, boolean } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -47,6 +47,39 @@ export const expenses = pgTable("expenses", {
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
 });
 
+export const invoices = pgTable("invoices", {
+	id: serial().primaryKey().notNull(),
+	invoiceNo: text().notNull(),
+	date: date().defaultNow().notNull(),
+	customerId: integer(),
+	amount: numeric().notNull(),
+	tax: numeric().notNull(),
+	total: numeric().notNull(),
+	status: text().default('Paid'),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	customerName: text(),
+	fileName: text(),
+	isIgst: boolean().default(false),
+}, (table) => [
+	foreignKey({
+			columns: [table.customerId],
+			foreignColumns: [contacts.id],
+			name: "invoices_customerId_contacts_id_fk"
+		}),
+	unique("invoices_invoiceNo_unique").on(table.invoiceNo),
+]);
+
+export const printSettings = pgTable("printSettings", {
+	id: serial().primaryKey().notNull(),
+	defaultPaperSize: text().default('A4'),
+	a4Margin: integer().default(10),
+	a4FontSize: integer().default(12),
+	thermalWidth: text().default('80'),
+	thermalHeight: text().default('297'),
+	thermalMargin: integer().default(2),
+	thermalFontSize: integer().default(10),
+});
+
 export const contacts = pgTable("contacts", {
 	id: serial().primaryKey().notNull(),
 	name: text().notNull(),
@@ -60,37 +93,8 @@ export const contacts = pgTable("contacts", {
 	city: text(),
 	balance: numeric().default('0'),
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	contactPerson: text(),
 });
-
-export const printSettings = pgTable("printSettings", {
-	id: serial().primaryKey().notNull(),
-	defaultPaperSize: text().default('A4'),
-	a4Margin: integer().default(10),
-	a4FontSize: integer().default(12),
-	thermalWidth: text().default('80'),
-	thermalHeight: text().default('297'),
-	thermalMargin: integer().default(2),
-	thermalFontSize: integer().default(10),
-});
-
-export const invoices = pgTable("invoices", {
-	id: serial().primaryKey().notNull(),
-	invoiceNo: text().notNull(),
-	date: date().defaultNow().notNull(),
-	customerId: integer(),
-	amount: numeric().notNull(),
-	tax: numeric().notNull(),
-	total: numeric().notNull(),
-	status: text().default('Paid'),
-	createdAt: timestamp({ mode: 'string' }).defaultNow(),
-}, (table) => [
-	foreignKey({
-			columns: [table.customerId],
-			foreignColumns: [contacts.id],
-			name: "invoices_customerId_contacts_id_fk"
-		}),
-	unique("invoices_invoiceNo_unique").on(table.invoiceNo),
-]);
 
 export const products = pgTable("products", {
 	id: serial().primaryKey().notNull(),
@@ -108,6 +112,11 @@ export const products = pgTable("products", {
 	description: text(),
 	gstRate: numeric().default('18'),
 	hsnCode: text(),
+	subCategory: text(),
+	brand: text(),
+	rack: text(),
+	partNo: text(),
+	barcode: text(),
 }, (table) => [
 	unique("products_sku_unique").on(table.sku),
 ]);
@@ -117,10 +126,16 @@ export const purchaseOrders = pgTable("purchaseOrders", {
 	orderNo: text().notNull(),
 	date: date().defaultNow().notNull(),
 	supplierId: integer(),
-	expectedDate: date(),
+	dueDate: date(),
 	amount: numeric().notNull(),
 	status: text().default('Pending'),
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	invNo: text(),
+	ourPoNo: text(),
+	ourDcNo: text(),
+	isIgst: boolean().default(false),
+	tax: numeric().notNull(),
+	total: numeric().notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.supplierId],
@@ -138,6 +153,9 @@ export const quotations = pgTable("quotations", {
 	amount: numeric().notNull(),
 	status: text().default('Pending'),
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	customerName: text(),
+	fileName: text(),
+	isIgst: boolean().default(false),
 }, (table) => [
 	foreignKey({
 			columns: [table.customerId],
@@ -158,40 +176,6 @@ export const stockMovements = pgTable("stockMovements", {
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
 });
 
-export const invoiceItems = pgTable("invoiceItems", {
-	id: serial().primaryKey().notNull(),
-	invoiceId: integer(),
-	name: text().notNull(),
-	qty: integer().notNull(),
-	rate: numeric().notNull(),
-	amount: numeric().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.invoiceId],
-			foreignColumns: [invoices.id],
-			name: "invoiceItems_invoiceId_invoices_id_fk"
-		}),
-]);
-
-export const purchaseEntries = pgTable("purchaseEntries", {
-	id: serial().primaryKey().notNull(),
-	purchaseNo: text().notNull(),
-	date: date().defaultNow().notNull(),
-	supplierId: integer(),
-	amount: numeric().notNull(),
-	tax: numeric().notNull(),
-	total: numeric().notNull(),
-	status: text().default('Paid'),
-	createdAt: timestamp({ mode: 'string' }).defaultNow(),
-}, (table) => [
-	foreignKey({
-			columns: [table.supplierId],
-			foreignColumns: [contacts.id],
-			name: "purchaseEntries_supplierId_contacts_id_fk"
-		}),
-	unique("purchaseEntries_purchaseNo_unique").on(table.purchaseNo),
-]);
-
 export const salesReturns = pgTable("salesReturns", {
 	id: serial().primaryKey().notNull(),
 	returnNo: text().notNull(),
@@ -208,6 +192,51 @@ export const salesReturns = pgTable("salesReturns", {
 			name: "salesReturns_customerId_contacts_id_fk"
 		}),
 	unique("salesReturns_returnNo_unique").on(table.returnNo),
+]);
+
+export const purchaseEntries = pgTable("purchaseEntries", {
+	id: serial().primaryKey().notNull(),
+	purchaseNo: text().notNull(),
+	date: date().defaultNow().notNull(),
+	supplierId: integer(),
+	amount: numeric().notNull(),
+	tax: numeric().notNull(),
+	total: numeric().notNull(),
+	status: text().default('Paid'),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	dueDate: date(),
+	invNo: text(),
+	orderNo: text(),
+	ourPoNo: text(),
+	ourDcNo: text(),
+	isIgst: boolean().default(false),
+	receivedAmount: numeric().default('0'),
+}, (table) => [
+	foreignKey({
+			columns: [table.supplierId],
+			foreignColumns: [contacts.id],
+			name: "purchaseEntries_supplierId_contacts_id_fk"
+		}),
+	unique("purchaseEntries_purchaseNo_unique").on(table.purchaseNo),
+]);
+
+export const invoiceItems = pgTable("invoiceItems", {
+	id: serial().primaryKey().notNull(),
+	invoiceId: integer(),
+	name: text().notNull(),
+	qty: integer().notNull(),
+	rate: numeric().notNull(),
+	amount: numeric().notNull(),
+	hsnCode: text(),
+	gstRate: numeric().default('18'),
+	category: text(),
+	subCategory: text(),
+}, (table) => [
+	foreignKey({
+			columns: [table.invoiceId],
+			foreignColumns: [invoices.id],
+			name: "invoiceItems_invoiceId_invoices_id_fk"
+		}),
 ]);
 
 export const roles = pgTable("roles", {
@@ -234,28 +263,137 @@ export const users = pgTable("users", {
 	unique("users_email_unique").on(table.email),
 ]);
 
-export const paymentQrs = pgTable("paymentQrs", {
-	id: serial().primaryKey().notNull(),
-	name: text().notNull(),
-	imageUrl: text().notNull(),
-	isActiveForInvoice: boolean().default(false),
-	isActiveForEstimate: boolean().default(false),
-	createdAt: timestamp({ mode: 'string' }).defaultNow(),
-});
-
 export const meterReadings = pgTable("meterReadings", {
 	id: serial().primaryKey().notNull(),
 	machineName: text().notNull(),
 	date: date().defaultNow().notNull(),
-	startReading: numeric().notNull(),
-	endReading: numeric(),
-	diff: numeric(),
+	openingReading: numeric().notNull(),
+	closingReading: numeric(),
+	totalUsage: numeric(),
 	userId: integer(),
 	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	bwLarge: numeric().default('0'),
+	bwSmall: numeric().default('0'),
+	colorLarge: numeric().default('0'),
+	colorSmall: numeric().default('0'),
+	lsColor: numeric().default('0'),
+	lsMono: numeric().default('0'),
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "meterReadings_userId_users_id_fk"
 		}),
+]);
+
+export const machines = pgTable("machines", {
+	id: serial().primaryKey().notNull(),
+	name: text().notNull(),
+	status: text().default('Active'),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("machines_name_unique").on(table.name),
+]);
+
+export const priceLists = pgTable("priceLists", {
+	id: serial().primaryKey().notNull(),
+	name: text().notNull(),
+	effectiveFrom: date(),
+	status: text().default('Active'),
+	description: text(),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+});
+
+export const priceListItems = pgTable("priceListItems", {
+	id: serial().primaryKey().notNull(),
+	priceListId: integer(),
+	productId: integer(),
+	customPrice: numeric().notNull(),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.priceListId],
+			foreignColumns: [priceLists.id],
+			name: "priceListItems_priceListId_priceLists_id_fk"
+		}),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "priceListItems_productId_products_id_fk"
+		}),
+]);
+
+export const purchaseItems = pgTable("purchaseItems", {
+	id: serial().primaryKey().notNull(),
+	purchaseId: integer(),
+	purchaseOrderId: integer(),
+	name: text().notNull(),
+	sku: text(),
+	qty: numeric().notNull(),
+	rate: numeric().notNull(),
+	amount: numeric().notNull(),
+	hsnCode: text(),
+	gstRate: numeric().default('18'),
+	packing: text(),
+	unit: text().default('Nos'),
+}, (table) => [
+	foreignKey({
+			columns: [table.purchaseId],
+			foreignColumns: [purchaseEntries.id],
+			name: "purchaseItems_purchaseId_purchaseEntries_id_fk"
+		}),
+	foreignKey({
+			columns: [table.purchaseOrderId],
+			foreignColumns: [purchaseOrders.id],
+			name: "purchaseItems_purchaseOrderId_purchaseOrders_id_fk"
+		}),
+]);
+
+export const quotationItems = pgTable("quotationItems", {
+	id: serial().primaryKey().notNull(),
+	quotationId: integer(),
+	name: text(),
+	qty: numeric(),
+	rate: numeric(),
+	amount: numeric(),
+	hsnCode: text(),
+	gstRate: numeric().default('18'),
+	category: text(),
+	subCategory: text(),
+}, (table) => [
+	foreignKey({
+			columns: [table.quotationId],
+			foreignColumns: [quotations.id],
+			name: "quotationItems_quotationId_quotations_id_fk"
+		}),
+]);
+
+export const paymentQrs = pgTable("paymentQrs", {
+	id: serial().primaryKey().notNull(),
+	name: text().notNull(),
+	imageUrl: text(),
+	isActiveForInvoice: boolean().default(false),
+	isActiveForEstimate: boolean().default(false),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+	upiId: text(),
+	payeeName: text(),
+	isDynamic: boolean().default(false),
+});
+
+export const productBrands = pgTable("productBrands", {
+	id: serial().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("productBrands_name_unique").on(table.name),
+]);
+
+export const productCategories = pgTable("productCategories", {
+	id: serial().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	createdAt: timestamp({ mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("productCategories_name_unique").on(table.name),
 ]);

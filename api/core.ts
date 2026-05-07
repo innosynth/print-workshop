@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
 import { contacts, products, companyProfile, printSettings, users, roles, paymentQrs, productCategories, productBrands, priceLists, priceListItems } from '../db/schema.js';
-import { eq, desc, and, not } from 'drizzle-orm';
+import { eq, desc, and, not, sql } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   const { resource, type } = request.query;
@@ -43,30 +43,35 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     if (resource === 'payment_qrs') {
-      if (method === 'GET') {
-        const qrs = await db.select().from(paymentQrs).orderBy(desc(paymentQrs.createdAt));
-        return response.status(200).json(qrs);
-      }
-      if (method === 'POST') {
-        const data = request.body;
-        if (data.isActiveForInvoice) {
-          await db.update(paymentQrs).set({ isActiveForInvoice: false });
+      try {
+        if (method === 'GET') {
+          const qrs = await db.select().from(paymentQrs).orderBy(desc(paymentQrs.createdAt));
+          return response.status(200).json(qrs);
         }
-        if (data.isActiveForEstimate) {
-          await db.update(paymentQrs).set({ isActiveForEstimate: false });
+        if (method === 'POST') {
+          const data = request.body;
+          if (data.isActiveForInvoice) {
+            await db.update(paymentQrs).set({ isActiveForInvoice: false });
+          }
+          if (data.isActiveForEstimate) {
+            await db.update(paymentQrs).set({ isActiveForEstimate: false });
+          }
+          if (data.id) {
+            const updated = await db.update(paymentQrs).set(data).where(eq(paymentQrs.id, data.id)).returning();
+            return response.status(200).json(updated[0]);
+          } else {
+            const inserted = await db.insert(paymentQrs).values(data).returning();
+            return response.status(200).json(inserted[0]);
+          }
         }
-        if (data.id) {
-          const updated = await db.update(paymentQrs).set(data).where(eq(paymentQrs.id, data.id)).returning();
-          return response.status(200).json(updated[0]);
-        } else {
-          const inserted = await db.insert(paymentQrs).values(data).returning();
-          return response.status(200).json(inserted[0]);
+        if (method === 'DELETE') {
+          const { id } = request.query;
+          await db.delete(paymentQrs).where(eq(paymentQrs.id, parseInt(id as string)));
+          return response.status(200).json({ success: true });
         }
-      }
-      if (method === 'DELETE') {
-        const { id } = request.query;
-        await db.delete(paymentQrs).where(eq(paymentQrs.id, parseInt(id as string)));
-        return response.status(200).json({ success: true });
+      } catch (error: any) {
+        console.error('Payment QR error:', error);
+        return response.status(500).json({ error: error.message || 'Internal Server Error' });
       }
     }
 

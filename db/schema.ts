@@ -266,7 +266,10 @@ export const productBrands = pgTable("productBrands", {
 export const paymentQrs = pgTable("paymentQrs", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  imageUrl: text("imageUrl").notNull(),
+  imageUrl: text("imageUrl"), // Optional if dynamic
+  upiId: text("upiId"),
+  payeeName: text("payeeName"),
+  isDynamic: boolean("isDynamic").default(false),
   isActiveForInvoice: boolean("isActiveForInvoice").default(false),
   isActiveForEstimate: boolean("isActiveForEstimate").default(false),
   createdAt: timestamp("createdAt").defaultNow(),
