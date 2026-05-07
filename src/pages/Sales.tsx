@@ -73,9 +73,10 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           role="combobox"
           className="w-full mt-1 h-8 justify-between font-normal text-[0.75rem] px-2"
           title={value || `Select ${label.toLowerCase()}`}
-          onFocus={() => {
-            if (openOnFocus && !justClosed.current) {
-              setOpen(true);
+          onFocus={(e) => {
+            if (openOnFocus && !open && !justClosed.current) {
+              // Increase delay to ensure DOM and focus state are stable
+              setTimeout(() => setOpen(true), 100);
             }
             justClosed.current = false;
           }}
@@ -93,6 +94,12 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
             className="h-7 text-xs"
             onValueChange={setSearch}
             onKeyDown={(e) => {
+              if (onKeyDown && e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
+                setOpen(false);
+                // Increase delay to ensure Popover handles closing before we move focus
+                setTimeout(() => onKeyDown(e), 100);
+                return;
+              }
               if (e.key === 'Enter') {
                 const hasMatches = options.some(opt => opt.toLowerCase().includes(search.toLowerCase()));
                 if (!hasMatches && allowCustom && search) {
@@ -1315,13 +1322,26 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
 
-  const handleEnter = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | any) => {
-    if (e.key === "Enter") {
+  const handleEnter = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | any, prevRef?: React.RefObject<any> | any) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (nextRef && 'current' in nextRef) {
-        nextRef.current?.focus();
-      } else if (nextRef) {
-        nextRef?.focus();
+      setTimeout(() => {
+        if (nextRef && 'current' in nextRef) {
+          nextRef.current?.focus();
+        } else if (nextRef) {
+          nextRef?.focus();
+        }
+      }, 50);
+    } else if (e.shiftKey && (e.key === "Tab" || e.key === "Enter")) {
+      if (prevRef) {
+        e.preventDefault();
+        setTimeout(() => {
+          if ('current' in prevRef) {
+            prevRef.current?.focus();
+          } else {
+            prevRef?.focus();
+          }
+        }, 50);
       }
     }
   };
@@ -1644,7 +1664,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
                   <FormCombobox
                     triggerRef={customerRef}
-                    onKeyDown={(e) => handleEnter(e, pendingCategoryRef.current)}
+                    onKeyDown={(e) => handleEnter(e, pendingCategoryRef.current, null)}
                     openOnFocus
                     allowCustom
                     label="Customer"
@@ -1715,7 +1735,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         if (e.key === "Enter" && !pendingItem.category && items.length > 0) {
                           saveBtnRef.current?.focus();
                         } else {
-                          handleEnter(e, pendingProductRef.current);
+                          handleEnter(e, pendingProductRef.current, customerRef.current);
                         }
                       }}
                       openOnFocus
@@ -1736,7 +1756,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Product</Label>
                     <FormCombobox
                       triggerRef={pendingProductRef}
-                      onKeyDown={(e) => handleEnter(e, pendingSubCategoryRef.current)}
+                      onKeyDown={(e) => handleEnter(e, pendingSubCategoryRef.current, pendingCategoryRef.current)}
                       openOnFocus
                       label="Product"
                       value={pendingItem.name}
@@ -1753,7 +1773,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Sub Category</Label>
                     <FormCombobox
                       triggerRef={pendingSubCategoryRef}
-                      onKeyDown={(e) => handleEnter(e, pendingQtyRef.current)}
+                      onKeyDown={(e) => handleEnter(e, pendingQtyRef.current, pendingProductRef.current)}
                       openOnFocus
                       label="Sub Category"
                       value={pendingItem.subCategory}
@@ -1790,7 +1810,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       type="number"
                       value={pendingItem.qty}
                       className="h-8 font-bold text-center text-xs"
-                      onKeyDown={(e) => handleEnter(e, pendingRateRef.current)}
+                      onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingSubCategoryRef.current)}
                       onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)}
                     />
                   </div>
@@ -1801,7 +1821,13 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       type="number"
                       value={pendingItem.rate}
                       className="h-8 font-bold text-xs"
-                      onKeyDown={(e) => { if (e.key === "Enter") addPendingItem(); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          addPendingItem();
+                        } else {
+                          handleEnter(e, null, pendingQtyRef.current);
+                        }
+                      }}
                       onChange={e => updatePendingItem("rate", parseFloat(e.target.value) || 0)}
                     />
                   </div>
