@@ -1630,8 +1630,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
   const validItems = items.filter(i => i.name && i.name.trim() !== "");
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalTax = gstEnabled ? validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0) : 0;
-  const grandTotal = subtotal + (!gstEnabled ? 0 : totalTax);
+  const potentialTax = validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
+  const totalTax = gstEnabled ? potentialTax : 0;
+  const grandTotal = subtotal + totalTax;
 
   const resetForm = () => {
     setItems([{
@@ -1724,17 +1725,17 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 {isIgst ? (
                   <div className="text-right">
                     <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">IGST</p>
-                    <p className="text-xs font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs font-bold tabular-nums">₹{potentialTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                   </div>
                 ) : (
                   <>
                     <div className="text-right">
                       <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">CGST</p>
-                      <p className="text-xs font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xs font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">SGST</p>
-                      <p className="text-xs font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xs font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </>
                 )}
@@ -2050,17 +2051,17 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   {isIgst ? (
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground font-medium uppercase tracking-tighter">IGST Amount</span>
-                      <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      <span className="font-bold tabular-nums">₹{potentialTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ) : (
                     <>
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground font-medium uppercase tracking-tighter">CGST Amount</span>
-                        <span className="font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span className="font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground font-medium uppercase tracking-tighter">SGST Amount</span>
-                        <span className="font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span className="font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </div>
                     </>
                   )}
