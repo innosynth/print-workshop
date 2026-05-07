@@ -1952,7 +1952,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Sub Category</th>
                     <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">Qty</th>
                     <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-28">Rate</th>
-                    {gstEnabled && <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>}
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>
                     <th className="p-1.5 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
                     <th className="p-1.5 w-10"></th>
                   </tr>
@@ -1998,13 +1998,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           />
                         </div>
                       </td>
-                      {gstEnabled && (
-                        <td className="p-2 py-3">
-                          <div className="text-[0.6875rem] font-black text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
-                            {item.gstRate}%
-                          </div>
-                        </td>
-                      )}
+                      <td className="p-2 py-3">
+                        <div className="text-[0.6875rem] font-black text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
+                          {item.gstRate}%
+                        </div>
+                      </td>
                       <td className="p-1.5 pr-4 py-1.5 text-right">
                         <span className="text-xs font-black text-primary tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
                           ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
