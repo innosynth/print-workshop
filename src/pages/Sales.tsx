@@ -742,7 +742,15 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       return (
                         <tr key={i} className="">
                           <td className="px-0.5 py-2 text-center">{i + 1}</td>
-                          <td className="px-2 py-2 font-black uppercase text-[0.68rem]">{item.category || item.name || "Custom Service"}</td>
+                          <td className="px-2 py-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.category && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.category}</span>}
+                              {item.category && <span className="text-gray-300">.</span>}
+                              <span className="font-black uppercase text-[0.7rem]">{item.name}</span>
+                              {item.subCategory && <span className="text-gray-300">.</span>}
+                              {item.subCategory && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.subCategory}</span>}
+                            </div>
+                          </td>
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
                           <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
                           <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
@@ -975,7 +983,15 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   <tbody className="font-normal">
                     {items && items.length > 0 ? items.map((item: any, i: number) => (
                       <tr key={i} className="align-top">
-                        <td className="text-left py-1 px-0.5 uppercase leading-tight">{item.category || item.name}</td>
+                        <td className="text-left py-1 px-0.5 uppercase leading-tight">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {item.category && <span className="text-[0.55rem] opacity-70 font-bold">{item.category}</span>}
+                            {item.category && <span className="opacity-30">.</span>}
+                            <span className="font-black">{item.name}</span>
+                            {item.subCategory && <span className="opacity-30">.</span>}
+                            {item.subCategory && <span className="text-[0.55rem] opacity-70 font-bold">{item.subCategory}</span>}
+                          </div>
+                        </td>
                         <td className="text-right py-1 px-0.5">{item.qty}</td>
                         <td className="text-right py-1 px-0.5">{parseFloat(item.rate || 0).toFixed(0)}</td>
                         <td className="text-right py-1 px-0.5">{parseFloat(item.amount || 0).toFixed(2)}</td>
@@ -1570,26 +1586,35 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="sticky top-0 bg-white border-b z-10 shadow-sm">
                   <tr>
-                    <th className="p-2 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest">Product Details</th>
-                    <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-24">Qty</th>
-                    <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-32">Rate</th>
-                    {gstEnabled && <th className="p-2 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>}
-                    <th className="p-2 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
-                    <th className="p-2 w-10"></th>
+                    <th className="p-1.5 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Category</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[22%]">Product</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Sub Category</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">Qty</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-28">Rate</th>
+                    {gstEnabled && <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>}
+                    <th className="p-1.5 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
+                    <th className="p-1.5 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y bg-white">
                   {items.map((item, index) => (
                     <tr key={index} className="hover:bg-muted/20 transition-colors group">
-                      <td className="p-2 pl-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-primary leading-tight uppercase tracking-tight">{item.name}</span>
-                          <span className="text-[0.625rem] font-bold text-muted-foreground leading-tight mt-0.5">
-                            {item.category && `${item.category} • `}{item.subCategory}
-                          </span>
-                        </div>
+                      <td className="p-1.5 pl-4 py-1.5">
+                        <span className="text-[0.6875rem] font-black text-muted-foreground/70 uppercase tracking-tight leading-tight block truncate" title={item.category}>
+                          {item.category || "-"}
+                        </span>
                       </td>
-                      <td className="p-2 py-3">
+                      <td className="p-1.5 py-1.5">
+                        <span className="text-xs font-black text-primary uppercase leading-tight block truncate" title={item.name}>
+                          {item.name}
+                        </span>
+                      </td>
+                      <td className="p-1.5 py-1.5">
+                        <span className="text-[0.6875rem] font-bold text-muted-foreground uppercase tracking-tight leading-tight block truncate" title={item.subCategory}>
+                          {item.subCategory || "-"}
+                        </span>
+                      </td>
+                      <td className="p-1.5 py-1.5">
                         <Input
                           type="number"
                           value={item.qty}
@@ -1617,12 +1642,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           </div>
                         </td>
                       )}
-                      <td className="p-2 pr-4 py-3 text-right">
+                      <td className="p-1.5 pr-4 py-1.5 text-right">
                         <span className="text-xs font-black text-primary tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
                           ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </td>
-                      <td className="p-2 py-3 text-center">
+                      <td className="p-1.5 py-1.5 text-center">
                         <Button
                           variant="ghost"
                           size="icon"
