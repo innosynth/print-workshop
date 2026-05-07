@@ -542,11 +542,12 @@ function FormCombobox({ label, value, options, onSelect, triggerRef, onKeyDown, 
           ref={triggerRef}
           variant="outline" 
           role="combobox" 
-          className="w-full mt-1 h-9 justify-between font-normal"
+          className="w-full mt-1 h-9 justify-between font-normal truncate"
+          title={value || `Select ${label.toLowerCase()}`}
           onKeyDown={onKeyDown}
           onFocus={() => openOnFocus && setOpen(true)}
         >
-          {value || `Select ${label.toLowerCase()}`}
+          <span className="truncate">{value || `Select ${label.toLowerCase()}`}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -560,10 +561,12 @@ function FormCombobox({ label, value, options, onSelect, triggerRef, onKeyDown, 
                 <CommandItem
                   key={opt}
                   value={opt}
+                  title={opt}
                   onSelect={() => {
                     onSelect(opt);
                     setOpen(false);
                   }}
+                  className="cursor-default"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
                   {String(opt)}

@@ -50,6 +50,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           variant="outline"
           role="combobox"
           className={cn("w-full mt-1 h-10 justify-between font-normal", className)}
+          title={value || `Select ${label.toLowerCase()}`}
           onFocus={() => {
             if (openOnFocus && !justClosed.current) {
               setOpen(true);
@@ -95,11 +96,13 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
                 <CommandItem
                   key={opt}
                   value={opt}
+                  title={opt}
                   onSelect={() => {
                     justClosed.current = true;
                     onSelect(opt);
                     setOpen(false);
                   }}
+                  className="cursor-default"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
                   {opt}

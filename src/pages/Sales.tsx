@@ -153,12 +153,13 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
                 <CommandItem
                   key={opt}
                   value={opt}
+                  title={opt}
                   onSelect={() => {
                     justClosed.current = true;
                     onSelect(opt);
                     setOpen(false);
                   }}
-                  className="text-xs whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2"
+                  className="text-xs whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2 cursor-default"
                 >
                   <Check className={cn("mr-1.5 h-3.5 w-3.5", value === opt ? "opacity-100" : "opacity-0")} />
                   <span className="truncate">{String(opt)}</span>
@@ -1203,20 +1204,37 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     }
   }, [open, type, initialData, fullDetails, products]);
 
-  // Focus customer select on open
+  // Focus appropriate field on open
   useEffect(() => {
     if (open && !initialFocusDone.current) {
+      // If editing, wait for full details to load to ensure UI is ready
+      if (initialData && !fullDetails) return;
+
       const timer = setTimeout(() => {
-        customerRef.current?.focus();
+        if (initialData) {
+          // Edit mode: focus category
+          pendingCategoryRef.current?.focus();
+        } else {
+          // Create mode: focus customer
+          customerRef.current?.focus();
+        }
         initialFocusDone.current = true;
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, initialData, fullDetails]);
 
   const addPendingItem = () => {
+    if (!pendingItem.category) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a category first" });
+      return;
+    }
     if (!pendingItem.name) {
       toast({ variant: "destructive", title: "Error", description: "Please select a product first" });
+      return;
+    }
+    if (!pendingItem.subCategory) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a sub-category first" });
       return;
     }
     const itemToAdd = {
@@ -1369,7 +1387,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-[76.8rem] w-[95vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
+      <DialogContent className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
         <div className="flex flex-col h-full bg-white relative">
           <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
             <DialogTitle>{title}</DialogTitle>
@@ -1474,7 +1492,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 </div>
 
                 <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-2 space-y-0.5">
+                  <div className="col-span-3 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Category</Label>
                     <FormCombobox
                       triggerRef={pendingCategoryRef}
@@ -1561,7 +1579,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)}
                     />
                   </div>
-                  <div className="col-span-2 space-y-0.5">
+                  <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Rate</Label>
                     <Input
                       ref={pendingRateRef}
