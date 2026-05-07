@@ -260,7 +260,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return acc;
   }, {}) : {};
 
-  const fitsOnOnePage = paperSize === "A5" ? items.length <= 5 : items.length <= 15;
+  const MAX_ITEMS_A4 = 25;
+  const MAX_ITEMS_A5 = 10;
+  const fitsOnOnePage = paperSize === "A5" ? items.length <= MAX_ITEMS_A5 : items.length <= MAX_ITEMS_A4;
 
   const handleDownload = async () => {
     const element = printRef.current;
@@ -290,9 +292,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
-      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '284mm' : '135mm') : 'auto');
+      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '120mm') : 'auto');
       invoicePage.style.setProperty('min-height', minH, 'important');
-      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "0 24px 8px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
+      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "20px 24px 10px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
     }
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
@@ -371,7 +373,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     if (docType === "estimates") {
       setPaperSize("thermal");
     } else if (activeInvoice?.items) {
-      if (activeInvoice.items.length <= 5) setPaperSize("A5");
+      if (activeInvoice.items.length <= MAX_ITEMS_A5) setPaperSize("A5");
       else setPaperSize("A4");
     }
   }, [activeInvoice?.id, docType]);
@@ -399,9 +401,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const sgst = totalTax / 2;
 
   const a4Width = '210mm';
-  const a4Height = '287mm';
+  const a4Height = '280mm';
   const a5Width = '210mm';
-  const a5Height = '145mm';
+  const a5Height = '120mm';
 
   const printStyles = `
     .print-container {
@@ -796,8 +798,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       const itemTax = itemAmount * (itemRate / 100);
                       return (
                         <tr key={i} className="">
-                          <td className="px-0.5 py-2 text-center">{i + 1}</td>
-                          <td className="px-2 py-2">
+                          <td className="px-0.5 py-1 text-center">{i + 1}</td>
+                          <td className="px-2 py-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {paperSize === "A4" ? (
                                 <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
@@ -806,29 +808,29 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                               )}
                             </div>
                           </td>
-                          <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
-                          <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
-                          <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                          <td className="px-0.5 py-1 text-center">{item.hsnCode || "4909"}</td>
+                          <td className="px-0.5 py-1 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
+                          <td className="px-0.5 py-1 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
                           {isIgst ? (
                             <>
-                              <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
-                              <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{itemRate.toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{itemTax.toFixed(2)}</td>
                             </>
                           ) : (
                             <>
-                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-1 text-center">{(itemTax / 2).toFixed(2)}</td>
                             </>
                           )}
-                          <td className="px-2 py-2 text-right font-black">{itemAmount.toFixed(2)}</td>
+                          <td className="px-2 py-1 text-right font-black">{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
                     })}
                     {/* Fill empty rows only when items fit on a single page */}
-                    {fitsOnOnePage && Array.from({ length: Math.max(0, (paperSize === "A5" ? 5 : 15) - items.length) }).map((_, i) => (
-                      <tr key={`empty-${i}`} className="h-8">
+                    {fitsOnOnePage && Array.from({ length: Math.max(0, (paperSize === "A5" ? MAX_ITEMS_A5 : MAX_ITEMS_A4) - items.length) }).map((_, i) => (
+                      <tr key={`empty-${i}`} className="h-6">
                         <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
                       </tr>
                     ))}
