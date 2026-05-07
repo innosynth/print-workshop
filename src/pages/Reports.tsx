@@ -46,6 +46,10 @@ const exportToCSV = (data: any[], filename: string) => {
 function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
   const [returnFor, setReturnFor] = useState("invoice");
   const [dateRange, setDateRange] = useState("Previous Month");
+  const [customRange, setCustomRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
   const [taxType, setTaxType] = useState("Both");
   const [filterType, setFilterType] = useState("Both");
   const [hsnSearch, setHsnSearch] = useState("");
@@ -56,10 +60,37 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
   });
 
   const filteredGstLines = gstLines.filter((line: any) => {
+    // Tax Return For filter
     if (returnFor === "invoice") {
       const ref = (line.invoiceNo || "").toUpperCase();
-      return !ref.startsWith("EST") && !ref.startsWith("QUO");
+      if (ref.startsWith("EST") || ref.startsWith("QUO")) return false;
     }
+
+    // Date Range filter
+    const lineDateStr = line.date || line.invoiceDate; // Supporting both if available
+    if (lineDateStr) {
+      const lineDate = new Date(lineDateStr);
+      let start: Date | null = null;
+      let end: Date | null = null;
+
+      if (dateRange === "This Month") {
+        start = startOfMonth(new Date());
+        end = endOfMonth(new Date());
+      } else if (dateRange === "Previous Month") {
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+        start = startOfMonth(lastMonth);
+        end = endOfMonth(lastMonth);
+      } else if (dateRange === "Custom") {
+        start = customRange?.from || null;
+        end = customRange?.to ? new Date(customRange.to) : null;
+        if (end) end.setHours(23, 59, 59, 999);
+      }
+
+      if (start && lineDate < start) return false;
+      if (end && lineDate > end) return false;
+    }
+
     return true;
   });
 
@@ -70,17 +101,21 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
   const handleClear = () => {
     setReturnFor("invoice");
     setDateRange("Previous Month");
+    setCustomRange({
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date()),
+    });
     setTaxType("Both");
     setFilterType("Both");
     setHsnSearch("");
   };
 
-  const isFiltered = returnFor !== "invoice" || dateRange !== "Previous Month" || taxType !== "Both" || filterType !== "Both" || hsnSearch !== "";
+  const isFiltered = returnFor !== "invoice" || dateRange !== "Previous Month" || taxType !== "Both" || filterType !== "Both" || hsnSearch !== "" || dateRange === "Custom";
 
   return (
     <div className="space-y-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100 print:bg-white print:p-0 print:border-none">
       <Card className="bg-white border-gray-200 shadow-sm print:hidden">
-        <CardContent className="p-5 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 items-end">
+        <CardContent className="p-5 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-10 gap-4 items-end">
           <div className="space-y-1.5">
             <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Tax Return For</Label>
             <Select value={returnFor} onValueChange={setReturnFor}>
@@ -105,6 +140,46 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
               </SelectContent>
             </Select>
           </div>
+
+          {dateRange === "Custom" && (
+            <div className="space-y-1.5 col-span-1 lg:col-span-2 animate-in slide-in-from-left-2 duration-300">
+              <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Pick Range</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-10 w-full justify-start text-left font-bold border-gray-200 bg-gray-50/50 hover:bg-gray-100 transition-all px-4 rounded-lg",
+                      !customRange && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {customRange?.from ? (
+                      customRange.to ? (
+                        <>
+                          {format(customRange.from, "LLL dd, y")} - {format(customRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(customRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-white shadow-2xl border-gray-100 rounded-2xl" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={customRange?.from}
+                    selected={customRange}
+                    onSelect={(range: any) => setCustomRange(range || { from: undefined, to: undefined })}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-[0.625rem] uppercase font-black text-gray-500 tracking-wider">Tax Type</Label>
@@ -132,7 +207,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
             <Input className="h-10 bg-gray-50/50 border-gray-200 font-bold" placeholder="HSN..." value={hsnSearch} onChange={e => setHsnSearch(e.target.value)} />
           </div>
           
-          <div className="flex gap-2 mb-0.5">
+          <div className="flex gap-2 mb-0.5 col-span-1 lg:col-span-2">
             <Button className="h-10 flex-1 font-bold uppercase tracking-widest text-[0.625rem]">Find Records</Button>
             {isFiltered && (
               <Button variant="ghost" className="h-10 flex-1 font-bold uppercase tracking-widest text-[0.625rem] text-destructive hover:bg-destructive/10" onClick={handleClear}>
