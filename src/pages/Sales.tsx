@@ -61,6 +61,14 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
       setSearch("");
       const timer = setTimeout(() => inputRef.current?.focus(), 150);
       return () => clearTimeout(timer);
+    } else {
+      // When popover closes, reset justClosed after a short delay.
+      // This ensures that if focus moves to another field and then back (e.g. via Shift+Tab),
+      // the dropdown can open again. The delay covers the automatic focus-return phase.
+      const timer = setTimeout(() => {
+        justClosed.current = false;
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -1472,6 +1480,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       toast({ variant: "destructive", title: "Error", description: "Please select a sub-category first" });
       return;
     }
+    if (pendingItem.qty <= 0) {
+      toast({ variant: "destructive", title: "Error", description: "Quantity cannot be zero" });
+      return;
+    }
+    if (pendingItem.rate <= 0) {
+      toast({ variant: "destructive", title: "Error", description: "Rate cannot be zero" });
+      return;
+    }
     const itemToAdd = {
       ...pendingItem,
       amount: pendingItem.qty * pendingItem.rate
@@ -1808,10 +1824,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <Input
                       ref={pendingQtyRef}
                       type="number"
+                      min="0"
                       value={pendingItem.qty}
                       className="h-8 font-bold text-center text-xs"
                       onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingSubCategoryRef.current)}
-                      onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)}
+                      onChange={e => updatePendingItem("qty", Math.max(0, parseFloat(e.target.value) || 0))}
                     />
                   </div>
                   <div className="col-span-1 space-y-0.5">
@@ -1819,6 +1836,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <Input
                       ref={pendingRateRef}
                       type="number"
+                      min="0"
                       value={pendingItem.rate}
                       className="h-8 font-bold text-xs"
                       onKeyDown={(e) => {
@@ -1828,7 +1846,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           handleEnter(e, null, pendingQtyRef.current);
                         }
                       }}
-                      onChange={e => updatePendingItem("rate", parseFloat(e.target.value) || 0)}
+                      onChange={e => updatePendingItem("rate", Math.max(0, parseFloat(e.target.value) || 0))}
                     />
                   </div>
                   <div className="col-span-2 flex justify-end">
@@ -1876,9 +1894,10 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       <td className="p-1.5 py-1.5">
                         <Input
                           type="number"
+                          min="0"
                           value={item.qty}
                           className="h-8 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
-                          onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)}
+                          onChange={e => updateItem(index, "qty", Math.max(0, parseFloat(e.target.value) || 0))}
                           title={item.qty.toString()}
                         />
                       </td>
@@ -1887,9 +1906,10 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.625rem] font-bold text-muted-foreground opacity-0 group-focus-within/rate:opacity-100 transition-opacity">₹</span>
                           <Input
                             type="number"
+                            min="0"
                             value={item.rate}
                             className="h-8 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
-                            onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)}
+                            onChange={e => updateItem(index, "rate", Math.max(0, parseFloat(e.target.value) || 0))}
                             title={item.rate.toString()}
                           />
                         </div>
