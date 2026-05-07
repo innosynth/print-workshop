@@ -1297,7 +1297,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const [fileName, setFileName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
-  const [gstEnabled, setGstEnabled] = useState(true);
+  const [gstEnabled, setGstEnabled] = useState(type !== 'estimates');
   const [isIgst, setIsIgst] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1402,7 +1402,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setCustomerName(source.customerName || "");
         setFileName(source.fileName || "");
         setDate(source.date || new Date().toISOString().split('T')[0]);
-        setGstEnabled(true);
+        setGstEnabled(source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates');
         setIsIgst(source.isIgst === true);
         formInitialized.current = true;
       } else {
@@ -1412,7 +1412,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setCustomerName("");
         setFileName("");
         setDate(new Date().toISOString().split('T')[0]);
-        setGstEnabled(true);
+        setGstEnabled(type !== 'estimates');
         setIsIgst(false);
         formInitialized.current = true;
       }
@@ -1532,7 +1532,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     setCustomerId("");
     setCustomerName("");
     setFileName("");
-    setGstEnabled(true);
+    setGstEnabled(type !== 'estimates');
     setIsIgst(false);
   };
 
