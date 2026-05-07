@@ -261,7 +261,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   }, {}) : {};
 
   const MAX_ITEMS_A4 = 25;
-  const MAX_ITEMS_A5 = 10;
+  const MAX_ITEMS_A5 = 7;
   const fitsOnOnePage = paperSize === "A5" ? items.length <= MAX_ITEMS_A5 : items.length <= MAX_ITEMS_A4;
 
   const upiUrl = activeQr?.isDynamic ? `upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}` : null;
@@ -287,7 +287,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           const url = URL.createObjectURL(blob);
           setQrBlobUrl(url);
         })
-        .catch(err => {});
+        .catch(err => { });
     }
     return () => {
       if (qrBlobUrl) URL.revokeObjectURL(qrBlobUrl);
@@ -324,9 +324,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
     const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
     if (invoicePage) {
-      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '120mm') : 'auto');
+      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '110mm') : 'auto');
       invoicePage.style.setProperty('min-height', minH, 'important');
-      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "20px 24px 10px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
+      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "20px 24px 20px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
     }
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
@@ -348,10 +348,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       const pageContentHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
       const pageIndex = Math.floor(footerTopPt / pageContentHeight);
       const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
-      const safetyBuffer = 20;
+      const safetyBuffer = 10;
 
       // If the footer won't fit on the current page, push it to the next page
-      if (!fitsOnOnePage && (posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
+      if ((posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
         const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
         const pushPx = pushPt / scaleFactor;
         spacer = document.createElement('div');
@@ -416,7 +416,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   useEffect(() => {
     // Only trigger download if QR is loaded (if dynamic)
     const qrLoaded = !upiUrl || !!qrBlobUrl;
-    
+
     if (autoDownload && activeInvoice?.id && qrLoaded) {
       const timer = setTimeout(() => {
         handleDownload().then(() => onClose());
@@ -441,7 +441,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const a4Width = '210mm';
   const a4Height = '280mm';
   const a5Width = '210mm';
-  const a5Height = '120mm';
+  const a5Height = '110mm';
 
   const printStyles = `
     .print-container {
@@ -463,9 +463,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
      width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
      min-height: ${fitsOnOnePage ? (paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto") : "auto"} !important;
      margin: 0 auto;
-     padding: ${paperSize === "A5" ? "24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")} !important;
+     padding: ${paperSize === "A5" ? "15px 24px 5px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")} !important;
      box-sizing: border-box;
-     display: flex;
+     display: ${fitsOnOnePage ? 'flex' : 'block'} !important;
      flex-direction: column;
      position: relative;
      color: black;
@@ -662,14 +662,32 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           .a5-format .py-1\\.5 { padding-top: 0.2rem !important; padding-bottom: 0.2rem !important; }
           .a5-format .pb-4 { padding-bottom: 0.6rem !important; }
           .a5-format .pt-6 { padding-top: 0.8rem !important; }
-          .a5-format .mt-auto { margin-top: 1rem !important; }
+          .a5-format .mt-auto { margin-top: 0.5rem !important; }
           .a5-format { padding-top: 0 !important; }
+          .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.2rem !important; }
+          .a5-format .pb-2 { padding-bottom: 0.05rem !important; }
+          .a5-format .pt-4 { padding-top: 0.1rem !important; }
+          .a5-format .grid { gap: 0.1rem !important; }
+          
+          /* Shrink Header for A5 */
+          .a5-format .header-brand-name { font-size: 1rem !important; }
+          .a5-format .w-16.h-16 { width: 3rem !important; height: 3rem !important; }
+          
+          /* Shrink Table for A5 */
+          .a5-format .invoice-items-table thead th { height: 20px !important; line-height: 20px !important; font-size: 8px !important; }
 
           /* Header Text Scaling for A5 */
           .a5-format .header-brand-name { font-size: 1.2rem !important; }
           .a5-format .header-slogan { font-size: 0.48rem !important; }
           .a5-format .header-sub-brand { font-size: 0.54rem !important; }
           .a5-format .header-contact-text { font-size: 0.675rem !important; }
+
+          /* Prevent A5 Row Breaks */
+          .a5-format .invoice-items-table tbody tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            display: table-row !important;
+          }
         `}</style>
 
 
@@ -722,7 +740,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
                   </div>
 
-                  <div className="pt-4">
+                  <div className={cn("pt-4", paperSize === "A5" && "pt-1")}>
                     <table className={`${paperSize === "A4" && !isEstimate ? "text-[0.7rem]" : "text-[0.6rem]"} font-bold border-separate border-spacing-x-3 header-contact-text`} style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
                       <tbody>
                         <tr className="align-top">
@@ -771,9 +789,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 </div>
 
                 {/* Billing & Meta Info */}
-                <div className="grid grid-cols-12 gap-4 text-[0.7rem]">
+                <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1")}>
                   <div className="col-span-7 space-y-0.5">
-                    <p className="font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]">To :</p>
+                    <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-[0.5rem]")}>To :</p>
                     <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
                     <p className="text-gray-600 font-bold">COIMBATORE</p>
                     <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
@@ -882,25 +900,25 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 <div className={`invoice-footer-section ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block', width: '100%' }}>
                   <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial" }}>
                     <div className="col-span-4">
-                      <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
-                      <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Account Name</span>
+                      <p className="font-black mb-1 uppercase text-[10px]">Bank Details</p>
+                      <div className="grid grid-cols-12 gap-y-0.5 text-[10px]">
+                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Account Name</span>
                         <span className="col-span-7 font-black">: {profile.accountName || profile.name}</span>
 
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Bank</span>
+                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Bank</span>
                         <span className="col-span-7 font-black">: {profile.bankName || "ICICI Bank"}</span>
 
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Branch</span>
+                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Branch</span>
                         <span className="col-span-7 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
 
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">A/C No</span>
+                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">A/C No</span>
                         <span className="col-span-7 font-black">: {profile.accountNumber || "730705000264"}</span>
 
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span>
+                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">IFSC Code</span>
                         <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                       </div>
                       <div className="mt-4">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
                       </div>
                     </div>
 
@@ -911,25 +929,25 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             qrBlobUrl ? (
                               <img
                                 src={qrBlobUrl}
-                                style={{ height: '150px', width: '150px', objectFit: 'contain' }}
+                                style={{ height: '90px', width: '90px', objectFit: 'contain' }}
                                 className="p-1 mb-1 mx-auto"
                                 alt="Dynamic UPI QR"
                               />
                             ) : (
-                              <div style={{ height: '150px', width: '150px' }} className="flex items-center justify-center mx-auto">
+                              <div style={{ height: '90px', width: '90px' }} className="flex items-center justify-center mx-auto">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
                               </div>
                             )
                           ) : (
-                            <img src={activeQr.imageUrl} style={{ height: '150px', width: '150px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                            <img src={activeQr.imageUrl} style={{ height: '90px', width: '90px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                           )}
-                          <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
+                          <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                         </div>
                       )}
                     </div>
 
                     <div className="col-span-5 flex flex-col items-end">
-                      <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
+                      <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
                         <tbody>
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
@@ -938,17 +956,17 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           {Object.values(taxGroups).map((group: any) => (
                             isIgst ? (
                               <tr key={`igst-${group.rate}`}>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
+                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
                                 <td className="px-2 py-1 text-right font-black">Rs. {group.tax.toFixed(2)}</td>
                               </tr>
                             ) : (
                               <Fragment key={`gst-${group.rate}`}>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
                                   <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
                                   <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                               </Fragment>
@@ -959,8 +977,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
                           </tr>
                           <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                            <td className="px-3 py-2 text-black text-[13.5px] font-black uppercase">Grand Total</td>
-                            <td className="px-3 py-2 text-right text-black text-[13.5px] font-black">Rs. {total.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-black text-[12px] font-black uppercase">Grand Total</td>
+                            <td className="px-3 py-2 text-right text-black text-[12px] font-black">Rs. {total.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
