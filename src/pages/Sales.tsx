@@ -1742,7 +1742,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 <div className="h-8 w-px bg-border mx-1" />
                 <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
                   <p className="text-[0.5625rem] font-black text-green-800 uppercase leading-none">Grand Total</p>
-                  <p className="text-sm font-black text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-sm font-black text-green-600 tabular-nums">₹{(subtotal + potentialTax).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
             )}
@@ -2072,7 +2072,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
-                    <span className="font-black text-lg text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{(subtotal + potentialTax).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
