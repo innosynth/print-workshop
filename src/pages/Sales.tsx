@@ -412,6 +412,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       padding: 0;
     }
 
+    .invoice-page *, .invoice-page,
+    .thermal-format *, .thermal-format {
+      font-family: Arial !important;
+    }
+
    .invoice-page {
      background: white;
      box-shadow: none;
