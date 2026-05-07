@@ -222,6 +222,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
   const activeInvoice = fullInvoice || invoice;
 
+  const formatDate = (d: string) => {
+    if (!d) return new Date().toLocaleDateString('en-GB').split('/').join('-');
+    const parts = d.split('-');
+    if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return d;
+  };
+
   const items = (activeInvoice?.items || []).map((item: any) => {
     if (item.category) return item;
     const match = allProducts.find((p: any) => p.name === item.name || (item.sku && p.sku === item.sku));
@@ -652,7 +659,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
-            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial, sans-serif" }}>
+            <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial" }}>
 
               <div className="space-y-4">
                 {/* Header Layout */}
@@ -727,17 +734,23 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
                     <p className="font-bold uppercase">State & Code:</p>
                   </div>
-                  <div className="col-span-5 space-y-0.5">
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-0">
-                      <span className="text-gray-500 font-bold uppercase">{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</span>
-                      <span className="font-black text-right">: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span>
-
-                      <span className="text-gray-500 font-bold uppercase">{docType === "quotations" ? "Quotation Date" : docType === "estimates" ? "Estimate Date" : "Invoice Date"}</span>
-                      <span className="font-black text-right">: {activeInvoice.date || invoice.date || new Date().toLocaleDateString()}</span>
-
-                      <span className="text-gray-500 font-bold uppercase">PO No</span>
-                      <span className="font-black text-right">: -</span>
-                    </div>
+                  <div className="col-span-5">
+                    <table className="text-[0.7rem] font-bold" style={{ marginLeft: 'auto', tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
+                      <tbody>
+                        <tr>
+                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</td>
+                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation Date" : docType === "estimates" ? "Estimate Date" : "Invoice Date"}</td>
+                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: {formatDate(activeInvoice.date || invoice.date)}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>PO No</td>
+                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: -</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -784,13 +797,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                               {paperSize === "A4" ? (
                                 <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
                               ) : (
-                                <>
-                                  {item.category && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.category}</span>}
-                                  {item.category && <span className="text-gray-300">.</span>}
-                                  <span className="font-black uppercase text-[0.7rem]">{item.name}</span>
-                                  {item.subCategory && <span className="text-gray-300">.</span>}
-                                  {item.subCategory && <span className="text-[0.65rem] font-bold text-gray-500 uppercase">{item.subCategory}</span>}
-                                </>
+                                <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
                               )}
                             </div>
                           </td>
@@ -828,7 +835,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
               {paperSize === "A5" ? (
                 <div className={`invoice-footer-section ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block', width: '100%' }}>
-                  <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial, sans-serif" }}>
+                  <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial" }}>
                     <div className="col-span-4">
                       <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
                       <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
@@ -862,7 +869,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
 
                     <div className="col-span-5 flex flex-col items-end">
-                      <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, sans-serif" }}>
+                      <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
                         <tbody>
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
@@ -907,7 +914,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
                 </div>
               ) : (
-                <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial, sans-serif" }}>
+                <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial" }}>
                   <div className="col-span-4">
                     <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
                     <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
@@ -941,7 +948,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
 
                   <div className="col-span-5 flex flex-col items-end">
-                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial, sans-serif" }}>
+                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
                       <tbody>
                         <tr>
                           <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
@@ -987,7 +994,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               )}
             </div>
           ) : (
-            <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontFamily: "Arial, sans-serif", height: 'auto', minHeight: 'auto' }}>
+            <div className="text-center tracking-tight leading-tight thermal-format" style={{ fontFamily: "Arial", height: 'auto', minHeight: 'auto' }}>
               {/* Thermal Format Header */}
               <div>
                 {profile.logoUrl && !isEstimate && <img src={profile.logoUrl} className="h-12 mx-auto mb-2 object-contain" alt="Logo" />}
@@ -1005,7 +1012,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               <div style={{ fontSize: '8px', fontStyle: 'normal' }}>
                 <div className="flex justify-between">
                   <span>No.<span>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
-                  <span>Date: {activeInvoice.date || invoice.date || new Date().toLocaleDateString('en-GB').split('/').reverse().join('-')}</span>
+                  <span>Date: {formatDate(activeInvoice.date || invoice.date)}</span>
                 </div>
                 <div className="text-left mt-0.5" style={{ fontSize: '8px' }}>
                   C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
