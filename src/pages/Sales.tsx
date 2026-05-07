@@ -264,6 +264,38 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const MAX_ITEMS_A5 = 10;
   const fitsOnOnePage = paperSize === "A5" ? items.length <= MAX_ITEMS_A5 : items.length <= MAX_ITEMS_A4;
 
+  const upiUrl = activeQr?.isDynamic ? `upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}` : null;
+
+  const { data: dynamicQrData, isLoading: qrLoading, error: qrError } = useQuery({
+    queryKey: ["dynamic_qr", upiUrl],
+    queryFn: async () => {
+      const res = await fetch(`/api/qr?data=${encodeURIComponent(upiUrl!)}`);
+      if (!res.ok) throw new Error('Failed to fetch QR');
+      return res.json();
+    },
+    enabled: !!upiUrl,
+    staleTime: 3600000
+  });
+
+  const [qrBlobUrl, setQrBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dynamicQrData?.qrDataUrl) {
+      fetch(dynamicQrData.qrDataUrl)
+        .then(res => res.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          setQrBlobUrl(url);
+        })
+        .catch(err => {});
+    }
+    return () => {
+      if (qrBlobUrl) URL.revokeObjectURL(qrBlobUrl);
+    };
+  }, [dynamicQrData?.qrDataUrl]);
+
+
+
   const handleDownload = async () => {
     const element = printRef.current;
     if (!element) return;
@@ -333,6 +365,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     await doc.html(element, {
       x: 0, y: 0, width: formatWidth, windowWidth: windowW,
       margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
+      html2canvas: {
+        useCORS: true
+      },
       callback: function (pdf) {
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
         element.style.minHeight = originalMinHeight;
@@ -379,13 +414,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   }, [activeInvoice?.id, docType]);
 
   useEffect(() => {
-    if (autoDownload && activeInvoice?.id) {
+    // Only trigger download if QR is loaded (if dynamic)
+    const qrLoaded = !upiUrl || !!qrBlobUrl;
+    
+    if (autoDownload && activeInvoice?.id && qrLoaded) {
       const timer = setTimeout(() => {
         handleDownload().then(() => onClose());
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [autoDownload, activeInvoice?.id]);
+  }, [autoDownload, activeInvoice?.id, qrBlobUrl, upiUrl]);
 
   if (invoiceLoading) return (
     <Dialog open onOpenChange={onClose}>
@@ -870,25 +908,20 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       {activeQr && total > 0 && (
                         <div className="text-center">
                           {activeQr.isDynamic ? (
-                            <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
-                              <QRCodeCanvas
-                                value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
-                                size={220}
-                                level="H"
-                                marginSize={1}
-                                includeMargin={true}
-                                imageSettings={{
-                                  src: "/favicon.png",
-                                  x: undefined,
-                                  y: undefined,
-                                  height: 24,
-                                  width: 24,
-                                  excavate: true,
-                                }}
+                            qrBlobUrl ? (
+                              <img
+                                src={qrBlobUrl}
+                                style={{ height: '150px', width: '150px', objectFit: 'contain' }}
+                                className="p-1 mb-1 mx-auto"
+                                alt="Dynamic UPI QR"
                               />
-                            </div>
+                            ) : (
+                              <div style={{ height: '150px', width: '150px' }} className="flex items-center justify-center mx-auto">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
+                              </div>
+                            )
                           ) : (
-                            <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                            <img src={activeQr.imageUrl} style={{ height: '150px', width: '150px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                           )}
                           <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                         </div>
@@ -969,23 +1002,18 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     {activeQr && total > 0 && (
                       <div className="text-center">
                         {activeQr.isDynamic ? (
-                          <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
-                            <QRCodeCanvas
-                              value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
-                              size={220}
-                              level="H"
-                              marginSize={1}
-                              includeMargin={true}
-                              imageSettings={{
-                                src: "/favicon.png",
-                                x: undefined,
-                                y: undefined,
-                                height: 24,
-                                width: 24,
-                                excavate: true,
-                              }}
+                          qrBlobUrl ? (
+                            <img
+                              src={qrBlobUrl}
+                              style={{ height: '135px', width: '135px', objectFit: 'contain' }}
+                              className="p-1 mb-1 mx-auto"
+                              alt="Dynamic UPI QR"
                             />
-                          </div>
+                          ) : (
+                            <div style={{ height: '135px', width: '135px' }} className="flex items-center justify-center mx-auto">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
+                            </div>
+                          )
                         ) : (
                           <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                         )}
@@ -1142,15 +1170,18 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               {activeQr && total > 0 && (
                 <div className="flex flex-col items-center mt-2">
                   {activeQr.isDynamic ? (
-                    <div className="bg-white p-1 rounded-sm border border-gray-100 shadow-sm inline-block">
-                      <QRCodeCanvas
-                        value={`upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}`}
-                        size={160}
-                        level="H"
-                        marginSize={1}
-                        includeMargin={true}
+                    qrBlobUrl ? (
+                      <img
+                        src={qrBlobUrl}
+                        style={{ height: '150px', width: '150px', objectFit: 'contain' }}
+                        className="p-1 mb-1 mx-auto"
+                        alt="Dynamic UPI QR"
                       />
-                    </div>
+                    ) : (
+                      <div style={{ height: '150px', width: '150px' }} className="flex items-center justify-center mx-auto">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary/30" />
+                      </div>
+                    )
                   ) : (
                     <img src={activeQr.imageUrl} className="h-24 w-24" alt="QA" />
                   )}
