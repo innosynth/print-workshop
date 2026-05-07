@@ -1,14 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer, RotateCcw, ArrowLeft, Gauge } from "lucide-react";
+import { Download, BarChart2, FileText, Package, Receipt, TrendingUp, Users, FileCheck, History, Loader2, Printer, RotateCcw, ArrowLeft, Gauge, Calendar as CalendarIcon } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import * as XLSX from 'xlsx';
 
 const reportTypes = [
@@ -843,16 +847,32 @@ function InvoiceLedgerReport({ onRegisterExport }: { onRegisterExport: (fn: () =
 
 function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
   const [dateRange, setDateRange] = useState("This Month");
+  const [customRange, setCustomRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
   const { data: readings = [], isLoading } = useQuery({ 
     queryKey: ["meter_readings"], 
     queryFn: () => fetch("/api/system?resource=meter_readings").then(res => res.json()) 
   });
 
   const filtered = readings.filter((r: any) => {
-    // Basic date filtering for demo, in real app would be more robust
     const d = new Date(r.date);
     const now = new Date();
-    if (dateRange === "This Month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    
+    if (dateRange === "Today") {
+      return r.date === now.toISOString().split('T')[0];
+    }
+    if (dateRange === "This Month") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === "Custom") {
+      if (!customRange?.from || !customRange?.to) return true;
+      const fromStr = format(customRange.from, "yyyy-MM-dd");
+      const toStr = format(customRange.to, "yyyy-MM-dd");
+      return r.date >= fromStr && r.date <= toStr;
+    }
     return true;
   });
 
@@ -866,13 +886,75 @@ function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () =>
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+        <div className="space-y-1.5">
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Time Period</Label>
+          <div className="flex gap-1 p-1 bg-white rounded-lg border border-gray-200 shadow-sm">
+            {["Today", "This Month", "Custom", "All Time"].map((range) => (
+              <Button
+                key={range}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 px-4 font-bold text-[0.625rem] uppercase tracking-wider rounded-md transition-all",
+                  dateRange === range ? "bg-primary text-white shadow-md shadow-primary/20" : "text-gray-400 hover:bg-gray-50"
+                )}
+                onClick={() => setDateRange(range)}
+              >
+                {range}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {dateRange === "Custom" && (
+          <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-300">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-10 justify-start text-left font-bold border-gray-200 rounded-xl px-4 bg-white hover:bg-gray-50 transition-all min-w-[260px]",
+                    !customRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                  {customRange?.from ? (
+                    customRange.to ? (
+                      <>
+                        {format(customRange.from, "LLL dd, y")} -{" "}
+                        {format(customRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(customRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white shadow-2xl border-gray-100 rounded-2xl" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={customRange?.from}
+                  selected={customRange}
+                  onSelect={(range: any) => setCustomRange(range || { from: undefined, to: undefined })}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl border-2 border-gray-100 shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform"><Gauge className="h-24 w-24 text-primary" /></div>
           <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Total Print Volume</p>
           <p className="text-4xl font-black tabular-nums">{totalUsage.toLocaleString()}</p>
           <div className="mt-4 flex items-center gap-2 text-[0.625rem] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full uppercase">
-             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Cumulative
+             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> {dateRange} Output
           </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border-2 border-blue-50 shadow-sm">
@@ -887,38 +969,65 @@ function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () =>
 
       <Card className="border-gray-200 shadow-xl overflow-hidden rounded-2xl">
         <CardHeader className="bg-gray-50 border-b pb-4">
-          <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500">Machine-wise Breakdown</CardTitle>
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500">Detailed Consumption Logs</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-xs">
+          <table className="w-full text-[0.625rem] border-collapse">
             <thead>
-              <tr className="bg-gray-100/50 text-gray-400 font-bold uppercase text-[0.5625rem]">
-                <th className="px-6 py-4 text-left">Machine Name</th>
-                <th className="px-6 py-4 text-center">Last Opening</th>
-                <th className="px-6 py-4 text-center">Last Closing</th>
-                <th className="px-6 py-4 text-right bg-primary/5 text-primary">Total Clicks</th>
+              <tr className="bg-primary text-white font-black uppercase tracking-tighter">
+                <th className="border-r border-white/20 px-4 py-2 text-left w-48" rowSpan={2}>Machine/ Group</th>
+                <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>BW</th>
+                <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>COLOR</th>
+                <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>LS</th>
+                <th className="border-r border-white/20 px-2 py-2 text-center" rowSpan={2}>Opening Reading</th>
+                <th className="border-r border-white/20 px-2 py-2 text-center" rowSpan={2}>Closing Reading</th>
+                <th className="px-4 py-2 text-right bg-blue-700" rowSpan={2}>Total</th>
+              </tr>
+              <tr className="bg-primary/90 text-white font-bold uppercase text-[0.5rem]">
+                <th className="border-r border-white/10 px-2 py-1">LARGE</th>
+                <th className="border-r border-white/10 px-2 py-1">SMALL</th>
+                <th className="border-r border-white/10 px-2 py-1">LARGE</th>
+                <th className="border-r border-white/10 px-2 py-1">SMALL</th>
+                <th className="border-r border-white/10 px-2 py-1">COLOR</th>
+                <th className="border-r border-white/10 px-2 py-1">MONO</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y font-medium text-gray-800">
               {isLoading ? (
-                <tr><td colSpan={4} className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
+                <tr><td colSpan={10} className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} className="p-20 text-center font-bold text-gray-400 uppercase italic">No readings found for the selected period.</td></tr>
+                <tr><td colSpan={10} className="py-20 text-center font-bold text-gray-400 uppercase italic">No readings found for the selected period.</td></tr>
               ) : (
-                // Group by machine and show sums
-                Object.values(filtered.reduce((acc: any, curr: any) => {
-                  if (!acc[curr.machineName]) acc[curr.machineName] = { name: curr.machineName, usage: 0, open: curr.openingReading, close: curr.closingReading };
-                  acc[curr.machineName].usage += parseFloat(curr.totalUsage || 0);
-                  acc[curr.machineName].open = Math.min(acc[curr.machineName].open, curr.openingReading);
-                  acc[curr.machineName].close = Math.max(acc[curr.machineName].close, curr.closingReading);
+                // Group by machine for headers, then show daily rows
+                Object.entries(filtered.reduce((acc: any, curr: any) => {
+                  if (!acc[curr.machineName]) acc[curr.machineName] = [];
+                  acc[curr.machineName].push(curr);
                   return acc;
-                }, {})).map((m: any) => (
-                  <tr key={m.name} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-black uppercase text-gray-900">{m.name}</td>
-                    <td className="px-6 py-4 text-center tabular-nums font-bold text-gray-400">{parseFloat(m.open).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-center tabular-nums font-bold text-gray-600">{parseFloat(m.close).toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right tabular-nums font-black text-sm bg-primary/5 text-primary">{m.usage.toLocaleString()}</td>
-                  </tr>
+                }, {})).map(([machineName, machineReadings]: [string, any]) => (
+                  <Fragment key={machineName}>
+                    <tr className="bg-orange-50/50">
+                      <td className="px-4 py-2 font-black uppercase text-xs border-r border-gray-100" colSpan={10}>{machineName}</td>
+                    </tr>
+                    {machineReadings.map((r: any) => (
+                      <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-2 font-bold border-r border-gray-100 text-gray-500 italic">{r.date}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.bwLarge || 0) > 0 ? parseFloat(r.bwLarge).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.bwSmall || 0) > 0 ? parseFloat(r.bwSmall).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.colorLarge || 0) > 0 ? parseFloat(r.colorLarge).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.colorSmall || 0) > 0 ? parseFloat(r.colorSmall).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.lsColor || 0) > 0 ? parseFloat(r.lsColor).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums">{parseFloat(r.lsMono || 0) > 0 ? parseFloat(r.lsMono).toLocaleString() : ""}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums font-bold text-blue-600">{parseFloat(r.openingReading || 0).toLocaleString()}</td>
+                        <td className="px-2 py-2 text-center border-r border-gray-100 tabular-nums font-bold text-green-600">{parseFloat(r.closingReading || 0).toLocaleString()}</td>
+                        <td className={cn(
+                          "px-4 py-2 text-right font-black bg-gray-50 tabular-nums",
+                          parseFloat(r.totalUsage || 0) < 0 ? "text-red-600" : "text-gray-900"
+                        )}>
+                          {parseFloat(r.totalUsage || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))
               )}
             </tbody>

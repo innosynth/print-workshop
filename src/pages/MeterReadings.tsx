@@ -38,18 +38,25 @@ export default function MeterReadings() {
     }
   }, [open]);
   
+  const getLocalDateString = (d: Date = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 30); // Default to last 30 days to ensure March data shows
-    return d.toISOString().split('T')[0];
+    d.setDate(d.getDate() - 30);
+    return getLocalDateString(d);
   });
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [dateTo, setDateTo] = useState(getLocalDateString());
 
   
   const [formData, setFormData] = useState({
     id: null as number | null,
     machineName: "",
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     bwLarge: "0",
     bwSmall: "0",
     colorLarge: "0",
@@ -59,6 +66,36 @@ export default function MeterReadings() {
     openingReading: "0",
     closingReading: "0"
   });
+
+  const machineUpper = formData.machineName.toUpperCase();
+  const isIR = machineUpper.includes("IR");
+  const isLS = machineUpper.includes("LS");
+  const isC = machineUpper.startsWith("C") && !isLS;
+
+  useEffect(() => {
+    const bwl = parseFloat(formData.bwLarge || "0");
+    const bws = parseFloat(formData.bwSmall || "0");
+    const cl = parseFloat(formData.colorLarge || "0");
+    const cs = parseFloat(formData.colorSmall || "0");
+    const lsc = parseFloat(formData.lsColor || "0");
+    const lsm = parseFloat(formData.lsMono || "0");
+
+    let total = 0;
+    if (isIR) {
+      total = bwl + bws;
+    } else if (isLS) {
+      total = lsc + lsm;
+    } else if (isC) {
+      total = bwl + bws + cl + cs;
+    } else {
+      // For any other machine, sum everything by default
+      total = bwl + bws + cl + cs + lsc + lsm;
+    }
+
+    if (total.toString() !== formData.closingReading) {
+      setFormData(prev => ({ ...prev, closingReading: total.toString() }));
+    }
+  }, [formData.bwLarge, formData.bwSmall, formData.colorLarge, formData.colorSmall, formData.lsColor, formData.lsMono, isIR, isLS, isC]);
 
   const { data: readingsData, isLoading } = useQuery({
     queryKey: ["meter_readings"],
@@ -94,6 +131,31 @@ export default function MeterReadings() {
 
 
   const readings = Array.isArray(readingsData) ? readingsData : [];
+
+  const handleSave = () => {
+    const op = parseFloat(formData.openingReading || "0");
+    const cl = parseFloat(formData.closingReading || "0");
+
+    if (cl < op) {
+      toast({
+        title: "Negative Usage Detected",
+        description: `Closing reading (${cl}) cannot be less than Opening reading (${op}). Please verify your machine counters.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.machineName) {
+      toast({
+        title: "Machine Required",
+        description: "Please select a machine before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    mutation.mutate({ ...formData, userId: user?.id });
+  };
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -283,9 +345,26 @@ export default function MeterReadings() {
                                          className="font-bold uppercase text-[0.625rem] tracking-widest py-2.5 cursor-pointer"
                                          onSelect={(currentValue) => {
                                            const opening = getPreviousClosingReading(currentValue, formData.date);
-                                           setFormData(prev => ({ ...prev, machineName: currentValue, openingReading: opening }));
+                                           setFormData(prev => ({ 
+                                             ...prev, 
+                                             machineName: currentValue, 
+                                             openingReading: opening,
+                                             // Reset counters when machine changes
+                                             bwLarge: "0", bwSmall: "0", colorLarge: "0", colorSmall: "0", lsColor: "0", lsMono: "0"
+                                           }));
                                            setComboOpen(false);
-                                           setTimeout(() => bwLargeRef.current?.focus(), 50);
+                                           
+                                           // Focus first relevant input
+                                           setTimeout(() => {
+                                             const upper = currentValue.toUpperCase();
+                                             if (upper.includes("LS")) {
+                                               lsColorRef.current?.focus();
+                                               lsColorRef.current?.select();
+                                             } else {
+                                               bwLargeRef.current?.focus();
+                                               bwLargeRef.current?.select();
+                                             }
+                                           }, 100);
                                          }}
                                        >
                                          <Check
@@ -308,16 +387,23 @@ export default function MeterReadings() {
                         </div>
                      )}
                    </div>
-                   <div className="space-y-1.5 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                     <div className="flex items-center justify-between">
-                       <Label className="font-bold uppercase text-[0.625rem] text-gray-500 tracking-widest">Entry Date</Label>
-                       <span className="text-[0.5625rem] font-black uppercase tracking-widest bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">FIXED</span>
-                     </div>
-                     <div className="text-xl font-black text-gray-700 leading-none py-1 select-none">
-                       {new Date(formData.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                     </div>
-                     <p className="text-[0.5625rem] font-bold text-gray-400 uppercase italic tracking-tighter">Current shift logging date</p>
-                   </div>
+                    <div className="space-y-1.5 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-bold uppercase text-[0.625rem] text-gray-500 tracking-widest">Entry Date</Label>
+                        <span className="text-[0.5625rem] font-black uppercase tracking-widest bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">MANUAL</span>
+                      </div>
+                      <Input 
+                        type="date" 
+                        value={formData.date}
+                        onChange={(e) => {
+                          const newDate = e.target.value;
+                          const opening = getPreviousClosingReading(formData.machineName, newDate);
+                          setFormData(prev => ({ ...prev, date: newDate, openingReading: opening }));
+                        }}
+                        className="h-10 bg-transparent border-none p-0 text-xl font-black text-gray-700 focus-visible:ring-0"
+                      />
+                      <p className="text-[0.5625rem] font-bold text-gray-400 uppercase italic tracking-tighter">Choose date for this reading record</p>
+                    </div>
                    <div className="space-y-4">
                      <div className="space-y-1.5 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100">
                         <div className="flex items-center justify-between">
@@ -333,96 +419,107 @@ export default function MeterReadings() {
                             : `Select a machine to auto-fill`}
                         </p>
                      </div>
-                     <div className="space-y-1.5 p-4 bg-primary/5 rounded-xl border border-primary/10">
-                        <Label className="font-black uppercase text-[0.625rem] text-primary tracking-widest">Closing Reading (Shift End)</Label>
-                        <Input 
-                           ref={closingReadingRef}
-                           type="number" 
-                           value={formData.closingReading || ""} 
-                           onChange={e => setFormData({...formData, closingReading: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, submitRef)}
-                           placeholder="0" 
-                           className="text-2xl font-black border-none bg-transparent h-auto p-0 focus-visible:ring-0 shadow-none" 
-                         />
-                        <p className="text-[0.5625rem] font-bold text-gray-400 mt-1 uppercase italic tracking-tighter">Enter manually or use machine counters &darr;</p>
-                     </div>
+                      <div className="space-y-1.5 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-black uppercase text-[0.625rem] text-primary tracking-widest">Closing Reading (Shift End)</Label>
+                          <span className="text-[0.5625rem] font-black uppercase tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-full">AUTO</span>
+                        </div>
+                        <div className="text-2xl font-black text-primary leading-none py-1 select-none tabular-nums">
+                          {parseFloat(formData.closingReading || "0").toLocaleString()}
+                        </div>
+                        <p className="text-[0.5625rem] font-bold text-gray-400 mt-1 uppercase italic tracking-tighter">Calculated from machine counters below &darr;</p>
+                      </div>
+
                    </div>
                 </div>
                 <div className="space-y-4">
-                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-blue-50/30">
-                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-blue-600">BW Counters</div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">LARGE</Label>
-                        <Input 
-                           ref={bwLargeRef}
-                           type="number" 
-                           value={formData.bwLarge} 
-                           onChange={e => setFormData({...formData, bwLarge: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, bwSmallRef)}
-                         />
+                   {(isIR || isC || (!isIR && !isC && !isLS)) && (
+                     <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-blue-50/30">
+                       <div className="col-span-2 text-[0.625rem] font-black uppercase text-blue-600">BW Counters</div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">LARGE</Label>
+                          <Input 
+                             ref={bwLargeRef}
+                             type="number" 
+                             value={formData.bwLarge} 
+                             onChange={e => setFormData({...formData, bwLarge: e.target.value})} 
+                             onKeyDown={(e) => handleEnter(e, bwSmallRef)}
+                           />
+                       </div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">SMALL</Label>
+                          <Input 
+                             ref={bwSmallRef}
+                             type="number" 
+                             value={formData.bwSmall} 
+                             onChange={e => setFormData({...formData, bwSmall: e.target.value})} 
+                             onKeyDown={(e) => {
+                               if (isIR) handleEnter(e, submitRef);
+                               else if (isC) handleEnter(e, colorLargeRef);
+                               else handleEnter(e, colorLargeRef);
+                             }}
+                           />
+                       </div>
                      </div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">SMALL</Label>
-                        <Input 
-                           ref={bwSmallRef}
-                           type="number" 
-                           value={formData.bwSmall} 
-                           onChange={e => setFormData({...formData, bwSmall: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, colorLargeRef)}
-                         />
+                   )}
+                   {(isC || (!isIR && !isC && !isLS)) && (
+                     <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-orange-50/30">
+                       <div className="col-span-2 text-[0.625rem] font-black uppercase text-orange-600">COLOR Counters</div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">LARGE</Label>
+                          <Input 
+                             ref={colorLargeRef}
+                             type="number" 
+                             value={formData.colorLarge} 
+                             onChange={e => setFormData({...formData, colorLarge: e.target.value})} 
+                             onKeyDown={(e) => handleEnter(e, colorSmallRef)}
+                           />
+                       </div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">SMALL</Label>
+                          <Input 
+                             ref={colorSmallRef}
+                             type="number" 
+                             value={formData.colorSmall} 
+                             onChange={e => setFormData({...formData, colorSmall: e.target.value})} 
+                             onKeyDown={(e) => {
+                               if (isC) handleEnter(e, submitRef);
+                               else handleEnter(e, lsColorRef);
+                             }}
+                           />
+                       </div>
                      </div>
-                   </div>
-                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-orange-50/30">
-                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-orange-600">COLOR Counters</div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">LARGE</Label>
-                        <Input 
-                           ref={colorLargeRef}
-                           type="number" 
-                           value={formData.colorLarge} 
-                           onChange={e => setFormData({...formData, colorLarge: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, colorSmallRef)}
-                         />
+                   )}
+                   {(isLS || (!isIR && !isC && !isLS)) && (
+                     <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-purple-50/30">
+                       <div className="col-span-2 text-[0.625rem] font-black uppercase text-purple-600">LS Counters</div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">COLOR</Label>
+                          <Input 
+                             ref={lsColorRef}
+                             type="number" 
+                             value={formData.lsColor} 
+                             onChange={e => setFormData({...formData, lsColor: e.target.value})} 
+                             onKeyDown={(e) => handleEnter(e, lsMonoRef)}
+                           />
+                       </div>
+                       <div className="space-y-1">
+                          <Label className="text-[0.5625rem] font-bold">MONO</Label>
+                          <Input 
+                             ref={lsMonoRef}
+                             type="number" 
+                             value={formData.lsMono} 
+                             onChange={e => setFormData({...formData, lsMono: e.target.value})} 
+                             onKeyDown={(e) => handleEnter(e, submitRef)}
+                           />
+                       </div>
                      </div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">SMALL</Label>
-                        <Input 
-                           ref={colorSmallRef}
-                           type="number" 
-                           value={formData.colorSmall} 
-                           onChange={e => setFormData({...formData, colorSmall: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, lsColorRef)}
-                         />
-                     </div>
-                   </div>
-                   <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-purple-50/30">
-                     <div className="col-span-2 text-[0.625rem] font-black uppercase text-purple-600">LS Counters</div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">COLOR</Label>
-                        <Input 
-                           ref={lsColorRef}
-                           type="number" 
-                           value={formData.lsColor} 
-                           onChange={e => setFormData({...formData, lsColor: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, lsMonoRef)}
-                         />
-                     </div>
-                     <div className="space-y-1">
-                        <Label className="text-[0.5625rem] font-bold">MONO</Label>
-                        <Input 
-                           ref={lsMonoRef}
-                           type="number" 
-                           value={formData.lsMono} 
-                           onChange={e => setFormData({...formData, lsMono: e.target.value})} 
-                           onKeyDown={(e) => handleEnter(e, closingReadingRef)}
-                         />
-                     </div>
-                   </div>
-                </div>
+                   )}
+                 </div>
                 <Button 
                   ref={submitRef}
                   className="col-span-2 h-12 text-lg font-black uppercase tracking-widest shadow-xl" 
-                  onClick={() => mutation.mutate({ ...formData, userId: user?.id })}
+                  onClick={handleSave}
                   disabled={mutation.isPending}
                 >
                   {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-5 w-5 mr-1.5" />}
@@ -473,7 +570,6 @@ export default function MeterReadings() {
               <th className="border-r border-white/20 px-2 py-1 text-center" colSpan={2}>LS</th>
               <th className="border-r border-white/20 px-2 py-2.5 text-center" rowSpan={2}>Opening Reading</th>
               <th className="border-r border-white/20 px-2 py-2.5 text-center" rowSpan={2}>Closing Reading</th>
-              <th className="border-r border-white/20 px-4 py-2.5 text-right bg-blue-700" rowSpan={2}>Total Usage</th>
               <th className="px-4 py-2.5 text-center" rowSpan={2}>Audit</th>
             </tr>
             <tr className="bg-primary/90 text-white font-bold uppercase text-[0.5625rem]">
@@ -487,14 +583,14 @@ export default function MeterReadings() {
           </thead>
           <tbody className="divide-y font-medium text-gray-800">
             {isLoading ? (
-              <tr><td colSpan={11} className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
+              <tr><td colSpan={10} className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={11} className="py-20 text-center font-bold text-gray-400">NO METER READINGS RECORDED FOR THIS PERIOD</td></tr>
+              <tr><td colSpan={10} className="py-20 text-center font-bold text-gray-400">NO METER READINGS RECORDED FOR THIS PERIOD</td></tr>
             ) : (
               filtered.map((r: any) => (
                 <Fragment key={r.id}>
                   <tr className="bg-orange-50/50">
-                    <td className="px-4 py-2 font-black uppercase text-sm border-r border-gray-100" colSpan={11}>{r.machineName}</td>
+                    <td className="px-4 py-2 font-black uppercase text-sm border-r border-gray-100" colSpan={10}>{r.machineName}</td>
                   </tr>
                   <tr className="hover:bg-gray-50 transition-colors">
                     <td className="px-8 py-2.5 font-bold border-r border-gray-100 text-gray-500 italic">{r.date}</td>
@@ -510,7 +606,6 @@ export default function MeterReadings() {
                          <span className="text-[0.625rem] bg-yellow-100 px-2 py-1 rounded text-yellow-700 animate-pulse font-black">PENDING...</span>
                        ) : parseFloat(r.closingReading || 0).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-black text-sm bg-gray-50 border-r tabular-nums">{parseFloat(r.totalUsage || 0).toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-center">
                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-all rounded-full" onClick={() => {
                           setFormData({

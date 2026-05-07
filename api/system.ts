@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
 import { invoices, contacts, products, expenses, accounts, meterReadings, users, machines, stockMovements } from '../db/schema.js';
-import { sql, desc, eq } from 'drizzle-orm';
+import { sql, desc, eq, and } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   const { resource, type } = request.query;
@@ -59,8 +59,23 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const finalClosing = manualClosing > 0 ? manualClosing : sumCounters;
         
         const { id, ...rest } = data;
+        
+        // Safely handle userId - ensure it's a number or null
+        let validUserId = null;
+        if (rest.userId) {
+          const parsedId = parseInt(rest.userId.toString());
+          if (!isNaN(parsedId)) {
+            validUserId = parsedId;
+          }
+        }
+
+        if (finalClosing < op) {
+          return response.status(400).json({ error: "Closing reading cannot be less than opening reading" });
+        }
+
         const payload = {
           ...rest,
+          userId: validUserId,
           closingReading: finalClosing.toString(),
           totalUsage: (finalClosing - op).toString()
         };
@@ -69,6 +84,23 @@ export default async function handler(request: VercelRequest, response: VercelRe
           const updated = await db.update(meterReadings).set(payload).where(eq(meterReadings.id, id)).returning();
           return response.status(200).json(updated[0]);
         } else {
+          // Check if an entry already exists for this machine and date (One entry per machine per day constraint)
+          const existing = await db.select().from(meterReadings)
+            .where(and(
+              eq(meterReadings.machineName, payload.machineName),
+              eq(meterReadings.date, payload.date)
+            ))
+            .limit(1);
+
+          if (existing.length > 0) {
+            // Update existing entry instead of creating a duplicate
+            const updated = await db.update(meterReadings)
+              .set(payload)
+              .where(eq(meterReadings.id, existing[0].id))
+              .returning();
+            return response.status(200).json(updated[0]);
+          }
+
           const inserted = await db.insert(meterReadings).values(payload).returning();
           return response.status(200).json(inserted[0]);
         }
