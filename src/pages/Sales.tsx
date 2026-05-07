@@ -331,34 +331,74 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
     const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
     let spacer: HTMLElement | null = null;
+    const rowSpacers: HTMLElement[] = [];
     const pdfMarginTop = paperSize === "thermal" ? 0 : 15;
     const pdfMarginBottom = paperSize === "thermal" ? 0 : 20;
     const usablePageHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
 
-    if (footerEl && paperSize !== "thermal") {
+    if (paperSize !== "thermal") {
       const scaleFactor = formatWidth / windowW;
-      const elementRect = element.getBoundingClientRect();
-      const footerRect = footerEl.getBoundingClientRect();
-      const footerTopPx = footerRect.top - elementRect.top;
-      const footerHeightPx = footerRect.height;
-
-      const footerTopPt = footerTopPx * scaleFactor;
-      const footerHeightPt = footerHeightPx * scaleFactor;
-      // Account for margins: each page loses (marginTop + marginBottom) from usable space
       const pageContentHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
-      const pageIndex = Math.floor(footerTopPt / pageContentHeight);
-      const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
-      const safetyBuffer = 10;
 
-      // If the footer won't fit on the current page, push it to the next page
-      if ((posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
-        const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
-        const pushPx = pushPt / scaleFactor;
-        spacer = document.createElement('div');
-        spacer.style.height = `${pushPx}px`;
-        spacer.style.width = '100%';
-        spacer.className = 'pdf-page-break-spacer';
-        footerEl.parentElement?.insertBefore(spacer, footerEl);
+      // Step 1: Protect table rows from being split across pages
+      // jsPDF's doc.html() uses html2canvas which rasterizes the HTML and slices
+      // at fixed pixel intervals — it ignores CSS page-break-inside rules entirely.
+      // We manually detect rows that straddle a page boundary and push them down.
+      const allRows = element.querySelectorAll('.invoice-items-table tbody tr');
+      // Process bottom-to-top so inserting spacers doesn't shift rows we haven't checked yet
+      const rowArray = Array.from(allRows).reverse();
+      for (const row of rowArray) {
+        // Skip empty filler rows
+        if ((row as HTMLElement).querySelector('td[colspan]') && !(row as HTMLElement).textContent?.trim()) continue;
+
+        const elementRect = element.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const rowTopPx = rowRect.top - elementRect.top;
+        const rowHeightPx = rowRect.height;
+
+        const rowTopPt = rowTopPx * scaleFactor;
+        const rowHeightPt = rowHeightPx * scaleFactor;
+
+        const pageIndex = Math.floor(rowTopPt / pageContentHeight);
+        const posOnPage = rowTopPt - (pageIndex * pageContentHeight);
+
+        // If this row would be split across pages, push it to the next page
+        if ((posOnPage + rowHeightPt) > pageContentHeight && posOnPage > 5) {
+          const pushPt = pageContentHeight - posOnPage + 2;
+          const pushPx = pushPt / scaleFactor;
+          const rowSpacer = document.createElement('tr');
+          rowSpacer.innerHTML = `<td colspan="99" style="height:${pushPx}px;padding:0;border:none;line-height:0;font-size:0;"></td>`;
+          rowSpacer.className = 'pdf-row-break-spacer';
+          rowSpacer.style.cssText = 'padding:0;margin:0;border:none;';
+          row.parentElement?.insertBefore(rowSpacer, row);
+          rowSpacers.push(rowSpacer);
+        }
+      }
+
+      // Step 2: Protect footer from being split across pages
+      // Recalculate footer position AFTER row spacers may have shifted content down
+      if (footerEl) {
+        const elementRect = element.getBoundingClientRect();
+        const footerRect = footerEl.getBoundingClientRect();
+        const footerTopPx = footerRect.top - elementRect.top;
+        const footerHeightPx = footerRect.height;
+
+        const footerTopPt = footerTopPx * scaleFactor;
+        const footerHeightPt = footerHeightPx * scaleFactor;
+        const pageIndex = Math.floor(footerTopPt / pageContentHeight);
+        const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
+        const safetyBuffer = 10;
+
+        // If the footer won't fit on the current page, push it to the next page
+        if ((posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
+          const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
+          const pushPx = pushPt / scaleFactor;
+          spacer = document.createElement('div');
+          spacer.style.height = `${pushPx}px`;
+          spacer.style.width = '100%';
+          spacer.className = 'pdf-page-break-spacer';
+          footerEl.parentElement?.insertBefore(spacer, footerEl);
+        }
       }
     }
 
@@ -369,6 +409,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         useCORS: true
       },
       callback: function (pdf) {
+        // Clean up all temporary spacers
+        rowSpacers.forEach(s => s.parentElement?.removeChild(s));
         if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
         element.style.minHeight = originalMinHeight;
         element.style.removeProperty('height');
