@@ -47,6 +47,9 @@ const generateNextNo = (list: any[], type: string) => {
         const parts = val.split('-');
         const lastPart = parts[parts.length - 1];
         const num = parseInt(lastPart);
+        // Ignore old 6-digit random numbers (like 940120, 030242) to allow starting from 1000.
+        // We only ignore them if they are exactly 6 digits and higher than 10000.
+        if (lastPart.length === 6 && num > 10000) return 0;
         return isNaN(num) ? 0 : num;
       }
       return 0;
@@ -492,24 +495,32 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   };
 
   const handleDownloadJpg = async () => {
-    const element = printRef.current;
+    const root = printRef.current;
+    if (!root) return;
+
+    // Target the specific document container to avoid extra whitespace
+    const element = paperSize === "thermal" 
+      ? root.querySelector('.thermal-format') as HTMLElement 
+      : root.querySelector('.invoice-page') as HTMLElement;
+
     if (!element) return;
 
-    // TEMPORARY: Reset container height constraints for accurate measurement
     const originalMinHeight = element.style.minHeight;
     element.style.minHeight = 'auto';
     element.style.height = 'auto';
 
     try {
       const canvas = await html2canvas(element, {
-        scale: 3, // High quality
+        scale: 4, // Ultra-high quality
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        windowWidth: paperSize === "thermal" ? (parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80") * 3.7795) : 800
+        // Ensure we capture the natural width of the content
+        width: element.offsetWidth,
+        height: element.scrollHeight
       });
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      const dataUrl = canvas.toDataURL("image/jpeg", 1.0); // Maximum JPG quality
       const link = document.createElement("a");
       const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
       const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
@@ -824,7 +835,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           </span>
           <div className="flex gap-2">
             {isEstimate ? (
-              <Button variant="outline" size="sm" onClick={handleDownloadJpg} className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50">
+              <Button variant="outline" onClick={handleDownloadJpg} className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50">
                 <Download className="h-4 w-4" /> Download JPG
               </Button>
             ) : (
@@ -1284,23 +1295,28 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
                   </div>
                   <div className="ml-auto text-right">
-                    <span style={{ fontSize: '9px', fontWeight: 900 }}>Sub Total: {taxableAmount.toFixed(2)}</span>
+                    <span style={{ fontSize: '9px', fontWeight: 900 }}>
+                      {totalTax > 0 ? 'Sub Total: ' : 'Grand Total: '}
+                      {taxableAmount.toFixed(2)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="mt-1 space-y-0.5" style={{ fontSize: '8px', textAlign: 'right' }}>
-                  {Object.values(taxGroups).map((group: any) => (
-                    isIgst ? (
-                      <p key={`igst-${group.rate}`}>IGST {group.rate}% : {group.tax.toFixed(2)}</p>
-                    ) : (
-                      <Fragment key={`gst-${group.rate}`}>
-                        <p>CGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
-                        <p>SGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
-                      </Fragment>
-                    )
-                  ))}
-                  <p style={{ fontSize: '10px', fontWeight: 900, marginTop: '4px' }}>Grand Total: {total.toFixed(2)}</p>
-                </div>
+                {totalTax > 0 && (
+                  <div className="mt-1 space-y-0.5" style={{ fontSize: '8px', textAlign: 'right' }}>
+                    {Object.values(taxGroups).map((group: any) => (
+                      isIgst ? (
+                        <p key={`igst-${group.rate}`}>IGST {group.rate}% : {group.tax.toFixed(2)}</p>
+                      ) : (
+                        <Fragment key={`gst-${group.rate}`}>
+                          <p>CGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
+                          <p>SGST {group.rate / 2}% : {(group.tax / 2).toFixed(2)}</p>
+                        </Fragment>
+                      )
+                    ))}
+                    <p style={{ fontSize: '10px', fontWeight: 900, marginTop: '4px' }}>Grand Total: {total.toFixed(2)}</p>
+                  </div>
+                )}
               </div>
 
               <div className="thermal-dashed-line" style={{ margin: '4px 0' }} />
