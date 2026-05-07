@@ -1087,38 +1087,38 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
 
                     <div className="col-span-5 flex flex-col items-end">
-                      <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
+                      <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
                         <tbody>
                           <tr>
-                            <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
-                            <td className="px-2 py-1 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
+                            <td className="px-2 py-1 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
+                            <td className="px-2 py-1 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
                           </tr>
                           {Object.values(taxGroups).map((group: any) => (
                             isIgst ? (
                               <tr key={`igst-${group.rate}`}>
                                 <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {group.tax.toFixed(2)}</td>
+                                <td className="px-2 py-1 text-right font-black">{group.tax.toFixed(2)}</td>
                               </tr>
                             ) : (
                               <Fragment key={`gst-${group.rate}`}>
                                 <tr>
                                   <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
+                                  <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                                 <tr>
                                   <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
+                                  <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                               </Fragment>
                             )
                           ))}
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                            <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
+                            <td className="px-2 py-1 text-right font-black">0.00</td>
                           </tr>
                           <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                            <td className="px-3 py-2 text-black text-[12px] font-black uppercase">Grand Total</td>
-                            <td className="px-3 py-2 text-right text-black text-[12px] font-black">Rs. {total.toFixed(2)}</td>
+                            <td className="px-2 py-1 text-black text-[12px] font-black uppercase">Grand Total</td>
+                            <td className="px-2 py-1 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1181,38 +1181,38 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
 
                   <div className="col-span-5 flex flex-col items-end">
-                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial" }}>
+                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
                       <tbody>
                         <tr>
-                          <td className="px-2 py-1 text-gray-600 font-bold">Sub Total</td>
-                          <td className="px-2 py-1 text-right font-black">Rs. {taxableAmount.toFixed(2)}</td>
+                          <td className="px-2 py-1 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
+                          <td className="px-2 py-1 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
                         </tr>
                         {Object.values(taxGroups).map((group: any) => (
                           isIgst ? (
                             <tr key={`igst-${group.rate}`}>
                               <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
-                              <td className="px-2 py-1 text-right font-black">Rs. {group.tax.toFixed(2)}</td>
+                              <td className="px-2 py-1 text-right font-black">{group.tax.toFixed(2)}</td>
                             </tr>
                           ) : (
                             <Fragment key={`gst-${group.rate}`}>
                               <tr>
                                 <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
+                                <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                               </tr>
                               <tr>
                                 <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
-                                <td className="px-2 py-1 text-right font-black">Rs. {(group.tax / 2).toFixed(2)}</td>
+                                <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                               </tr>
                             </Fragment>
                           )
                         ))}
                         <tr>
                           <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                          <td className="px-2 py-1 text-right font-black">Rs. 0.00</td>
+                          <td className="px-2 py-1 text-right font-black">0.00</td>
                         </tr>
                         <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                          <td className="px-3 py-2 text-black text-[13.5px] font-black uppercase">Grand Total</td>
-                          <td className="px-3 py-2 text-right text-black text-[13.5px] font-black">Rs. {total.toFixed(2)}</td>
+                          <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase">Grand Total</td>
+                          <td className="px-2 py-1 text-right text-black text-[13.5px] font-black">{total.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
