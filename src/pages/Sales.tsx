@@ -1721,11 +1721,22 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
                   <p className="text-xs font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
-                {(type !== 'estimates' || gstEnabled) && (
+                {isIgst ? (
                   <div className="text-right">
-                    <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">{isIgst ? 'IGST' : 'GST'}</p>
+                    <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">IGST</p>
                     <p className="text-xs font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                   </div>
+                ) : (
+                  <>
+                    <div className="text-right">
+                      <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">CGST</p>
+                      <p className="text-xs font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">SGST</p>
+                      <p className="text-xs font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  </>
                 )}
                 <div className="h-8 w-px bg-border mx-1" />
                 <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
@@ -2038,12 +2049,27 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
                     <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  {(type !== 'estimates' || gstEnabled) && (
+                  {isIgst ? (
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground font-medium uppercase tracking-tighter">{isIgst ? 'IGST' : 'GST'} Amount</span>
+                      <span className="text-muted-foreground font-medium uppercase tracking-tighter">IGST Amount</span>
                       <span className="font-bold tabular-nums">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">CGST Amount</span>
+                        <span className="font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">SGST Amount</span>
+                        <span className="font-bold tabular-nums">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
                   )}
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Round Off</span>
+                    <span className="font-bold tabular-nums">₹0.00</span>
+                  </div>
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
