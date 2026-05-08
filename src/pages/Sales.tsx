@@ -1046,8 +1046,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     )}
                     <div>
                       <h1 className="text-xl font-black tracking-tighter uppercase leading-none whitespace-nowrap header-brand-name">{profile.name || "PRINT WORKSHOP"}</h1>
-                      <p className="text-[0.55rem] font-bold text-gray-500 uppercase mt-0.5 italic header-slogan">{profile.slogan}</p>
-                      <p className="text-[0.6rem] font-bold text-black uppercase header-sub-brand">DIGITAL PRINTING</p>
+                      <p className="text-[0.6rem] font-medium text-black uppercase mt-0.5 header-slogan">{profile.slogan}</p>
+                      <p className="text-[0.6rem] font-medium text-black uppercase header-sub-brand">DIGITAL PRINTING</p>
                     </div>
                   </div>
 
@@ -1228,7 +1228,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                         <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                       </div>
                       <div className="mt-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                        <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
                       </div>
                     </div>
 
@@ -1286,10 +1286,12 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             <td className="px-2 py-0.5 text-gray-600 font-bold uppercase">Round Off</td>
                             <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
                           </tr>
+                          <tr style={{ height: '3px' }}><td colSpan={2} className="p-0"></td></tr>
                           <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
                             <td className="px-2 py-0.5 text-black text-[12px] font-black uppercase">Grand Total</td>
                             <td className="px-2 py-0.5 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
                           </tr>
+                          <tr style={{ height: '3px' }}><td colSpan={2} className="p-0"></td></tr>
                         </tbody>
                       </table>
                       <div className="mt-2 w-full">
@@ -1322,7 +1324,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
                     </div>
                     <div className="mt-4">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                      <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
                     </div>
                   </div>
 
