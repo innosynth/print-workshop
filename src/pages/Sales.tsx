@@ -57,7 +57,7 @@ const generateNextNo = (list: any[], type: string) => {
       return isNaN(num) ? 0 : num;
     })
     .filter(n => n >= 1000);
-  
+
   const max = nums.length > 0 ? Math.max(...nums) : 999;
   return `${prefix}-${max + 1}`;
 };
@@ -290,7 +290,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   }, 0) : 0;
 
   const rawTotal = taxableAmount + totalTax;
-  const total = activeInvoice.total ? parseFloat(activeInvoice.total) : Math.round(rawTotal);
+  // If no tax is saved (especially for estimates where GST was disabled), 
+  // the total should be the rounded taxable amount to avoid legacy bugged totals
+  const total = (activeInvoice.total && (savedTax > 0 || docType !== 'estimates')) ? parseFloat(activeInvoice.total) : Math.round(rawTotal);
   const roundOff = total - rawTotal;
 
   const taxGroups = savedTax > 0 ? items.reduce((acc: any, item: any) => {
@@ -455,7 +457,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
       // Ensure borders are visible in PDF
       const injectPdfStyles = iDoc.createElement('style');
-        injectPdfStyles.textContent = `
+      injectPdfStyles.textContent = `
           .invoice-items-table thead tr { 
             height: auto !important; 
             border-top: 2pt solid black !important;
@@ -611,8 +613,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     if (!root) return;
 
     // Target the specific document container to avoid extra whitespace
-    const element = paperSize === "thermal" 
-      ? root.querySelector('.thermal-format') as HTMLElement 
+    const element = paperSize === "thermal"
+      ? root.querySelector('.thermal-format') as HTMLElement
       : root.querySelector('.invoice-page') as HTMLElement;
 
     if (!element) {
@@ -649,21 +651,21 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         if (!blob) {
           throw new Error("Canvas to Blob conversion failed");
         }
-        
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
         const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
-        
+
         link.download = `${docNo}_${custName}.jpg`;
         link.href = url;
         link.click();
-        
+
         // Cleanup the object URL
         setTimeout(() => {
           URL.revokeObjectURL(url);
         }, 1000);
-        
+
         toast({
           title: "Success",
           description: "Image downloaded successfully.",
@@ -999,9 +1001,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               </div>
             )}
 
-            <Button 
-              variant="outline" 
-              onClick={handleDownloadJpg} 
+            <Button
+              variant="outline"
+              onClick={handleDownloadJpg}
               disabled={isDownloading}
               className="gap-1.5 border-blue-600 text-blue-600 hover:bg-blue-50 h-8 text-[11px] px-3"
             >
@@ -1012,7 +1014,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               )}
               {isDownloading ? "Generating..." : "Download JPG"}
             </Button>
-            
+
             {/* 
             <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
               <Printer className="h-3.5 w-3.5" /> Print Document
@@ -1411,25 +1413,25 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 <div style={{ borderTop: '0.5px dashed #999', margin: '0 0 4px 0', width: '100%' }}></div>
               </div>
 
-                <div style={{ fontSize: '14.5px', fontStyle: 'normal' }}>
-                  <div className="flex justify-between">
-                    <span>No.<span>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
-                    <span>Date: {formatDate(activeInvoice.date || invoice.date)}</span>
+              <div style={{ fontSize: '14.5px', fontStyle: 'normal' }}>
+                <div className="flex justify-between">
+                  <span>No.<span>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</span></span>
+                  <span>Date: {formatDate(activeInvoice.date || invoice.date)}</span>
+                </div>
+                <div className="text-left mt-1" style={{ fontSize: '14.5px' }}>
+                  C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
+                </div>
+                {activeInvoice.customerGst && !isEstimate && (
+                  <div className="text-left mt-0.5" style={{ fontSize: '14.5px' }}>
+                    GSTIN : {activeInvoice.customerGst}
                   </div>
-                  <div className="text-left mt-1" style={{ fontSize: '14.5px' }}>
-                    C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
-                  </div>
-                  {activeInvoice.customerGst && !isEstimate && (
-                    <div className="text-left mt-0.5" style={{ fontSize: '14.5px' }}>
-                      GSTIN : {activeInvoice.customerGst}
-                    </div>
-                 )}
-               </div>
+                )}
+              </div>
 
-                 <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
+              <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
 
-                <div className="mt-1">
-                  <table className="w-full" style={{ fontSize: '14px' }}>
+              <div className="mt-1">
+                <table className="w-full" style={{ fontSize: '14px' }}>
                   <thead>
                     <tr style={{ fontWeight: 800 }}>
                       <th className="py-1 text-left px-0.5" style={{ width: '45%' }}>Product Name</th>
@@ -1455,16 +1457,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 </table>
               </div>
 
-                 <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
+              <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
 
-                 <div className="text-left py-1">
-                  <div className="flex items-center" style={{ fontSize: '14.5px' }}>
-                   <div className="space-y-1.5 font-bold">
-                     <p>Total Items : {items?.length || 0}</p>
-                     <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
-                   </div>
-                   <div className="ml-auto text-right">
-                     <span style={{ fontSize: '15.5px', fontWeight: 800 }}>
+              <div className="text-left py-1">
+                <div className="flex items-center" style={{ fontSize: '14.5px' }}>
+                  <div className="space-y-1.5 font-bold">
+                    <p>Total Items : {items?.length || 0}</p>
+                    <p>Total Qty : {items?.reduce((a: any, b: any) => a + parseInt(b.qty || 0), 0) || 0}</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <span style={{ fontSize: '15.5px', fontWeight: 800 }}>
                       {totalTax > 0 ? 'Sub Total: ' : 'Grand Total: '}
                       {totalTax > 0 ? taxableAmount.toFixed(2) : total.toFixed(2)}
                     </span>
@@ -1492,11 +1494,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <p>Round Off: {roundOff.toFixed(2)}</p>
                   </div>
                 )}
-               </div>
+              </div>
 
-                 <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
+              <div style={{ borderTop: '0.5px dashed #999', margin: '12px 0', width: '100%' }}></div>
 
-                 <div className="pt-1 space-y-1">
+              <div className="pt-1 space-y-1">
                 <div className="text-left space-y-1" style={{ fontSize: '15px', fontWeight: 'bold' }}>
                   <p>File : {activeInvoice.fileName || "-"}</p>
                   <p>User :{profile.name?.split(' ')[0] || "Admin"} | Time : {new Date().toLocaleTimeString('en-GB', { hour12: false }).replace(/:/g, '.')}</p>
@@ -1806,8 +1808,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const validItems = items.filter(i => i.name && i.name.trim() !== "");
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const potentialTax = validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
+
+  // UI Display logic - Always show potential tax values by default
+  const displayTotalTax = potentialTax;
+  const displayRawTotal = subtotal + displayTotalTax;
+  const displayGrandTotal = Math.round(displayRawTotal);
+  const displayRoundOff = displayGrandTotal - displayRawTotal;
+
+  // Persistence logic - Use gstEnabled flag for saving
   const totalTax = gstEnabled ? potentialTax : 0;
-  const rawGrandTotal = subtotal + potentialTax; // Always include taxes in grand total calculation
+  const rawGrandTotal = subtotal + totalTax;
   const grandTotal = Math.round(rawGrandTotal);
   const roundOff = grandTotal - rawGrandTotal;
 
@@ -2244,12 +2254,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">Round Off</span>
-                    <span className="font-bold tabular-nums">₹{roundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-bold tabular-nums">₹{displayRoundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
-                    <span className="font-black text-lg text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{displayGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
