@@ -305,7 +305,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   }, {}) : {};
 
   const MAX_ITEMS_A4 = 25;
-  const MAX_ITEMS_A5 = 7;
+  const MAX_ITEMS_A5 = 5;
   const fitsOnOnePage = paperSize === "A5" ? items.length <= MAX_ITEMS_A5 : items.length <= MAX_ITEMS_A4;
 
   const upiUrl = activeQr?.isDynamic ? `upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}` : null;
@@ -348,16 +348,136 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
 
     const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
-    const thermalContent = element.querySelector('.thermal-format') as HTMLElement;
-
-    // TEMPORARY: Reset container height constraints for accurate measurement
-    const originalMinHeight = element.style.minHeight;
-    element.style.minHeight = 'auto';
-    element.style.height = 'auto';
-
-    const elementHeight = paperSize === "thermal" && thermalContent ? thermalContent.getBoundingClientRect().height : element.offsetHeight;
+    const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
     const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
+    const pdfMarginTop = paperSize === "thermal" ? 0 : 15;
+    const pdfMarginBottom = paperSize === "thermal" ? 0 : 20;
+
+    // --- Build an isolated iframe with a fixed viewport so PDF output is
+    //     identical regardless of the user's monitor size or browser zoom. ---
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;overflow:hidden;border:0;';
+    document.body.appendChild(iframe);
+
+    const iDoc = iframe.contentDocument!;
+    const iWin = iframe.contentWindow!;
+
+    // Wait for iframe document to be ready
+    await new Promise<void>(resolve => {
+      if (iDoc.readyState !== 'loading') return resolve();
+      iWin!.addEventListener('load', () => resolve());
+      resolve();
+    });
+
+    // Collect ALL CSS: <style> blocks AND <link> stylesheets from the main page
+    const allStyles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n') + '\n' +
+      Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
+
+    // Collect .invoice-page and .thermal-format for style adjustments
+    const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
+    const thermalContent = element.querySelector('.thermal-format') as HTMLElement | null;
+
+    // Apply layout styles before cloning (matching original logic)
+    if (invoicePage && paperSize !== "thermal") {
+      const minH = fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '110mm') : 'auto';
+      invoicePage.style.setProperty('min-height', minH, 'important');
+      invoicePage.style.setProperty('padding', paperSize === "A5" ? "20px 24px 20px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px"), 'important');
+    }
+
+    // Measure elementHeight before cloning
+    const originalMinHeight = invoicePage?.style.minHeight || '';
+    if (invoicePage) { invoicePage.style.minHeight = 'auto'; invoicePage.style.height = 'auto'; }
+    const elementHeight = paperSize === "thermal" && thermalContent
+      ? thermalContent.getBoundingClientRect().height
+      : element.offsetHeight;
+    if (invoicePage) { invoicePage.style.minHeight = originalMinHeight; invoicePage.style.removeProperty('height'); }
     const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 5;
+
+    // Build iframe HTML — clone the FULL print-container (same as original passed to doc.html)
+    const iframeBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          html, body { margin: 0; padding: 0; width: ${windowW}px; overflow: visible; }
+          .print-container { padding: 0 !important; }
+        </style>
+        ${allStyles}
+      </head>
+      <body>
+        ${element.outerHTML}
+      </body>
+      </html>
+    `;
+    iDoc.open();
+    iDoc.write(iframeBody);
+    iDoc.close();
+
+    // Wait for iframe content to fully render (including images)
+    await new Promise<void>(resolve => {
+      iWin.addEventListener('load', () => resolve(), { once: true });
+      setTimeout(resolve, 1500);
+    });
+
+    // Use the iframe's print-container (same element the original code passed)
+    const iframeEl = iDoc.querySelector('.print-container') as HTMLElement;
+
+    // For A4/A5: increase font by 6px globally and center the table header row.
+    // Every inline fontSize must be increased because child elements override
+    // stylesheet rules with their own inline style="font-size:14px", etc.
+    if (paperSize !== "thermal") {
+      const fontIncrease = paperSize === "A5" ? 0.5 : 5;
+
+      // Increase the .invoice-page base fontSize
+      const ip = iframeEl.querySelector('.invoice-page') as HTMLElement;
+      if (ip && ip.style.fontSize) {
+        const v = parseFloat(ip.style.fontSize) || 0;
+        ip.style.fontSize = `${v + fontIncrease}px`;
+      }
+
+      // Walk every descendant and increase inline fontSize by fontIncrease
+      const allNodes = ip?.querySelectorAll('*') || new NodeList();
+      for (const n of Array.from(allNodes) as HTMLElement[]) {
+        if (n.style.fontSize) {
+          const v = parseFloat(n.style.fontSize) || 0;
+          if (v > 0) n.style.fontSize = `${v + fontIncrease}px`;
+        }
+
+        // Hard fix for table headers centering in PDF
+        if (n.tagName === 'TH' && n.closest('.invoice-items-table')) {
+          n.style.paddingTop = paperSize === "A5" ? '10px' : '16px';
+          n.style.paddingBottom = paperSize === "A5" ? '10px' : '16px';
+          n.style.verticalAlign = 'middle';
+          n.style.lineHeight = '1.2';
+          n.style.height = 'auto';
+        }
+      }
+
+      // Ensure borders are visible in PDF
+      const injectPdfStyles = iDoc.createElement('style');
+        injectPdfStyles.textContent = `
+          .invoice-items-table thead tr { 
+            height: auto !important; 
+            border-top: 2pt solid black !important;
+            border-bottom: 2pt solid black !important;
+          }
+          .invoice-items-table thead th {
+            border: none !important;
+            padding: ${paperSize === "A5" ? '10px 2px' : '16px 4px'} !important;
+            vertical-align: middle !important;
+            box-sizing: border-box !important;
+            line-height: 1.2 !important;
+          }
+          .invoice-footer-section table tr.bg-gray-100 {
+            border-top: 1.5pt solid black !important;
+          }
+          .invoice-footer-section table tr.bg-gray-100 td {
+            padding-top: 12px !important;
+            padding-bottom: 12px !important;
+          }
+        `;
+      iDoc.head.appendChild(injectPdfStyles);
+    }
 
     const doc = new jsPDF({
       orientation: paperSize === "A5" ? "landscape" : "portrait",
@@ -365,37 +485,22 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       format: paperSize === "A4" ? "a4" : paperSize === "A5" ? [formatWidth, formatHeight] : [formatWidth, formatHeight]
     });
 
-    const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
-    const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
-    if (invoicePage) {
-      const minH = paperSize === "thermal" ? 'auto' : (fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '110mm') : 'auto');
-      invoicePage.style.setProperty('min-height', minH, 'important');
-      invoicePage.style.setProperty('padding', paperSize === "thermal" ? '0' : (paperSize === "A5" ? "20px 24px 20px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")), 'important');
-    }
-
-    const footerEl = element.querySelector('.invoice-footer-section') as HTMLElement | null;
+    // Get inner elements for page break detection
+    const iframeInvoicePage = iDoc.querySelector('.invoice-page') as HTMLElement | null;
+    const footerEl = iDoc.querySelector('.invoice-footer-section') as HTMLElement | null;
     let spacer: HTMLElement | null = null;
     const rowSpacers: HTMLElement[] = [];
-    const pdfMarginTop = paperSize === "thermal" ? 0 : 15;
-    const pdfMarginBottom = paperSize === "thermal" ? 0 : 20;
-    const usablePageHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
 
-    if (paperSize !== "thermal") {
+    if (paperSize !== "thermal" && iframeInvoicePage) {
       const scaleFactor = formatWidth / windowW;
       const pageContentHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
 
-      // Step 1: Protect table rows from being split across pages
-      // jsPDF's doc.html() uses html2canvas which rasterizes the HTML and slices
-      // at fixed pixel intervals — it ignores CSS page-break-inside rules entirely.
-      // We manually detect rows that straddle a page boundary and push them down.
-      const allRows = element.querySelectorAll('.invoice-items-table tbody tr');
-      // Process bottom-to-top so inserting spacers doesn't shift rows we haven't checked yet
+      const allRows = iframeInvoicePage.querySelectorAll('.invoice-items-table tbody tr');
       const rowArray = Array.from(allRows).reverse();
       for (const row of rowArray) {
-        // Skip empty filler rows
         if ((row as HTMLElement).querySelector('td[colspan]') && !(row as HTMLElement).textContent?.trim()) continue;
 
-        const elementRect = element.getBoundingClientRect();
+        const elementRect = iframeInvoicePage.getBoundingClientRect();
         const rowRect = row.getBoundingClientRect();
         const rowTopPx = rowRect.top - elementRect.top;
         const rowHeightPx = rowRect.height;
@@ -406,24 +511,23 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         const pageIndex = Math.floor(rowTopPt / pageContentHeight);
         const posOnPage = rowTopPt - (pageIndex * pageContentHeight);
 
-        // If this row would be split across pages, push it to the next page
         if ((posOnPage + rowHeightPt) > pageContentHeight && posOnPage > 5) {
           const pushPt = pageContentHeight - posOnPage + 2;
           const pushPx = pushPt / scaleFactor;
-          const rowSpacer = document.createElement('tr');
+          const rowSpacer = iDoc.createElement('tr');
           rowSpacer.innerHTML = `<td colspan="99" style="height:${pushPx}px;padding:0;border:none;line-height:0;font-size:0;"></td>`;
           rowSpacer.className = 'pdf-row-break-spacer';
           rowSpacer.style.cssText = 'padding:0;margin:0;border:none;';
-          row.parentElement?.insertBefore(rowSpacer, row);
+          (row as HTMLElement).parentElement?.insertBefore(rowSpacer, row);
           rowSpacers.push(rowSpacer);
         }
       }
 
-      // Step 2: Protect footer from being split across pages
-      // Recalculate footer position AFTER row spacers may have shifted content down
-      if (footerEl) {
-        const elementRect = element.getBoundingClientRect();
-        const footerRect = footerEl.getBoundingClientRect();
+      // Recalculate footer position after row spacers
+      const ifFooterEl = iDoc.querySelector('.invoice-footer-section') as HTMLElement | null;
+      if (ifFooterEl) {
+        const elementRect = iframeInvoicePage.getBoundingClientRect();
+        const footerRect = ifFooterEl.getBoundingClientRect();
         const footerTopPx = footerRect.top - elementRect.top;
         const footerHeightPx = footerRect.height;
 
@@ -433,71 +537,73 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
         const safetyBuffer = 10;
 
-        // If the footer won't fit on the current page, push it to the next page
         if ((posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
           const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
           const pushPx = pushPt / scaleFactor;
-          spacer = document.createElement('div');
+          spacer = iDoc.createElement('div');
           spacer.style.height = `${pushPx}px`;
           spacer.style.width = '100%';
           spacer.className = 'pdf-page-break-spacer';
-          footerEl.parentElement?.insertBefore(spacer, footerEl);
+          ifFooterEl.parentElement?.insertBefore(spacer, ifFooterEl);
         }
       }
     }
 
-    // Capture content height BEFORE rendering (while spacers are in the DOM)
-    // This must be measured here, not in the callback, because spacers get removed in the callback
-    const finalContentHeightPx = element.scrollHeight || element.offsetHeight;
+    // Capture content height (after spacers)
+    const targetEl = iframeInvoicePage || (paperSize === "thermal" ? (iDoc.querySelector('.thermal-format') as HTMLElement) : iframeEl);
+    const finalContentHeightPx = targetEl.scrollHeight || targetEl.offsetHeight;
     const scaleForPages = formatWidth / windowW;
     const finalContentHeightPt = finalContentHeightPx * scaleForPages;
     const pageUsable = formatHeight - pdfMarginTop - pdfMarginBottom;
     const expectedPages = Math.ceil(finalContentHeightPt / pageUsable);
 
-    await doc.html(element, {
-      x: 0, y: 0, width: formatWidth, windowWidth: windowW,
-      margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
-      html2canvas: {
-        useCORS: true
-      },
-      callback: function (pdf) {
-        // Clean up all temporary spacers
-        rowSpacers.forEach(s => s.parentElement?.removeChild(s));
-        if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
-        element.style.minHeight = originalMinHeight;
-        element.style.removeProperty('height');
-        if (invoicePage) {
-          invoicePage.style.removeProperty('min-height');
-          invoicePage.style.removeProperty('padding');
-        }
-        // Remove trailing blank/overflow pages
-        // Method 1: Delete pages beyond what the content actually needs
-        const totalPages = pdf.getNumberOfPages();
+    setIsDownloading(true);
 
-        // Delete pages beyond what the content actually needs
-        for (let p = totalPages; p > Math.max(expectedPages, 1); p--) {
-          pdf.deletePage(p);
-        }
+    try {
+      // Pass the FULL print-container to doc.html() — same as original
+      await doc.html(iframeEl, {
+        x: 0, y: 0, width: formatWidth, windowWidth: windowW,
+        margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
+        html2canvas: {
+          useCORS: true
+        },
+        callback: function (pdf) {
+          // Clean up spacers inside iframe
+          rowSpacers.forEach(s => s.parentElement?.removeChild(s));
+          if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
 
-        // Method 2: Fallback — also check remaining trailing pages by content size
-        const remainingPages = pdf.getNumberOfPages();
-        for (let p = remainingPages; p > 1; p--) {
-          const pageContent = (pdf as any).internal.pages[p];
-          const contentStr = Array.isArray(pageContent) ? pageContent.join('') : String(pageContent || '');
-          const stripped = contentStr.replace(/[\s\n\r]/g, '');
-          const prevContent = (pdf as any).internal.pages[p - 1];
-          const prevStr = Array.isArray(prevContent) ? prevContent.join('') : String(prevContent || '');
-          const prevStripped = prevStr.replace(/[\s\n\r]/g, '');
-          // A blank page: small absolutely OR tiny compared to the previous page
-          if (stripped.length < 20000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.3)) {
+          const totalPages = pdf.getNumberOfPages();
+          for (let p = totalPages; p > Math.max(expectedPages, 1); p--) {
             pdf.deletePage(p);
-          } else {
-            break;
           }
+
+          const remainingPages = pdf.getNumberOfPages();
+          for (let p = remainingPages; p > 1; p--) {
+            const pageContent = (pdf as any).internal.pages[p];
+            const contentStr = Array.isArray(pageContent) ? pageContent.join('') : String(pageContent || '');
+            const stripped = contentStr.replace(/[\s\n\r]/g, '');
+            const prevContent = (pdf as any).internal.pages[p - 1];
+            const prevStr = Array.isArray(prevContent) ? prevContent.join('') : String(prevContent || '');
+            const prevStripped = prevStr.replace(/[\s\n\r]/g, '');
+            if (stripped.length < 20000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.3)) {
+              pdf.deletePage(p);
+            } else {
+              break;
+            }
+          }
+          pdf.save(`${docNo}_${custName}.pdf`);
         }
-        pdf.save(`${docNo}_${custName}.pdf`);
+      });
+    } finally {
+      // Restore visible element styles
+      if (invoicePage) {
+        invoicePage.style.removeProperty('min-height');
+        invoicePage.style.removeProperty('padding');
       }
-    });
+      // Remove iframe
+      if (iframe.parentElement) iframe.parentElement.removeChild(iframe);
+      setIsDownloading(false);
+    }
   };
 
   const handleDownloadJpg = async () => {
@@ -626,7 +732,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const sgst = totalTax / 2;
 
   const a4Width = '210mm';
-  const a4Height = '280mm';
+  const a4Height = '277mm';
   const a5Width = '210mm';
   const a5Height = '110mm';
 
@@ -702,11 +808,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       display: table-header-group;
     }
     .invoice-items-table thead th {
-      height: 28px !important;
-      line-height: 28px !important;
-      padding: 0 !important;
+      padding: 14px 2px !important;
+      line-height: 1.2 !important;
       vertical-align: middle !important;
       box-sizing: border-box !important;
+    }
+    .invoice-items-table thead tr {
+      border-top: 2px solid black !important;
+      border-bottom: 2px solid black !important;
     }
     .invoice-items-table tbody {
       display: table-row-group;
@@ -779,7 +888,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       display: table-header-group !important;
     }
     .invoice-items-table thead th {
-      padding-top: 6mm !important;
+      vertical-align: middle !important;
+      padding: 14px 2px !important;
     }
 
     /* Prevent item rows from breaking across pages */
@@ -816,7 +926,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     <Dialog open onOpenChange={onClose}>
       <DialogContent className={cn(
         paperSize === "thermal" ? "h-auto max-h-[95vh]" : "h-[58rem] max-h-[95vh]",
-        "overflow-auto bg-[#f5f5f5] p-0 transition-all duration-300 border-none",
+        "flex flex-col bg-[#f5f5f5] p-0 gap-0 transition-all duration-300 border-none",
         paperSize === "thermal" ? "max-w-fit min-w-[22.5rem]" : "max-w-[63.75rem]",
         autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
       )}>
@@ -847,12 +957,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           }
           .a5-format .py-2 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
           .a5-format .py-1\\.5 { padding-top: 0.2rem !important; padding-bottom: 0.2rem !important; }
-          .a5-format .pb-4 { padding-bottom: 0.6rem !important; }
           .a5-format .pt-6 { padding-top: 0.8rem !important; }
           .a5-format .mt-auto { margin-top: 0.5rem !important; }
           .a5-format { padding-top: 0 !important; }
           .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.2rem !important; }
-          .a5-format .pb-2 { padding-bottom: 0.05rem !important; }
           .a5-format .pt-4 { padding-top: 0.1rem !important; }
           .a5-format .grid { gap: 0.1rem !important; }
           
@@ -861,7 +969,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           .a5-format .w-16.h-16 { width: 3rem !important; height: 3rem !important; }
           
           /* Shrink Table for A5 */
-          .a5-format .invoice-items-table thead th { height: 20px !important; line-height: 20px !important; font-size: 8.8px !important; }
+          .a5-format .invoice-items-table thead th { height: auto !important; line-height: 1.2 !important; padding: 10px 2px !important; font-size: 8.8px !important; vertical-align: middle !important; }
 
           /* Header Text Scaling for A5 */
           .a5-format .header-brand-name { font-size: 1.2rem !important; }
@@ -878,16 +986,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         `}</style>
 
 
-        <div className="p-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm">
-          <span className="font-bold" title={(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}>
+        <div className="h-11 px-4 border-b flex items-center justify-between no-print sticky top-0 bg-white z-10 shadow-sm flex-none">
+          <span className="font-bold text-sm" title={(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}>
             {(activeInvoice.invoiceNo || activeInvoice.quotationNo || invoice.invoiceNo || invoice.quotationNo || "Draft")}_{(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').length > 15 ? (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').substring(0, 15) + "..." : (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}
           </span>
           <div className="flex gap-2 items-center">
             {/* Paper Size selection (only for A4/A5 documents) */}
             {!isEstimate && (
               <div className="flex gap-1 mr-2">
-                <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")} className="h-8">A4</Button>
-                <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")} className="h-8">A5</Button>
+                <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")} className="h-7 px-2 text-[10px]">A4</Button>
+                <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")} className="h-7 px-2 text-[10px]">A5</Button>
               </div>
             )}
 
@@ -895,29 +1003,29 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               variant="outline" 
               onClick={handleDownloadJpg} 
               disabled={isDownloading}
-              className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 h-9"
+              className="gap-1.5 border-blue-600 text-blue-600 hover:bg-blue-50 h-8 text-[11px] px-3"
             >
               {isDownloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Download className="h-4 w-4" />
+                <Download className="h-3.5 w-3.5" />
               )}
               {isDownloading ? "Generating..." : "Download JPG"}
             </Button>
             
-            <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700 h-9">
-              <Printer className="h-4 w-4" /> Print Document
+            <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
+              <Printer className="h-3.5 w-3.5" /> Print Document
             </Button>
 
-            <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50 h-9">
-              <Download className="h-4 w-4" /> Download PDF
+            <Button variant="outline" onClick={handleDownload} className="gap-1.5 border-green-600 text-green-600 hover:bg-green-50 h-8 text-[11px] px-3">
+              <Download className="h-3.5 w-3.5" /> Download PDF
             </Button>
           </div>
         </div>
 
         <div
           ref={printRef}
-          className={`print-container mx-auto overflow-auto ${paperSize === "thermal" ? (isEstimate ? "p-0" : "p-4") : "p-0"}`}
+          className={`print-container flex-1 overflow-auto py-6 ${paperSize === "thermal" ? "bg-white" : "bg-[#f5f5f5]"}`}
           style={{ transform: 'none', transformOrigin: 'top left' }}
         >
           {paperSize === "A4" || paperSize === "A5" ? (
@@ -925,7 +1033,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
               <div className="space-y-4">
                 {/* Header Layout */}
-                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-2">
+                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-4">
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -1016,10 +1124,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   </div>
                 </div>
 
-                {/* Items Table */}
                 <table className="w-full border-collapse text-[0.6rem] invoice-items-table">
-                  <thead className="bg-white font-bold uppercase border-y-2 border-black">
-                    <tr className="text-[10px] align-middle leading-none">
+                  <thead className="bg-white font-bold uppercase">
+                    <tr className="text-[10px] align-middle">
                       <th className="px-0.5 text-center align-middle" style={{ width: '5%' }}>S.No</th>
                       <th className="px-2 text-left align-middle" style={{ width: '25%' }}>Description</th>
                       <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>HSN</th>
@@ -1053,8 +1160,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       const itemTax = itemAmount * (itemRate / 100);
                       return (
                         <tr key={i} className="">
-                          <td className="px-0.5 py-1 text-center">{i + 1}</td>
-                          <td className="px-2 py-1">
+                          <td className="px-0.5 py-2 text-center">{i + 1}</td>
+                          <td className="px-2 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {paperSize === "A4" ? (
                                 <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
@@ -1063,29 +1170,29 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                               )}
                             </div>
                           </td>
-                          <td className="px-0.5 py-1 text-center">{item.hsnCode || "4909"}</td>
-                          <td className="px-0.5 py-1 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
-                          <td className="px-0.5 py-1 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
+                          <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
+                          <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
+                          <td className="px-0.5 py-2 text-center">{(parseFloat(item.rate || 0)).toFixed(2)}</td>
                           {isIgst ? (
                             <>
-                              <td className="px-0.5 py-1 text-center">{itemRate.toFixed(2)}</td>
-                              <td className="px-0.5 py-1 text-center">{itemTax.toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{itemRate.toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{itemTax.toFixed(2)}</td>
                             </>
                           ) : (
                             <>
-                              <td className="px-0.5 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-1 text-center">{(itemTax / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-1 text-center">{(itemRate / 2).toFixed(2)}</td>
-                              <td className="px-0.5 py-1 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemRate / 2).toFixed(2)}</td>
+                              <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
                             </>
                           )}
-                          <td className="px-2 py-1 text-right font-black">{itemAmount.toFixed(2)}</td>
+                          <td className="px-2 py-2 text-right font-black">{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
                     })}
                     {/* Fill empty rows only when items fit on a single page */}
                     {fitsOnOnePage && Array.from({ length: Math.max(0, (paperSize === "A5" ? MAX_ITEMS_A5 : MAX_ITEMS_A4) - items.length) }).map((_, i) => (
-                      <tr key={`empty-${i}`} className="h-6">
+                      <tr key={`empty-${i}`} className={paperSize === "A4" ? "h-4" : "h-6"}>
                         <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
                       </tr>
                     ))}
@@ -1128,17 +1235,17 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             qrBlobUrl ? (
                               <img
                                 src={qrBlobUrl}
-                                style={{ height: '130px', width: '130px', objectFit: 'contain' }}
+                                style={{ height: '100px', width: '100px', objectFit: 'contain' }}
                                 className="p-1 mb-1 mx-auto"
                                 alt="Dynamic UPI QR"
                               />
                             ) : (
-                              <div style={{ height: '130px', width: '130px' }} className="flex items-center justify-center mx-auto">
+                              <div style={{ height: '100px', width: '100px' }} className="flex items-center justify-center mx-auto">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
                               </div>
                             )
                           ) : (
-                            <img src={activeQr.imageUrl} style={{ height: '90px', width: '90px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                            <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
                           )}
                           <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                         </div>
@@ -1149,35 +1256,35 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
                         <tbody>
                           <tr>
-                            <td className="px-2 py-1 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
-                            <td className="px-2 py-1 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
+                            <td className="px-2 py-0.5 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
+                            <td className="px-2 py-0.5 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
                           </tr>
                           {Object.values(taxGroups).map((group: any) => (
                             isIgst ? (
                               <tr key={`igst-${group.rate}`}>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
-                                <td className="px-2 py-1 text-right font-black">{group.tax.toFixed(2)}</td>
+                                <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
+                                <td className="px-2 py-0.5 text-right font-black">{group.tax.toFixed(2)}</td>
                               </tr>
                             ) : (
                               <Fragment key={`gst-${group.rate}`}>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                  <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                                 <tr>
-                                  <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                  <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
+                                  <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
                                 </tr>
                               </Fragment>
                             )
                           ))}
                           <tr>
-                            <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                            <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
+                            <td className="px-2 py-0.5 text-gray-600 font-bold uppercase">Round Off</td>
+                            <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
                           </tr>
                           <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                            <td className="px-2 py-1 text-black text-[12px] font-black uppercase">Grand Total</td>
-                            <td className="px-2 py-1 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
+                            <td className="px-2 py-0.5 text-black text-[12px] font-black uppercase">Grand Total</td>
+                            <td className="px-2 py-0.5 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
