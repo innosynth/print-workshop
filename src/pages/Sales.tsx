@@ -290,7 +290,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   }, 0) : 0;
 
   const rawTotal = taxableAmount + totalTax;
-  const total = Math.round(rawTotal);
+  const total = activeInvoice.total ? parseFloat(activeInvoice.total) : Math.round(rawTotal);
   const roundOff = total - rawTotal;
 
   const taxGroups = savedTax > 0 ? items.reduce((acc: any, item: any) => {
@@ -1013,9 +1013,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               {isDownloading ? "Generating..." : "Download JPG"}
             </Button>
             
+            {/* 
             <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
               <Printer className="h-3.5 w-3.5" /> Print Document
             </Button>
+            */}
 
             <Button variant="outline" onClick={handleDownload} className="gap-1.5 border-green-600 text-green-600 hover:bg-green-50 h-8 text-[11px] px-3">
               <Download className="h-3.5 w-3.5" /> Download PDF
@@ -1805,7 +1807,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const potentialTax = validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
   const totalTax = gstEnabled ? potentialTax : 0;
-  const rawGrandTotal = subtotal + totalTax;
+  const rawGrandTotal = subtotal + potentialTax; // Always include taxes in grand total calculation
   const grandTotal = Math.round(rawGrandTotal);
   const roundOff = grandTotal - rawGrandTotal;
 
