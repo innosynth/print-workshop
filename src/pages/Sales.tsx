@@ -221,7 +221,9 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
 
 function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invoice: any, onClose: () => void, docType?: string, autoDownload?: boolean }) {
   const { settings } = usePrintSettings();
+  const { toast } = useToast();
   const [paperSize, setPaperSize] = useState<"A4" | "A5" | "thermal">("A4");
+  const [isDownloading, setIsDownloading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data: settingsData } = useQuery({
@@ -503,9 +505,20 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       ? root.querySelector('.thermal-format') as HTMLElement 
       : root.querySelector('.invoice-page') as HTMLElement;
 
-    if (!element) return;
+    if (!element) {
+      toast({
+        title: "Error",
+        description: "Could not find the document to capture.",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    setIsDownloading(true);
+
+    // Temporarily remove constraints for clean capture
     const originalMinHeight = element.style.minHeight;
+    const originalHeight = element.style.height;
     element.style.minHeight = 'auto';
     element.style.height = 'auto';
 
@@ -513,26 +526,52 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       const canvas = await html2canvas(element, {
         scale: 4, // Ultra-high quality
         useCORS: true,
-        logging: false,
+        logging: false, // Internal logging disabled
         backgroundColor: "#ffffff",
-        // Ensure we capture the natural width of the content
         width: element.offsetWidth,
-        height: element.scrollHeight
+        height: element.scrollHeight,
+        windowWidth: element.offsetWidth,
+        windowHeight: element.scrollHeight
       });
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 1.0); // Maximum JPG quality
-      const link = document.createElement("a");
-      const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
-      const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
-      
-      link.download = `${docNo}_${custName}.jpg`;
-      link.href = dataUrl;
-      link.click();
+      // Use Blob instead of dataURL for better reliability with large images
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error("Canvas to Blob conversion failed");
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
+        const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
+        
+        link.download = `${docNo}_${custName}.jpg`;
+        link.href = url;
+        link.click();
+        
+        // Cleanup the object URL
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
+        
+        toast({
+          title: "Success",
+          description: "Image downloaded successfully.",
+        });
+        setIsDownloading(false);
+      }, "image/jpeg", 1.0);
+
     } catch (err) {
-      console.error("Failed to generate image", err);
+      console.error("Failed to generate image:", err);
+      toast({
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
+        variant: "destructive"
+      });
+      setIsDownloading(false);
     } finally {
       element.style.minHeight = originalMinHeight;
-      element.style.removeProperty('height');
+      element.style.height = originalHeight;
     }
   };
 
@@ -555,13 +594,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     // Only trigger download if QR is loaded (if dynamic)
     const qrLoaded = !upiUrl || !!qrBlobUrl;
 
-    if (autoDownload && activeInvoice?.id && qrLoaded) {
-      const timer = setTimeout(() => {
-        handleDownload().then(() => onClose());
-      }, 800);
-      return () => clearTimeout(timer);
+    if (autoDownload && activeInvoice?.id && !invoiceLoading) {
+      if (qrLoaded) {
+        const timer = setTimeout(() => {
+          if (isEstimate) {
+            handleDownloadJpg().then(() => onClose());
+          } else {
+            handleDownload().then(() => onClose());
+          }
+        }, 800);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [autoDownload, activeInvoice?.id, qrBlobUrl, upiUrl]);
+  }, [autoDownload, activeInvoice?.id, qrBlobUrl, upiUrl, isEstimate, docType, invoiceLoading]);
 
   if (invoiceLoading) return (
     <Dialog open onOpenChange={onClose}>
@@ -833,24 +878,34 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           <span className="font-bold" title={(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}>
             {(activeInvoice.invoiceNo || activeInvoice.quotationNo || invoice.invoiceNo || invoice.quotationNo || "Draft")}_{(activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').length > 15 ? (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_').substring(0, 15) + "..." : (activeInvoice.customerName || invoice.customerName || "Customer").replace(/\s+/g, '_')}
           </span>
-          <div className="flex gap-2">
-            {isEstimate ? (
-              <Button variant="outline" onClick={handleDownloadJpg} className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50">
-                <Download className="h-4 w-4" /> Download JPG
-              </Button>
-            ) : (
-              <>
-                <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")}>A4 Paper</Button>
-                <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")}>A5 Paper</Button>
-              </>
+          <div className="flex gap-2 items-center">
+            {/* Paper Size selection (only for A4/A5 documents) */}
+            {!isEstimate && (
+              <div className="flex gap-1 mr-2">
+                <Button variant={paperSize === "A4" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A4")} className="h-8">A4</Button>
+                <Button variant={paperSize === "A5" ? "default" : "outline"} size="sm" onClick={() => setPaperSize("A5")} className="h-8">A5</Button>
+              </div>
             )}
-            <Separator orientation="vertical" className="h-8 mx-2" />
-            {isEstimate && (
-              <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700">
-                <Printer className="h-4 w-4" /> Print Document
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50">
+
+            <Button 
+              variant="outline" 
+              onClick={handleDownloadJpg} 
+              disabled={isDownloading}
+              className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 h-9"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isDownloading ? "Generating..." : "Download JPG"}
+            </Button>
+            
+            <Button onClick={handlePrint} className="gap-2 bg-green-600 hover:bg-green-700 h-9">
+              <Printer className="h-4 w-4" /> Print Document
+            </Button>
+
+            <Button variant="outline" onClick={handleDownload} className="gap-2 border-green-600 text-green-600 hover:bg-green-50 h-9">
               <Download className="h-4 w-4" /> Download PDF
             </Button>
           </div>
