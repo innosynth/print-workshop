@@ -41,18 +41,20 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 const generateNextNo = (list: any[], type: string) => {
   const prefix = type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV';
   const nums = list
+    .filter((i: any) => {
+      const val = i.invoiceNo || i.quotationNo;
+      return val && typeof val === 'string' && val.startsWith(prefix + '-');
+    })
     .map((i: any) => {
       const val = i.invoiceNo || i.quotationNo;
-      if (val && typeof val === 'string' && val.includes('-')) {
-        const parts = val.split('-');
-        const lastPart = parts[parts.length - 1];
-        const num = parseInt(lastPart);
-        // Ignore old 6-digit random numbers (like 940120, 030242) to allow starting from 1000.
-        // We only ignore them if they are exactly 6 digits and higher than 10000.
-        if (lastPart.length === 6 && num > 10000) return 0;
-        return isNaN(num) ? 0 : num;
-      }
-      return 0;
+      // Since we filtered by startsWith(prefix + '-'), we know it has a hyphen
+      const parts = val.split('-');
+      const lastPart = parts[parts.length - 1];
+      const num = parseInt(lastPart);
+      // Ignore old 6-digit random numbers (like 940120, 030242) to allow starting from 1000.
+      // We only ignore them if they are exactly 6 digits and higher than 10000.
+      if (lastPart.length === 6 && num > 10000) return 0;
+      return isNaN(num) ? 0 : num;
     })
     .filter(n => n >= 1000);
   
