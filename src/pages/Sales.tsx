@@ -287,7 +287,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0) : 0;
 
-  const total = taxableAmount + totalTax;
+  const rawTotal = taxableAmount + totalTax;
+  const total = Math.round(rawTotal);
+  const roundOff = total - rawTotal;
 
   const taxGroups = savedTax > 0 ? items.reduce((acc: any, item: any) => {
     const rate = parseFloat(item.gstRate || "0") || 0;
@@ -1169,7 +1171,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                           ))}
                           <tr>
                             <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                            <td className="px-2 py-1 text-right font-black">0.00</td>
+                            <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
                           </tr>
                           <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
                             <td className="px-2 py-1 text-black text-[12px] font-black uppercase">Grand Total</td>
@@ -1263,7 +1265,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                         ))}
                         <tr>
                           <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                          <td className="px-2 py-1 text-right font-black">0.00</td>
+                          <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
                         </tr>
                         <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
                           <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase">Grand Total</td>
@@ -1352,7 +1354,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   <div className="ml-auto text-right">
                     <span style={{ fontSize: '9px', fontWeight: 900 }}>
                       {totalTax > 0 ? 'Sub Total: ' : 'Grand Total: '}
-                      {taxableAmount.toFixed(2)}
+                      {totalTax > 0 ? taxableAmount.toFixed(2) : total.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1369,7 +1371,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                         </Fragment>
                       )
                     ))}
+                    {roundOff !== 0 && <p>Round Off: {roundOff.toFixed(2)}</p>}
                     <p style={{ fontSize: '10px', fontWeight: 900, marginTop: '4px' }}>Grand Total: {total.toFixed(2)}</p>
+                  </div>
+                )}
+                {totalTax === 0 && roundOff !== 0 && (
+                  <div className="text-right" style={{ fontSize: '8px' }}>
+                    <p>Round Off: {roundOff.toFixed(2)}</p>
                   </div>
                 )}
               </div>
@@ -1687,7 +1695,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const potentialTax = validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
   const totalTax = gstEnabled ? potentialTax : 0;
-  const grandTotal = subtotal + totalTax;
+  const rawGrandTotal = subtotal + totalTax;
+  const grandTotal = Math.round(rawGrandTotal);
+  const roundOff = grandTotal - rawGrandTotal;
 
   const resetForm = () => {
     setItems([{
@@ -1797,7 +1807,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 <div className="h-8 w-px bg-border mx-1" />
                 <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
                   <p className="text-[0.5625rem] font-black text-green-800 uppercase leading-none">Grand Total</p>
-                  <p className="text-sm font-black text-green-600 tabular-nums">₹{(subtotal + potentialTax).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-sm font-black text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
             )}
@@ -2122,12 +2132,12 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">Round Off</span>
-                    <span className="font-bold tabular-nums">₹0.00</span>
+                    <span className="font-bold tabular-nums">₹{roundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
-                    <span className="font-black text-lg text-green-600 tabular-nums">₹{(subtotal + potentialTax).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -2443,7 +2453,7 @@ export default function Sales() {
 
       if (isTargetInvoicesTable) {
         newBody.tax = calculatedTax.toFixed(2);
-        newBody.total = (subtotal + calculatedTax).toFixed(2);
+        newBody.total = Math.round(subtotal + calculatedTax).toFixed(2);
       }
 
       // 3. Create target document
