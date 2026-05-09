@@ -303,8 +303,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return acc;
   }, {}) : {};
 
-  const MAX_ITEMS_A4 = 20;
-  const MAX_ITEMS_A5 = 5;
+  const MAX_ITEMS_A4 = 16;
+  const MAX_ITEMS_A5 = 8;
   const fitsOnOnePage = items.length <= (paperSize === "A5" ? MAX_ITEMS_A5 : MAX_ITEMS_A4);
 
   const upiUrl = activeQr?.isDynamic ? `upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}` : null;
@@ -664,7 +664,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   @media print {
     @page {
       size: ${paperSize === "A4" ? "A4 portrait" : paperSize === "A5" ? "A5 landscape" : (settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1") + "mm auto"};
-      margin: ${paperSize === "thermal" ? "0" : "10mm 4mm 4mm 4mm"};
+      margin: ${paperSize === "thermal" ? "0" : "2mm 4mm 4mm 4mm"};
     }
     
     html,
@@ -714,7 +714,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       width: 100% !important;
       min-height: auto !important;
       margin: 0 !important;
-      padding: ${paperSize === "A5" ? "3mm" : "6mm"} !important;
+      padding: ${paperSize === "A5" ? "2mm" : "3mm"} !important;
       border: none !important;
     }
 
@@ -868,9 +868,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           {paperSize === "A4" || paperSize === "A5" ? (
             <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial" }}>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {/* Header Layout */}
-                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-4">
+                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-2">
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -884,7 +884,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     </div>
                   </div>
 
-                  <div className={cn("pt-4", paperSize === "A5" && "pt-1")}>
+                  <div className={cn("pt-1", paperSize === "A5" && "pt-1")}>
                     <table className={`${paperSize === "A4" && !isEstimate ? "text-[0.7rem]" : "text-[0.6rem]"} font-bold border-separate border-spacing-x-3 header-contact-text`} style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
                       <tbody>
                         <tr className="align-top">
