@@ -359,22 +359,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         return;
       }
 
-      // Clone the element and convert Tailwind classes to inline styles via computed styles
       const clone = element.cloneNode(true) as HTMLElement;
-
-      // Apply computed styles from the original element to the clone
-      const originalStyle = window.getComputedStyle(element as HTMLElement);
-      clone.style.cssText = originalStyle.cssText;
-
-      // Style all child elements
-      const allChildren = clone.querySelectorAll('*');
-      const originalChildren = element.querySelectorAll('*');
-      for (let i = 0; i < allChildren.length && i < originalChildren.length; i++) {
-        const child = allChildren[i] as HTMLElement;
-        const origChild = originalChildren[i] as HTMLElement;
-        const cs = window.getComputedStyle(origChild);
-        child.style.cssText = cs.cssText;
-      }
 
       // Convert <img> src to data URLs for blob images
       const imgs = clone.querySelectorAll('img');
@@ -400,7 +385,23 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         }
       }
 
-      const htmlString = clone.outerHTML;
+      // Get all styles from the document
+      const styleSheets = Array.from(document.styleSheets);
+      let cssStyles = '';
+      for (const sheet of styleSheets) {
+        try {
+          const rules = Array.from(sheet.cssRules);
+          cssStyles += rules.map(rule => rule.cssText).join('\n');
+        } catch (e) {
+          // Skip cross-origin stylesheets that we can't access
+        }
+      }
+
+      const htmlString = `
+        <style>${cssStyles}</style>
+        <style>${printStyles}</style>
+        ${clone.outerHTML}
+      `;
 
       const res = await fetch('/api/pdf', {
         method: 'POST',
