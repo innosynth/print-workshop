@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, Fragment } from "react";
 import { useReactToPrint } from "react-to-print";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { pdf } from "@react-pdf/renderer";
+import { A4InvoicePDF, A5InvoicePDF, ThermalReceiptPDF } from "@/components/InvoicePDFTemplates";
 
 
 
@@ -343,267 +343,37 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
 
   const handleDownload = async () => {
-    const element = printRef.current;
-    if (!element) return;
-
     const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
     const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
-
-    const thermalMm = parseFloat(settingsData?.settings?.thermalWidth || settings.thermalWidth || "80");
-    const windowW = paperSize === "thermal" ? (thermalMm * 3.7795) : 800;
-    const formatWidth = paperSize === "A4" ? 595.28 : paperSize === "A5" ? 595.28 : (thermalMm * 2.83465);
-    const pdfMarginTop = paperSize === "thermal" ? 0 : 15;
-    const pdfMarginBottom = paperSize === "thermal" ? 0 : 20;
-
-    // --- Build an isolated iframe with a fixed viewport so PDF output is
-    //     identical regardless of the user's monitor size or browser zoom. ---
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;overflow:hidden;border:0;';
-    document.body.appendChild(iframe);
-
-    const iDoc = iframe.contentDocument!;
-    const iWin = iframe.contentWindow!;
-
-    // Wait for iframe document to be ready
-    await new Promise<void>(resolve => {
-      if (iDoc.readyState !== 'loading') return resolve();
-      iWin!.addEventListener('load', () => resolve());
-      resolve();
-    });
-
-    // Collect ALL CSS: <style> blocks AND <link> stylesheets from the main page
-    const allStyles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n') + '\n' +
-      Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('\n');
-
-    // Collect .invoice-page and .thermal-format for style adjustments
-    const invoicePage = element.querySelector('.invoice-page') as HTMLElement | null;
-    const thermalContent = element.querySelector('.thermal-format') as HTMLElement | null;
-
-    // Apply layout styles before cloning (matching original logic)
-    if (invoicePage && paperSize !== "thermal") {
-      const minH = fitsOnOnePage ? (paperSize === "A4" ? '280mm' : '110mm') : 'auto';
-      invoicePage.style.setProperty('min-height', minH, 'important');
-      invoicePage.style.setProperty('padding', paperSize === "A5" ? "20px 24px 20px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px"), 'important');
-    }
-
-    // Measure elementHeight before cloning
-    const originalMinHeight = invoicePage?.style.minHeight || '';
-    if (invoicePage) { invoicePage.style.minHeight = 'auto'; invoicePage.style.height = 'auto'; }
-    const elementHeight = paperSize === "thermal" && thermalContent
-      ? thermalContent.getBoundingClientRect().height
-      : element.offsetHeight;
-    if (invoicePage) { invoicePage.style.minHeight = originalMinHeight; invoicePage.style.removeProperty('height'); }
-    const formatHeight = paperSize === "A4" ? 841.89 : paperSize === "A5" ? 419.53 : (elementHeight * 0.75) + 5;
-
-    // Build iframe HTML — clone the FULL print-container (same as original passed to doc.html)
-    const iframeBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          html, body { margin: 0; padding: 0; width: ${windowW}px; overflow: visible; }
-          .print-container { padding: 0 !important; }
-        </style>
-        ${allStyles}
-      </head>
-      <body>
-        ${element.outerHTML}
-      </body>
-      </html>
-    `;
-    iDoc.open();
-    iDoc.write(iframeBody);
-    iDoc.close();
-
-    // Wait for iframe content to fully render (including images)
-    await new Promise<void>(resolve => {
-      iWin.addEventListener('load', () => resolve(), { once: true });
-      setTimeout(resolve, 1500);
-    });
-
-    // Use the iframe's print-container (same element the original code passed)
-    const iframeEl = iDoc.querySelector('.print-container') as HTMLElement;
-
-    // For A4/A5: increase font by 6px globally and center the table header row.
-    // Every inline fontSize must be increased because child elements override
-    // stylesheet rules with their own inline style="font-size:14px", etc.
-    if (paperSize !== "thermal") {
-      const fontIncrease = paperSize === "A5" ? 0.5 : 5;
-
-      // Increase the .invoice-page base fontSize
-      const ip = iframeEl.querySelector('.invoice-page') as HTMLElement;
-      if (ip && ip.style.fontSize) {
-        const v = parseFloat(ip.style.fontSize) || 0;
-        ip.style.fontSize = `${v + fontIncrease}px`;
-      }
-
-      // Walk every descendant and increase inline fontSize by fontIncrease
-      const allNodes = ip?.querySelectorAll('*') || new NodeList();
-      for (const n of Array.from(allNodes) as HTMLElement[]) {
-        if (n.style.fontSize) {
-          const v = parseFloat(n.style.fontSize) || 0;
-          if (v > 0) n.style.fontSize = `${v + fontIncrease}px`;
-        }
-
-        // Hard fix for table headers centering in PDF
-        if (n.tagName === 'TH' && n.closest('.invoice-items-table')) {
-          n.style.paddingTop = paperSize === "A5" ? '10px' : '16px';
-          n.style.paddingBottom = paperSize === "A5" ? '10px' : '16px';
-          n.style.verticalAlign = 'middle';
-          n.style.lineHeight = '1.2';
-          n.style.height = 'auto';
-        }
-      }
-
-      // Ensure borders are visible in PDF
-      const injectPdfStyles = iDoc.createElement('style');
-      injectPdfStyles.textContent = `
-          .invoice-items-table thead tr { 
-            height: auto !important; 
-            border-top: 2pt solid black !important;
-            border-bottom: 2pt solid black !important;
-          }
-          .invoice-items-table thead th {
-            border: none !important;
-            padding: ${paperSize === "A5" ? '10px 2px' : '16px 4px'} !important;
-            vertical-align: middle !important;
-            box-sizing: border-box !important;
-            line-height: 1.2 !important;
-          }
-          .invoice-footer-section table tr.bg-gray-100 {
-            border-top: 1.5pt solid black !important;
-          }
-          .invoice-footer-section table tr.bg-gray-100 td {
-            padding-top: 12px !important;
-            padding-bottom: 12px !important;
-          }
-        `;
-      iDoc.head.appendChild(injectPdfStyles);
-    }
-
-    const doc = new jsPDF({
-      orientation: paperSize === "A5" ? "landscape" : "portrait",
-      unit: "pt",
-      format: paperSize === "A4" ? "a4" : paperSize === "A5" ? [formatWidth, formatHeight] : [formatWidth, formatHeight]
-    });
-
-    // Get inner elements for page break detection
-    const iframeInvoicePage = iDoc.querySelector('.invoice-page') as HTMLElement | null;
-    const footerEl = iDoc.querySelector('.invoice-footer-section') as HTMLElement | null;
-    let spacer: HTMLElement | null = null;
-    const rowSpacers: HTMLElement[] = [];
-
-    if (paperSize !== "thermal" && iframeInvoicePage) {
-      const scaleFactor = formatWidth / windowW;
-      const pageContentHeight = formatHeight - pdfMarginTop - pdfMarginBottom;
-
-      const allRows = iframeInvoicePage.querySelectorAll('.invoice-items-table tbody tr');
-      const rowArray = Array.from(allRows).reverse();
-      for (const row of rowArray) {
-        if ((row as HTMLElement).querySelector('td[colspan]') && !(row as HTMLElement).textContent?.trim()) continue;
-
-        const elementRect = iframeInvoicePage.getBoundingClientRect();
-        const rowRect = row.getBoundingClientRect();
-        const rowTopPx = rowRect.top - elementRect.top;
-        const rowHeightPx = rowRect.height;
-
-        const rowTopPt = rowTopPx * scaleFactor;
-        const rowHeightPt = rowHeightPx * scaleFactor;
-
-        const pageIndex = Math.floor(rowTopPt / pageContentHeight);
-        const posOnPage = rowTopPt - (pageIndex * pageContentHeight);
-
-        if ((posOnPage + rowHeightPt) > pageContentHeight && posOnPage > 5) {
-          const pushPt = pageContentHeight - posOnPage + 2;
-          const pushPx = pushPt / scaleFactor;
-          const rowSpacer = iDoc.createElement('tr');
-          rowSpacer.innerHTML = `<td colspan="99" style="height:${pushPx}px;padding:0;border:none;line-height:0;font-size:0;"></td>`;
-          rowSpacer.className = 'pdf-row-break-spacer';
-          rowSpacer.style.cssText = 'padding:0;margin:0;border:none;';
-          (row as HTMLElement).parentElement?.insertBefore(rowSpacer, row);
-          rowSpacers.push(rowSpacer);
-        }
-      }
-
-      // Recalculate footer position after row spacers
-      const ifFooterEl = iDoc.querySelector('.invoice-footer-section') as HTMLElement | null;
-      if (ifFooterEl) {
-        const elementRect = iframeInvoicePage.getBoundingClientRect();
-        const footerRect = ifFooterEl.getBoundingClientRect();
-        const footerTopPx = footerRect.top - elementRect.top;
-        const footerHeightPx = footerRect.height;
-
-        const footerTopPt = footerTopPx * scaleFactor;
-        const footerHeightPt = footerHeightPx * scaleFactor;
-        const pageIndex = Math.floor(footerTopPt / pageContentHeight);
-        const posOnPage = footerTopPt - (pageIndex * pageContentHeight);
-        const safetyBuffer = 10;
-
-        if ((posOnPage + footerHeightPt + safetyBuffer) > pageContentHeight && posOnPage > 0) {
-          const pushPt = (pageContentHeight - posOnPage) + pdfMarginTop + 5;
-          const pushPx = pushPt / scaleFactor;
-          spacer = iDoc.createElement('div');
-          spacer.style.height = `${pushPx}px`;
-          spacer.style.width = '100%';
-          spacer.className = 'pdf-page-break-spacer';
-          ifFooterEl.parentElement?.insertBefore(spacer, ifFooterEl);
-        }
-      }
-    }
-
-    // Capture content height (after spacers)
-    const targetEl = iframeInvoicePage || (paperSize === "thermal" ? (iDoc.querySelector('.thermal-format') as HTMLElement) : iframeEl);
-    const finalContentHeightPx = targetEl.scrollHeight || targetEl.offsetHeight;
-    const scaleForPages = formatWidth / windowW;
-    const finalContentHeightPt = finalContentHeightPx * scaleForPages;
-    const pageUsable = formatHeight - pdfMarginTop - pdfMarginBottom;
-    const expectedPages = Math.ceil(finalContentHeightPt / pageUsable);
 
     setIsDownloading(true);
 
     try {
-      // Pass the FULL print-container to doc.html() — same as original
-      await doc.html(iframeEl, {
-        x: 0, y: 0, width: formatWidth, windowWidth: windowW,
-        margin: paperSize === "thermal" ? [0, 0, 0, 0] : [15, 0, 20, 0],
-        html2canvas: {
-          useCORS: true
-        },
-        callback: function (pdf) {
-          // Clean up spacers inside iframe
-          rowSpacers.forEach(s => s.parentElement?.removeChild(s));
-          if (spacer && spacer.parentElement) spacer.parentElement.removeChild(spacer);
+      const pdfProps = {
+        activeInvoice, profile, items,
+        taxableAmount, totalTax, taxGroups, total, roundOff,
+        isIgst, isEstimate, docType, docTitle,
+        activeQr, qrBlobUrl,
+        settingsData, settings
+      };
 
-          const totalPages = pdf.getNumberOfPages();
-          for (let p = totalPages; p > Math.max(expectedPages, 1); p--) {
-            pdf.deletePage(p);
-          }
-
-          const remainingPages = pdf.getNumberOfPages();
-          for (let p = remainingPages; p > 1; p--) {
-            const pageContent = (pdf as any).internal.pages[p];
-            const contentStr = Array.isArray(pageContent) ? pageContent.join('') : String(pageContent || '');
-            const stripped = contentStr.replace(/[\s\n\r]/g, '');
-            const prevContent = (pdf as any).internal.pages[p - 1];
-            const prevStr = Array.isArray(prevContent) ? prevContent.join('') : String(prevContent || '');
-            const prevStripped = prevStr.replace(/[\s\n\r]/g, '');
-            if (stripped.length < 20000 || (prevStripped.length > 0 && stripped.length < prevStripped.length * 0.3)) {
-              pdf.deletePage(p);
-            } else {
-              break;
-            }
-          }
-          pdf.save(`${docNo}_${custName}.pdf`);
-        }
-      });
-    } finally {
-      // Restore visible element styles
-      if (invoicePage) {
-        invoicePage.style.removeProperty('min-height');
-        invoicePage.style.removeProperty('padding');
+      let PdfComponent;
+      if (paperSize === "thermal") {
+        PdfComponent = <ThermalReceiptPDF {...pdfProps} />;
+      } else if (paperSize === "A5") {
+        PdfComponent = <A5InvoicePDF {...pdfProps} />;
+      } else {
+        PdfComponent = <A4InvoicePDF {...pdfProps} />;
       }
-      // Remove iframe
-      if (iframe.parentElement) iframe.parentElement.removeChild(iframe);
+
+      const blob = await pdf(PdfComponent).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${docNo}_${custName}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } finally {
       setIsDownloading(false);
     }
   };
