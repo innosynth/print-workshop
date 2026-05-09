@@ -410,6 +410,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           html: htmlString,
           paperSize,
           docTitle: `${docNo}_${custName}`,
+          thermalWidth: settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1"
         }),
       });
 

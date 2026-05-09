@@ -53,12 +53,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   <meta charset="utf-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: white; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+    html, body { width: 100%; background: white; margin: 0; padding: 0; }
+    body { 
+      font-family: Arial, sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      ${paperSize !== 'thermal' ? 'height: 100%; min-height: 100vh;' : 'height: auto; min-height: auto;'} 
+    }
     img { max-width: 100%; }
     table { border-collapse: collapse; }
     @page {
-      size: ${paperSize === 'A4' ? 'A4 portrait' : paperSize === 'A5' ? 'A5 landscape' : '80mm auto'};
+      size: ${paperSize === 'A4' ? 'A4 portrait' : paperSize === 'A5' ? 'A5 landscape' : (req.body.thermalWidth || '80') + 'mm auto'};
       margin: ${paperSize === 'thermal' ? '0' : '4mm'};
     }
   </style>
@@ -89,8 +94,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       format: paperSize === 'thermal' ? undefined : (paperSize === 'A4' ? 'A4' : 'A5'),
       printBackground: true,
       preferCSSPageSize: true,
-      width: paperSize === 'thermal' ? '80mm' : undefined,
+      width: paperSize === 'thermal' ? (req.body.thermalWidth || '80') + 'mm' : undefined,
     };
+
+    if (paperSize === 'thermal') {
+      const heightInPx = await page.evaluate(() => {
+        const body = document.body;
+        const html = document.documentElement;
+        return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
+      });
+      // Convert px to mm (standard Puppeteer conversion is roughly 96dpi)
+      // Adding a small buffer to prevent clipping
+      pdfOptions.height = Math.ceil(heightInPx * 0.264583) + 2 + 'mm';
+    }
 
     const pdfBuffer = await page.pdf(pdfOptions);
 
