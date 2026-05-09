@@ -303,9 +303,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     return acc;
   }, {}) : {};
 
-  const MAX_ITEMS_A4 = 25;
+  const MAX_ITEMS_A4 = 20;
   const MAX_ITEMS_A5 = 5;
-  const fitsOnOnePage = paperSize === "A5" ? items.length <= MAX_ITEMS_A5 : items.length <= MAX_ITEMS_A4;
+  const fitsOnOnePage = items.length <= (paperSize === "A5" ? MAX_ITEMS_A5 : MAX_ITEMS_A4);
 
   const upiUrl = activeQr?.isDynamic ? `upi://pay?pa=${activeQr.upiId}&pn=${encodeURIComponent(activeQr.payeeName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice ' + (activeInvoice.invoiceNo || activeInvoice.estimateNo || ''))}&tr=${activeInvoice.invoiceNo || activeInvoice.estimateNo || ''}` : null;
 
@@ -563,9 +563,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const sgst = totalTax / 2;
 
   const a4Width = '210mm';
-  const a4Height = '277mm';
+  const a4Height = '270mm';
   const a5Width = '210mm';
-  const a5Height = '110mm';
+  const a5Height = '130mm';
 
   const printStyles = `
     .print-container {
@@ -581,21 +581,24 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       font-family: Arial !important;
     }
 
-   .invoice-page {
+     .invoice-page {
      background: white;
      box-shadow: none;
      width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
-     min-height: ${fitsOnOnePage ? (paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto") : "auto"} !important;
+     height: ${fitsOnOnePage ? (paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto") : "auto"} !important;
      margin: 0 auto;
-     padding: ${paperSize === "A5" ? "15px 24px 5px 24px" : (fitsOnOnePage ? "0 38px 38px 38px" : "0 38px 5px 38px")} !important;
+     padding: ${paperSize === "A5" ? "10px 24px 5px 24px" : "0 38px 20px 38px"} !important;
      box-sizing: border-box;
      display: ${fitsOnOnePage ? 'flex' : 'block'} !important;
-     flex-direction: column;
+     flex-direction: column !important;
+     flex-grow: 1 !important;
      position: relative;
      color: black;
-     transform: none !important;
-   }
-
+     font-family: Arial, sans-serif;
+     page-break-after: always;
+     overflow: hidden;
+     }
+     
     .thermal-format {
       width: ${settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1"}mm !important;
       padding: ${isEstimate ? '0' : '2mm'} 3mm 2mm 0 !important;
@@ -1036,194 +1039,162 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
               {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
               {paperSize === "A5" ? (
-                <div className={`invoice-footer-section ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block', width: '100%' }}>
-                  <div className="grid grid-cols-12 gap-2 pt-1 border-t border-gray-200" style={{ fontFamily: "Arial" }}>
-                    <div className="col-span-4">
-                      <p className="font-black mb-1 uppercase text-[10px]">Bank Details</p>
-                      <div className="grid grid-cols-12 gap-y-0.5 text-[10px]">
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Account Name</span>
-                        <span className="col-span-7 font-black">: {profile.accountName || profile.name}</span>
-
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Bank</span>
-                        <span className="col-span-7 font-black">: {profile.bankName || "ICICI Bank"}</span>
-
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">Branch</span>
-                        <span className="col-span-7 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
-
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">A/C No</span>
-                        <span className="col-span-7 font-black">: {profile.accountNumber || "730705000264"}</span>
-
-                        <span className="col-span-5 text-gray-500 font-bold uppercase text-[9px]">IFSC Code</span>
-                        <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
-                      </div>
-                    </div>
-
-                    <div className="col-span-3 flex flex-col items-center justify-start pt-1">
-                      {activeQr && total > 0 && (
-                        <div className="text-center">
-                          {activeQr.isDynamic ? (
-                            qrBlobUrl ? (
-                              <img
-                                src={qrBlobUrl}
-                                style={{ height: '100px', width: '100px', objectFit: 'contain' }}
-                                className="p-1 mb-1 mx-auto"
-                                alt="Dynamic UPI QR"
-                              />
-                            ) : (
-                              <div style={{ height: '100px', width: '100px' }} className="flex items-center justify-center mx-auto">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
-                              </div>
-                            )
-                          ) : (
-                            <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
+                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: "Arial" }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '35%', verticalAlign: 'top' }}>
+                          <p className="font-black mb-1 uppercase text-[10px]">Bank Details</p>
+                          <div className="text-[10px] space-y-0.5">
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
+                          </div>
+                          <div className="mt-4">
+                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                          </div>
+                        </td>
+                        <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
+                          {activeQr && total > 0 && (
+                            <div style={{ display: 'inline-block' }}>
+                              {activeQr.isDynamic ? (
+                                qrBlobUrl ? (
+                                  <img src={qrBlobUrl} style={{ height: '100px', width: '100px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                ) : (
+                                  <div style={{ height: '100px', width: '100px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                )
+                              ) : (
+                                <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                              )}
+                              <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
+                            </div>
                           )}
-                          <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="col-span-5 flex flex-col items-end">
-                      <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
-                        <tbody>
-                          <tr>
-                            <td className="px-2 py-0.5 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
-                            <td className="px-2 py-0.5 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
-                          </tr>
-                          {Object.values(taxGroups).map((group: any) => (
-                            isIgst ? (
-                              <tr key={`igst-${group.rate}`}>
-                                <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
-                                <td className="px-2 py-0.5 text-right font-black">{group.tax.toFixed(2)}</td>
+                        </td>
+                        <td style={{ width: '35%', verticalAlign: 'top' }}>
+                          <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
+                            <tbody>
+                              <tr>
+                                <td className="px-2 py-0.5 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
+                                <td className="px-2 py-0.5 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
                               </tr>
-                            ) : (
-                              <Fragment key={`gst-${group.rate}`}>
-                                <tr>
-                                  <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
-                                </tr>
-                                <tr>
-                                  <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
-                                  <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
-                                </tr>
-                              </Fragment>
-                            )
-                          ))}
-                          <tr>
-                            <td className="px-2 py-0.5 text-gray-600 font-bold uppercase">Round Off</td>
-                            <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
-                          </tr>
-                          <tr style={{ height: '3px' }}><td colSpan={2} className="p-0"></td></tr>
-                          <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                            <td className="px-2 py-0.5 text-black text-[12px] font-black uppercase">Grand Total</td>
-                            <td className="px-2 py-0.5 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
-                          </tr>
-                          <tr style={{ height: '3px' }}><td colSpan={2} className="p-0"></td></tr>
-                        </tbody>
-                      </table>
-                      <div className="mt-2 w-full">
-                        <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
-                        {activeInvoice.fileName && (
-                          <p className="text-[10px] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                              {Object.values(taxGroups).map((group: any) => (
+                                isIgst ? (
+                                  <tr key={`igst-${group.rate}`}>
+                                    <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">IGST {group.rate}%</td>
+                                    <td className="px-2 py-0.5 text-right font-black">{group.tax.toFixed(2)}</td>
+                                  </tr>
+                                ) : (
+                                  <Fragment key={`gst-${group.rate}`}>
+                                    <tr>
+                                      <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">CGST {group.rate / 2}%</td>
+                                      <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-2 py-0.5 text-gray-600 font-bold uppercase text-[9px]">SGST {group.rate / 2}%</td>
+                                      <td className="px-2 py-0.5 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                    </tr>
+                                  </Fragment>
+                                )
+                              ))}
+                              <tr>
+                                <td className="px-2 py-0.5 text-gray-600 font-bold uppercase">Round Off</td>
+                                <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
+                              </tr>
+                              <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
+                                <td className="px-2 py-0.5 text-black text-[12px] font-black uppercase">Grand Total</td>
+                                <td className="px-2 py-0.5 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          <div className="mt-2 w-full text-right">
+                            <p className="text-[9px] text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
+                            {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               ) : (
-                <div className={`invoice-footer-section grid grid-cols-12 gap-2 pt-1 border-t border-gray-200 ${fitsOnOnePage ? 'mt-auto' : 'mt-4'}`} style={{ fontFamily: "Arial" }}>
-                  <div className="col-span-4">
-                    <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
-                    <div className="grid grid-cols-12 gap-y-0.5 text-[11.5px]">
-                      <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Account Name</span>
-                      <span className="col-span-7 font-black">: {profile.accountName || profile.name}</span>
-
-                      <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Bank</span>
-                      <span className="col-span-7 font-black">: {profile.bankName || "ICICI Bank"}</span>
-
-                      <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">Branch</span>
-                      <span className="col-span-7 font-black">: {profile.bankBranch || "Gandhipuram"}</span>
-
-                      <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">A/C No</span>
-                      <span className="col-span-7 font-black">: {profile.accountNumber || "730705000264"}</span>
-
-                      <span className="col-span-5 text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span>
-                      <span className="col-span-7 font-black">: {profile.ifscCode || "ICIC0007307"}</span>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
-                    </div>
-                  </div>
-
-                  <div className="col-span-3 flex flex-col items-center justify-start pt-1">
-                    {activeQr && total > 0 && (
-                      <div className="text-center">
-                        {activeQr.isDynamic ? (
-                          qrBlobUrl ? (
-                            <img
-                              src={qrBlobUrl}
-                              style={{ height: '135px', width: '135px', objectFit: 'contain' }}
-                              className="p-1 mb-1 mx-auto"
-                              alt="Dynamic UPI QR"
-                            />
-                          ) : (
-                            <div style={{ height: '135px', width: '135px' }} className="flex items-center justify-center mx-auto">
-                              <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
+                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: "Arial" }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '35%', verticalAlign: 'top' }}>
+                          <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
+                          <div className="text-[11.5px] space-y-0.5">
+                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
+                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
+                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
+                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
+                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
+                          </div>
+                          <div className="mt-4">
+                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                          </div>
+                        </td>
+                        <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
+                          {activeQr && total > 0 && (
+                            <div style={{ display: 'inline-block' }}>
+                              {activeQr.isDynamic ? (
+                                qrBlobUrl ? (
+                                  <img src={qrBlobUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                ) : (
+                                  <div style={{ height: '135px', width: '135px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                )
+                              ) : (
+                                <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                              )}
+                              <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                             </div>
-                          )
-                        ) : (
-                          <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mb-1 mx-auto" alt="Payment QR" />
-                        )}
-                        <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="col-span-5 flex flex-col items-end">
-                    <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
-                      <tbody>
-                        <tr>
-                          <td className="px-2 py-1 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
-                          <td className="px-2 py-1 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
-                        </tr>
-                        {Object.values(taxGroups).map((group: any) => (
-                          isIgst ? (
-                            <tr key={`igst-${group.rate}`}>
-                              <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
-                              <td className="px-2 py-1 text-right font-black">{group.tax.toFixed(2)}</td>
-                            </tr>
-                          ) : (
-                            <Fragment key={`gst-${group.rate}`}>
+                          )}
+                        </td>
+                        <td style={{ width: '35%', verticalAlign: 'top' }}>
+                          <table className="w-full text-[11.5px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
+                            <tbody>
                               <tr>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
-                                <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                <td className="px-2 py-1 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
+                                <td className="px-2 py-1 text-right font-black" style={{ width: '35%' }}>{taxableAmount.toFixed(2)}</td>
                               </tr>
+                              {Object.values(taxGroups).map((group: any) => (
+                                isIgst ? (
+                                  <tr key={`igst-${group.rate}`}>
+                                    <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">IGST {group.rate}%</td>
+                                    <td className="px-2 py-1 text-right font-black">{group.tax.toFixed(2)}</td>
+                                  </tr>
+                                ) : (
+                                  <Fragment key={`gst-${group.rate}`}>
+                                    <tr>
+                                      <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">CGST {group.rate / 2}%</td>
+                                      <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
+                                      <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                    </tr>
+                                  </Fragment>
+                                )
+                              ))}
                               <tr>
-                                <td className="px-2 py-1 text-gray-600 font-bold uppercase text-[10px]">SGST {group.rate / 2}%</td>
-                                <td className="px-2 py-1 text-right font-black">{(group.tax / 2).toFixed(2)}</td>
+                                <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
+                                <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
                               </tr>
-                            </Fragment>
-                          )
-                        ))}
-                        <tr>
-                          <td className="px-2 py-1 text-gray-600 font-bold uppercase">Round Off</td>
-                          <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
-                        </tr>
-                        <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                          <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase">Grand Total</td>
-                          <td className="px-2 py-1 text-right text-black text-[13.5px] font-black">{total.toFixed(2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="mt-2 w-full">
-                      <p className="text-[9px] text-right text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
-                      {activeInvoice.fileName && (
-                        <p className="text-[10px] text-right font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>
-                      )}
-                    </div>
-                  </div>
+                              <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
+                                <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase">Grand Total</td>
+                                <td className="px-2 py-1 text-right text-black text-[13.5px] font-black">{total.toFixed(2)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          <div className="mt-2 w-full text-right">
+                            <p className="text-[9px] text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
+                            {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

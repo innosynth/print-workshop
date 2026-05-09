@@ -53,8 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   <meta charset="utf-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; background: white; }
-    body { font-family: Arial, sans-serif; }
+    html, body { width: 100%; height: 100%; background: white; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
     img { max-width: 100%; }
     table { border-collapse: collapse; }
     @page {
@@ -85,15 +85,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     });
 
-    const pdfBuffer = await page.pdf({
+    const pdfOptions: any = {
       format: paperSize === 'thermal' ? undefined : (paperSize === 'A4' ? 'A4' : 'A5'),
       printBackground: true,
       preferCSSPageSize: true,
       width: paperSize === 'thermal' ? '80mm' : undefined,
-      margin: paperSize === 'thermal'
-        ? { top: '2mm', right: '2mm', bottom: '2mm', left: '2mm' }
-        : { top: '4mm', right: '4mm', bottom: '4mm', left: '4mm' },
-    });
+    };
+
+    const pdfBuffer = await page.pdf(pdfOptions);
 
     await page.close();
 
