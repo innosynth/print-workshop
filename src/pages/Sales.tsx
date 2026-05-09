@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect, Fragment } from "react";
 import { useReactToPrint } from "react-to-print";
-import { pdf } from "@react-pdf/renderer";
-import { A4InvoicePDF, A5InvoicePDF, ThermalReceiptPDF } from "@/components/InvoicePDFTemplates";
-
-
+import html2canvas from "html2canvas";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -349,30 +346,91 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
     setIsDownloading(true);
 
     try {
-      const pdfProps = {
-        activeInvoice, profile, items,
-        taxableAmount, totalTax, taxGroups, total, roundOff,
-        isIgst, isEstimate, docType, docTitle,
-        activeQr, qrBlobUrl,
-        settingsData, settings
-      };
+      const element = paperSize === "thermal"
+        ? printRef.current?.querySelector('.thermal-format')
+        : printRef.current?.querySelector('.invoice-page');
 
-      let PdfComponent;
-      if (paperSize === "thermal") {
-        PdfComponent = <ThermalReceiptPDF {...pdfProps} />;
-      } else if (paperSize === "A5") {
-        PdfComponent = <A5InvoicePDF {...pdfProps} />;
-      } else {
-        PdfComponent = <A4InvoicePDF {...pdfProps} />;
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Could not find the document to capture.",
+          variant: "destructive"
+        });
+        return;
       }
 
-      const blob = await pdf(PdfComponent).toBlob();
+      // Clone the element and convert Tailwind classes to inline styles via computed styles
+      const clone = element.cloneNode(true) as HTMLElement;
+
+      // Apply computed styles from the original element to the clone
+      const originalStyle = window.getComputedStyle(element as HTMLElement);
+      clone.style.cssText = originalStyle.cssText;
+
+      // Style all child elements
+      const allChildren = clone.querySelectorAll('*');
+      const originalChildren = element.querySelectorAll('*');
+      for (let i = 0; i < allChildren.length && i < originalChildren.length; i++) {
+        const child = allChildren[i] as HTMLElement;
+        const origChild = originalChildren[i] as HTMLElement;
+        const cs = window.getComputedStyle(origChild);
+        child.style.cssText = cs.cssText;
+      }
+
+      // Convert <img> src to data URLs for blob images
+      const imgs = clone.querySelectorAll('img');
+      for (const img of Array.from(imgs)) {
+        const src = img.getAttribute('src');
+        if (src && (src.startsWith('blob:') || src.startsWith('data:'))) {
+          if (src.startsWith('blob:')) {
+            try {
+              const response = await fetch(src);
+              const blob = await response.blob();
+              const dataUrl = await new Promise<string>(resolve => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              img.setAttribute('src', dataUrl);
+            } catch {
+              // Keep original src if fetch fails
+            }
+          }
+        } else if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+          img.setAttribute('src', `${window.location.origin}${src}`);
+        }
+      }
+
+      const htmlString = clone.outerHTML;
+
+      const res = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: htmlString,
+          paperSize,
+          docTitle: `${docNo}_${custName}`,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errorData.error);
+      }
+
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${docNo}_${custName}.pdf`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      console.error("Failed to generate PDF:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsDownloading(false);
     }
