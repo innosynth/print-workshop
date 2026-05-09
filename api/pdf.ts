@@ -15,9 +15,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let browser;
   try {
+    const isDev = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
+    const isMac = process.platform === 'darwin';
+    
+    console.log('Environment Debug:', {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      platform: process.platform,
+      isDev,
+      isMac
+    });
+    let executablePath;
+    if (isMac || isDev) {
+      executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    } else {
+      executablePath = await chromium.executablePath(process.env.CHROMIUM_PACK_URL || "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.arm64.tar");
+    }
+
+    console.log('Selected executablePath:', executablePath);
+    (global as any).lastExecPath = executablePath;
+
     browser = await puppeteer.launch({
-      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: await chromium.executablePath(),
+      args: (isMac || isDev) ? [] : chromium.args,
+      executablePath,
       headless: true,
     });
 
@@ -31,7 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await page.setViewport({ width: 793, height: 1122, deviceScaleFactor: 2 });
     }
 
-    // Build a self-contained HTML page with the preview content
     const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -57,7 +76,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       waitUntil: ['load', 'networkidle0'],
     });
 
-    // Wait for images to load
     await page.evaluate(() => {
       return Promise.all(
         Array.from(document.querySelectorAll('img'))
@@ -83,12 +101,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await page.close();
 
+    const filename = (docTitle || 'document') + '.pdf';
+
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${docTitle || 'document'}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     return res.status(200).send(pdfBuffer);
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+      error: error.message,
+      debug: {
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL: process.env.VERCEL,
+        platform: process.platform,
+        executablePath: (global as any).lastExecPath || 'unknown'
+      }
+    });
   } finally {
     if (browser) {
       try {
