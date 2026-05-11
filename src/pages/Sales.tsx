@@ -280,8 +280,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
 
   // Use the saved tax value to determine if GST should be shown
   const savedTax = parseFloat(activeInvoice.tax || "0");
+  // Force calculation only for older quotations that don't have a saved tax value (NULL)
+  const isLegacyQuotation = docType === 'quotations' && (activeInvoice.tax === null || activeInvoice.tax === undefined);
 
-  const totalTax = savedTax > 0 ? items.reduce((sum: number, item: any) => {
+  const totalTax = (savedTax > 0 || isLegacyQuotation) ? items.reduce((sum: number, item: any) => {
     const rate = parseFloat(item.gstRate || "0") || 0;
     return sum + (parseFloat(item.amount || 0) * (rate / 100));
   }, 0) : 0;
@@ -289,10 +291,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   const rawTotal = taxableAmount + totalTax;
   // If no tax is saved (especially for estimates where GST was disabled), 
   // the total should be the rounded taxable amount to avoid legacy bugged totals
-  const total = (activeInvoice.total && (savedTax > 0 || docType !== 'estimates')) ? parseFloat(activeInvoice.total) : Math.round(rawTotal);
+  const total = (activeInvoice.total && (savedTax > 0 || !isLegacyQuotation)) ? parseFloat(activeInvoice.total) : Math.round(rawTotal);
   const roundOff = total - rawTotal;
 
-  const taxGroups = savedTax > 0 ? items.reduce((acc: any, item: any) => {
+  const taxGroups = (savedTax > 0 || isLegacyQuotation) ? items.reduce((acc: any, item: any) => {
     const rate = parseFloat(item.gstRate || "0") || 0;
     if (rate > 0) {
       const amt = parseFloat(item.amount || 0);
@@ -2343,7 +2345,7 @@ export default function Sales() {
       const detail = await res.json();
 
       // 2. Prepare new document body
-      const isTargetInvoice = targetType === 'invoices';
+      const isTargetInvoice = targetType === 'invoices' || targetType === 'quotations';
       const prefix = targetType === 'quotations' ? 'QT' : targetType === 'estimates' ? 'EST' : 'INV';
       const sourceNo = detail.invoiceNo || detail.quotationNo || "DOC";
 
@@ -2376,7 +2378,7 @@ export default function Sales() {
         items: convertedItems
       };
 
-      if (isTargetInvoicesTable) {
+      if (targetType !== 'estimates' || isTargetInvoicesTable) {
         newBody.tax = calculatedTax.toFixed(2);
         newBody.total = Math.round(subtotal + calculatedTax).toFixed(2);
       }

@@ -79,6 +79,8 @@ export const quotations = pgTable("quotations", {
   customerId: integer("customerId").references(() => contacts.id),
   customerName: text("customerName"), // For walk-in/dummy bills
   amount: numeric("amount").notNull(),
+  tax: numeric("tax").default("0"),
+  total: numeric("total").default("0"),
   fileName: text("fileName"),
   status: text("status").default("Pending"),
   isIgst: boolean("isIgst").default(false),

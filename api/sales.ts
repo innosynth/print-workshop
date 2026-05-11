@@ -76,7 +76,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
         if (id) {
           const main = await db.select({
             id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
-            amount: quotations.amount, status: quotations.status, customerId: contacts.id,
+            amount: quotations.amount, tax: quotations.tax, total: quotations.total,
+            status: quotations.status, customerId: contacts.id,
             fileName: quotations.fileName, isIgst: quotations.isIgst,
             customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
             customerGst: contacts.gst
@@ -88,7 +89,10 @@ export default async function handler(request: VercelRequest, response: VercelRe
         }
         const data = await db.select({
           id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
-          amount: quotations.amount, status: quotations.status, customerId: contacts.id,
+          amount: quotations.amount,
+          tax: sql<string>`CASE WHEN ${quotations.tax} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * CAST(${quotationItems.gstRate} AS NUMERIC) / 100), 0)::text ELSE ${quotations.tax}::text END`,
+          total: sql<string>`CASE WHEN ${quotations.total} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * (1 + CAST(${quotationItems.gstRate} AS NUMERIC) / 100)), ${quotations.amount})::text ELSE ${quotations.total}::text END`,
+          status: quotations.status, customerId: contacts.id,
           isIgst: quotations.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
           productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`,
@@ -97,7 +101,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         .from(quotations)
         .leftJoin(contacts, eq(quotations.customerId, contacts.id))
         .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-        .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.status, quotations.isIgst)
+        .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.tax, quotations.total, quotations.status, quotations.isIgst)
         .orderBy(desc(quotations.createdAt));
         return response.status(200).json(data);
       }
