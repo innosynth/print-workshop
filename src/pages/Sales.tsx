@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock, Edit, FileText, Phone, Mail, MapPin } from "lucide-react";
+import { Search, Plus, Loader2, Save, Printer, Trash2, Ban, Banknote, RefreshCw, Check, ChevronsUpDown, Download, Filter, MessageSquare, CheckCircle2, Clock, Edit, FileText, Phone, Mail, MapPin, ArrowRightLeft, AlertTriangle } from "lucide-react";
 
 import { StatusBadge } from "./Dashboard";
 import {
@@ -2176,7 +2176,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -2187,10 +2187,14 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   onWhatsApp?: (r: any) => void,
   onEdit?: (r: any) => void,
   onDelete?: (r: any) => void,
-  onDownload?: (r: any) => void
+  onDownload?: (r: any) => void,
+  enableMultiSelect?: boolean,
+  onBulkConvert?: (selected: any[]) => void,
+  bulkConvertLoading?: boolean
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const filtered = (data || []).filter(row => {
     // Global search
@@ -2209,6 +2213,32 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
     return matchesSearch && matchesColumnFilters;
   });
 
+  // Multi-select helpers
+  const selectableRows = filtered.filter(r => r.status !== 'Invoiced');
+  const selectedRows = filtered.filter(r => selectedIds.has(r.id));
+  const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
+
+  // Validate: all selected must be same customer
+  const selectedCustomerIds = [...new Set(selectedRows.map(r => r.customerId || r.customerName || '__none__'))];
+  const isMixedCustomer = selectedCustomerIds.length > 1;
+  const hasSelection = selectedRows.length > 0;
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelectableChecked) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableRows.map(r => r.id)));
+    }
+  };
+
   const clearFilters = () => {
     setSearch("");
     setColumnFilters({});
@@ -2216,7 +2246,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="Search records..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
@@ -2225,6 +2255,52 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
             Clear Filters
           </Button>
+        )}
+        {/* Bulk Convert to Invoice Button */}
+        {enableMultiSelect && onBulkConvert && (
+          <div className="ml-auto flex items-center gap-2">
+            {hasSelection && (
+              <span className="text-xs font-bold text-muted-foreground animate-in fade-in slide-in-from-left-2 duration-200">
+                {selectedRows.length} estimate{selectedRows.length > 1 ? 's' : ''} selected
+              </span>
+            )}
+            <div className="relative group/convert">
+              <Button
+                size="sm"
+                className="h-9 gap-2 shadow-lg shadow-primary/20 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                disabled={!hasSelection || isMixedCustomer || bulkConvertLoading}
+                onClick={() => onBulkConvert(selectedRows)}
+              >
+                {bulkConvertLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                )}
+                Convert to Invoice
+              </Button>
+              {/* Tooltip for mixed customer error */}
+              {hasSelection && isMixedCustomer && (
+                <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/convert:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-destructive leading-relaxed">
+                      Only estimates belonging to the same customer can be converted into a single invoice.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {hasSelection && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs font-bold text-muted-foreground hover:text-primary"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear Selection
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <Card>
@@ -2236,6 +2312,16 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
               <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
+                    {enableMultiSelect && (
+                      <th className="px-3 py-2.5 w-10">
+                        <Checkbox
+                          checked={allSelectableChecked}
+                          onCheckedChange={toggleSelectAll}
+                          className="h-4 w-4"
+                          title="Select all estimates"
+                        />
+                      </th>
+                    )}
                     {cols.map(c => (
                       <th key={c.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
                         <div className="flex items-center group">
@@ -2254,8 +2340,29 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                  {filtered.map((row, i) => {
+                    const isSelected = selectedIds.has(row.id);
+                    const isInvoiced = row.status === 'Invoiced';
+                    return (
+                    <tr key={i} className={cn(
+                      "border-b last:border-0 hover:bg-muted/30 transition-colors",
+                      isSelected && "bg-primary/5 hover:bg-primary/10"
+                    )}>
+                      {enableMultiSelect && (
+                        <td className="px-3 py-2.5">
+                          {isInvoiced ? (
+                            <div className="h-4 w-4 flex items-center justify-center" title="Already converted to invoice">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 opacity-50" />
+                            </div>
+                          ) : (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(row.id)}
+                              className="h-4 w-4"
+                            />
+                          )}
+                        </td>
+                      )}
                       {cols.map(c => (
                         <td key={c.key} className="px-4 py-2.5">
                           {c.render ? c.render(row) : row[c.key]}
@@ -2279,7 +2386,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                                 <Edit className="h-3.5 w-3.5" />Edit
                               </Button>
                             )}
-                            {onConvert && row.status !== 'Invoiced' && (
+                            {onConvert && !isInvoiced && (
                               <Button
                                 variant="default"
                                 size="sm"
@@ -2329,9 +2436,10 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                         </td>
                       )}
                     </tr>
-                  ))}
+                  );
+                  })}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={cols.length + 1} className="px-4 py-8 text-center text-muted-foreground">No records found</td></tr>
+                    <tr><td colSpan={cols.length + (enableMultiSelect ? 2 : 1)} className="px-4 py-8 text-center text-muted-foreground">No records found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -2373,6 +2481,124 @@ export default function Sales() {
   const { toast } = useToast();
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [convertDialog, setConvertDialog] = useState<{ open: boolean, data: any, type: string }>({ open: false, data: null, type: "" });
+  const [bulkConvertLoading, setBulkConvertLoading] = useState(false);
+
+  // Bulk convert multiple estimates into a single invoice
+  const handleBulkConvert = async (selectedEstimates: any[]) => {
+    if (selectedEstimates.length === 0) return;
+
+    // Validate: all must be same customer
+    const customerIds = [...new Set(selectedEstimates.map(e => e.customerId || e.customerName || '__none__'))];
+    if (customerIds.length > 1) {
+      toast({ variant: "destructive", title: "Mixed Customers", description: "Only estimates belonging to the same customer can be converted into a single invoice." });
+      return;
+    }
+
+    // Validate: none should be already invoiced
+    const alreadyInvoiced = selectedEstimates.filter(e => e.status === 'Invoiced');
+    if (alreadyInvoiced.length > 0) {
+      toast({ variant: "destructive", title: "Already Invoiced", description: `${alreadyInvoiced.length} estimate(s) have already been converted to an invoice.` });
+      return;
+    }
+
+    setBulkConvertLoading(true);
+    try {
+      // 1. Fetch full details for all selected estimates
+      const detailPromises = selectedEstimates.map(est =>
+        fetch(`/api/sales?resource=invoices&id=${est.id}`).then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch estimate ${est.invoiceNo}`);
+          return res.json();
+        })
+      );
+      const details = await Promise.all(detailPromises);
+
+      // 2. Merge all items from all estimates
+      const allItems: any[] = [];
+      details.forEach(detail => {
+        (detail.items || []).forEach((item: any) => {
+          allItems.push({
+            name: item.name,
+            category: item.category || "",
+            subCategory: item.subCategory || "",
+            qty: parseInt(item.qty || 0),
+            rate: parseFloat(item.rate || 0).toFixed(2),
+            amount: parseFloat(item.amount || 0).toFixed(2),
+            hsnCode: item.hsnCode || "",
+            gstRate: item.gstRate || "18"
+          });
+        });
+      });
+
+      // 3. Calculate GST totals
+      const subtotal = allItems.reduce((acc, item) => acc + parseFloat(item.amount), 0);
+      const calculatedTax = allItems.reduce((acc, item) => {
+        const amt = parseFloat(item.amount);
+        const rate = parseFloat(item.gstRate);
+        return acc + (amt * (rate / 100));
+      }, 0);
+      const grandTotal = Math.round(subtotal + calculatedTax);
+
+      // 4. Generate invoice number
+      const invoiceNo = generateNextNo(queryClient.getQueryData(["invoices"]) || [], 'invoices');
+
+      // 5. Use the first estimate's customer info
+      const firstDetail = details[0];
+      const estNos = selectedEstimates.map(e => e.invoiceNo).join(', ');
+
+      const newBody: any = {
+        customerId: firstDetail.customerId,
+        customerName: firstDetail.customerName,
+        fileName: `Merged: ${estNos}`,
+        invoiceNo: invoiceNo,
+        date: new Date().toISOString().split('T')[0],
+        amount: subtotal.toFixed(2),
+        tax: calculatedTax.toFixed(2),
+        total: grandTotal.toFixed(2),
+        isIgst: firstDetail.isIgst || false,
+        status: "Paid",
+        items: allItems
+      };
+
+      // 6. Create the consolidated invoice
+      const createRes = await fetch(`/api/sales?resource=invoices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newBody)
+      });
+      if (!createRes.ok) throw new Error("Failed to create invoice");
+      const newDoc = await createRes.json();
+
+      // 7. Mark all source estimates as 'Invoiced'
+      await Promise.all(selectedEstimates.map(est =>
+        fetch(`/api/sales?resource=invoices&id=${est.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Invoiced" })
+        })
+      ));
+
+      toast({
+        title: "Success",
+        description: `${selectedEstimates.length} estimate(s) converted to Invoice ${invoiceNo}`
+      });
+
+      // 8. Invalidate caches
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice"] });
+      queryClient.invalidateQueries({ queryKey: ["sales_detail"] });
+
+      // 9. Show print preview of new invoice
+      const finalRes = await fetch(`/api/sales?resource=invoices&id=${newDoc.id}`);
+      const finalDoc = await finalRes.json();
+      setSelectedInvoice({ data: finalDoc, type: "invoices" });
+
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Bulk Conversion Failed", description: e.message });
+    } finally {
+      setBulkConvertLoading(false);
+    }
+  };
 
   const handleConvert = async (source: any, sourceType: string, targetType: string) => {
     setConvertingId(source.id);
@@ -2724,6 +2950,9 @@ export default function Sales() {
             onConvert={(r) => setConvertDialog({ open: true, data: r, type: "estimates" })}
             loadingId={convertingId}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
+            enableMultiSelect
+            onBulkConvert={handleBulkConvert}
+            bulkConvertLoading={bulkConvertLoading}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
