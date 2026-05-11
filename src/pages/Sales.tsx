@@ -588,7 +588,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
      width: ${paperSize === "A4" ? a4Width : paperSize === "A5" ? a5Width : "100%"} !important;
      height: ${fitsOnOnePage ? (paperSize === "A4" ? a4Height : paperSize === "A5" ? a5Height : "auto") : "auto"} !important;
      margin: 0 auto;
-     padding: ${paperSize === "A5" ? "10px 24px 5px 24px" : "0 38px 20px 38px"} !important;
+     padding: ${paperSize === "A5" ? "10px 24px 20px 24px" : "0 38px 20px 38px"} !important;
      box-sizing: border-box;
      display: ${fitsOnOnePage ? 'flex' : 'block'} !important;
      flex-direction: column !important;
@@ -597,7 +597,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
      color: black;
      font-family: Arial, sans-serif;
      page-break-after: always;
-     overflow: hidden;
+     overflow: visible;
      }
      
     .thermal-format {
@@ -760,8 +760,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className={cn(
-        paperSize === "thermal" ? "h-auto max-h-[95vh]" : "h-[58rem] max-h-[95vh]",
-        "flex flex-col bg-[#f5f5f5] p-0 gap-0 transition-all duration-300 border-none",
+        paperSize === "thermal" ? "h-auto max-h-[95vh]" : "h-[95vh] max-h-[95vh]",
+        "flex flex-col bg-[#f5f5f5] p-0 gap-0 transition-all duration-300 border-none overflow-hidden",
         paperSize === "thermal" ? "max-w-fit min-w-[22.5rem]" : "max-w-[63.75rem]",
         autoDownload && "opacity-0 pointer-events-none fixed left-[-9999px]"
       )}>
@@ -793,7 +793,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           .a5-format .py-2 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
           .a5-format .py-1\\.5 { padding-top: 0.2rem !important; padding-bottom: 0.2rem !important; }
           .a5-format .pt-6 { padding-top: 0.8rem !important; }
-          .a5-format .mt-auto { margin-top: 0.5rem !important; }
+          .a5-format .mt-auto { margin-top: auto !important; }
           .a5-format { padding-top: 0 !important; }
           .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.2rem !important; }
           .a5-format .pt-4 { padding-top: 0.1rem !important; }
@@ -868,9 +868,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
           {paperSize === "A4" || paperSize === "A5" ? (
             <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial" }}>
 
-              <div className="space-y-2">
+              <div className={cn("space-y-2", paperSize === "A5" && "space-y-1")}>
                 {/* Header Layout */}
-                <div className="flex justify-between items-start w-full border-b-2 border-black/20 pb-2">
+                <div className={cn("flex justify-between items-start w-full border-b-2 border-black/20 pb-2", paperSize === "A5" && "pb-1")}>
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -933,13 +933,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 </div>
 
                 {/* Billing & Meta Info */}
-                <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1")}>
+                <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1 text-[0.65rem]")}>
                   <div className="col-span-7 space-y-0.5">
-                    <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-[0.5rem]")}>To :</p>
-                    <p className="text-base font-black uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
-                    <p className="text-gray-600 font-bold">COIMBATORE</p>
-                    <p className="mt-2 font-bold uppercase">GSTIN : {activeInvoice.customerGst || "N/A"}</p>
-                    <p className="font-bold uppercase">State & Code:</p>
+                    <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-base mt-0 leading-tight")}>TO :</p>
+                    <p className={cn("text-base font-black uppercase", paperSize === "A5" && "text-xl mt-0 leading-tight")}>{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
+                    <p className={cn("text-gray-600 font-bold", paperSize === "A5" && "mt-0 leading-tight")}>COIMBATORE</p>
+                    <p className={cn("mt-2 font-bold uppercase", paperSize === "A5" && "mt-1 leading-tight")}>GSTIN : {activeInvoice.customerGst || "N/A"}</p>
+                    <p className={cn("font-bold uppercase", paperSize === "A5" && "mt-0 leading-tight")}>State & Code:</p>
                   </div>
                   <div className="col-span-5">
                     <table className="text-[0.7rem] font-bold" style={{ marginLeft: 'auto', tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
@@ -990,14 +990,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                       <th className="px-2 text-right align-middle" style={{ width: '12%' }}>AMOUNT</th>
                     </tr>
                   </thead>
-                  <tbody className="font-medium text-[0.65rem]">
+                  <tbody className={cn("font-medium text-[0.65rem]", paperSize === "A5" && "text-[0.6rem]")}>
                     {items.map((item: any, i: number) => {
                       const itemRate = parseFloat(item.gstRate || 0);
                       const itemAmount = parseFloat(item.amount || 0);
                       const itemTax = itemAmount * (itemRate / 100);
                       return (
                         <tr key={i} className="">
-                          <td className="px-0.5 py-2 text-center">{i + 1}</td>
+                          <td className={cn("px-0.5 py-2 text-center", paperSize === "A5" && "py-1")}>{i + 1}</td>
                           <td className="px-2 py-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {paperSize === "A4" ? (
@@ -1023,13 +1023,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
                             </>
                           )}
-                          <td className="px-2 py-2 text-right font-black">{itemAmount.toFixed(2)}</td>
+                          <td className={cn("px-2 py-2 text-right font-black", paperSize === "A5" && "py-1")}>{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
                     })}
                     {/* Fill empty rows only when items fit on a single page */}
                     {fitsOnOnePage && Array.from({ length: Math.max(0, (paperSize === "A5" ? MAX_ITEMS_A5 : MAX_ITEMS_A4) - items.length) }).map((_, i) => (
-                      <tr key={`empty-${i}`} className={paperSize === "A4" ? "h-4" : "h-6"}>
+                      <tr key={`empty-${i}`} className={paperSize === "A4" ? "h-4" : "h-4"}>
                         <td colSpan={isIgst ? 8 : (isEstimate ? 6 : 10)}></td>
                       </tr>
                     ))}
@@ -1045,16 +1045,16 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                     <tbody>
                       <tr>
                         <td style={{ width: '35%', verticalAlign: 'top' }}>
-                          <p className="font-black mb-1 uppercase text-[10px]">Bank Details</p>
+                          <p className="font-black mb-1 uppercase text-[9px]">Bank Details</p>
                           <div className="text-[10px] space-y-0.5">
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[9px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
+                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
                           </div>
                           <div className="mt-4">
-                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                            <p className="text-[0.6rem] font-bold text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
                         <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
@@ -1062,19 +1062,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             <div style={{ display: 'inline-block' }}>
                               {activeQr.isDynamic ? (
                                 qrBlobUrl ? (
-                                  <img src={qrBlobUrl} style={{ height: '100px', width: '100px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
-                                ) : (
-                                  <div style={{ height: '100px', width: '100px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
-                                )
+                                <img src={qrBlobUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
                               ) : (
-                                <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
-                              )}
+                                <div style={{ height: '80px', width: '80px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                              )
+                            ) : (
+                              <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                            )}
                               <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                             </div>
                           )}
                         </td>
                         <td style={{ width: '35%', verticalAlign: 'top' }}>
-                          <table className="w-full text-[10px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
+                          <table className="w-full text-[9px] border-collapse border border-gray-300" style={{ fontFamily: "Arial", tableLayout: 'fixed' }}>
                             <tbody>
                               <tr>
                                 <td className="px-2 py-0.5 text-gray-600 font-bold" style={{ width: '65%' }}>Sub Total</td>
@@ -1133,7 +1133,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                             <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
                           </div>
                           <div className="mt-4">
-                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-widest text-left">THANK YOU FOR YOUR BUSINESS</p>
+                            <p className="text-[0.6rem] font-bold text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
                         <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
