@@ -936,7 +936,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                 <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1 text-[0.65rem]")}>
                   <div className="col-span-7 space-y-0.5">
                     <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-base mt-0 leading-tight")}>TO :</p>
-                    <p className={cn("text-base font-black uppercase", paperSize === "A5" && "text-xl mt-0 leading-tight")}>{activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}</p>
+                    <p className={cn("text-base font-black uppercase", paperSize === "A5" && "text-xl mt-0 leading-tight")}>{activeInvoice.customerName || invoice.customerName || ""}</p>
                     <p className={cn("text-gray-600 font-bold", paperSize === "A5" && "mt-0 leading-tight")}>COIMBATORE</p>
                     <p className={cn("mt-2 font-bold uppercase", paperSize === "A5" && "mt-1 leading-tight")}>GSTIN : {activeInvoice.customerGst || "N/A"}</p>
                     <p className={cn("font-bold uppercase", paperSize === "A5" && "mt-0 leading-tight")}>State & Code:</p>
@@ -1222,7 +1222,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
                   <span>Date: {formatDate(activeInvoice.date || invoice.date)}</span>
                 </div>
                 <div className="text-left mt-1" style={{ fontSize: '14.5px' }}>
-                  C.ID : {activeInvoice.customerName || invoice.customerName || "Walk-in Customer"}
+                  C.ID : {activeInvoice.customerName || invoice.customerName || ""}
                 </div>
                 {activeInvoice.customerGst && !isEstimate && (
                   <div className="text-left mt-0.5" style={{ fontSize: '14.5px' }}>
@@ -1637,7 +1637,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   };
 
   const handleSave = async (stayOpen: boolean = false) => {
-    if (!customerId && !customerName) {
+    if (type !== 'estimates' && !customerId && !customerName) {
       toast({ variant: "destructive", title: "Missing information", description: "Please select or type a customer name" });
       return;
     }
@@ -1752,7 +1752,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               {/* Header info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 <div className="space-y-0.5">
-                  <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer</Label>
+                  <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer {type === 'estimates' && "(Optional)"}</Label>
                   <FormCombobox
                     triggerRef={customerRef}
                     onKeyDown={(e) => handleEnter(e, pendingCategoryRef.current, null)}
