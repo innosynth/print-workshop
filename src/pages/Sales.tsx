@@ -14,6 +14,17 @@ import { StatusBadge } from "./Dashboard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -850,11 +861,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
               {isDownloading ? "Generating..." : "Download JPG"}
             </Button>
 
-            {/* 
-            <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
-              <Printer className="h-3.5 w-3.5" /> Print Document
-            </Button>
-            */}
+            {docType === 'estimates' && (
+              <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
+                <Printer className="h-3.5 w-3.5" /> Print Document
+              </Button>
+            )}
 
             <Button variant="outline" onClick={handleDownload} className="gap-1.5 border-green-600 text-green-600 hover:bg-green-50 h-8 text-[11px] px-3">
               <Download className="h-3.5 w-3.5" /> Download PDF
@@ -2165,7 +2176,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDownload }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -2175,6 +2186,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   loadingId?: number | null,
   onWhatsApp?: (r: any) => void,
   onEdit?: (r: any) => void,
+  onDelete?: (r: any) => void,
   onDownload?: (r: any) => void
 }) {
   const [search, setSearch] = useState("");
@@ -2238,7 +2250,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                         </div>
                       </th>
                     ))}
-                    {(onPrint || onConvert || onEdit) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
+                    {(onPrint || onConvert || onEdit || onDelete) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2289,6 +2301,30 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                                 <WhatsAppIcon className="h-4 w-4 text-[#25D366]" />
                               </Button>
                             )}
+                            {onDelete && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete">
+                                    <Trash2 className="h-3.5 w-3.5" />Delete
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the 
+                                      {row.quotationNo || row.invoiceNo} and all its associated items.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
                         </td>
                       )}
@@ -2309,6 +2345,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
 }
 
 export default function Sales() {
+  const { user, role } = useAuth();
+  const isSuperAdmin = !role || role.name === 'Super Admin' || user?.email === 'admin@example.com'; // Adding fallback checks
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "estimates";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
@@ -2422,6 +2460,20 @@ export default function Sales() {
       toast({ variant: "destructive", title: "Conversion Failed", description: e.message });
     } finally {
       setConvertingId(null);
+    }
+  };
+
+  const handleDelete = async (record: any, type: string) => {
+    try {
+      const res = await fetch(`/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}&id=${record.id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to delete record");
+      toast({ title: "Success", description: "Record deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["quotations"] });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
@@ -2671,6 +2723,7 @@ export default function Sales() {
             onEdit={(r) => setEditingRecord({ data: r, type: "estimates" })}
             onConvert={(r) => setConvertDialog({ open: true, data: r, type: "estimates" })}
             loadingId={convertingId}
+            onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
@@ -2684,6 +2737,7 @@ export default function Sales() {
             loadingId={convertingId}
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "quotations" })}
+            onDelete={isSuperAdmin ? (r) => handleDelete(r, "quotations") : undefined}
           />
         </TabsContent>
         <TabsContent value="invoices" className="mt-4">
@@ -2696,6 +2750,7 @@ export default function Sales() {
             onToggleStatus={handleToggleStatus}
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "invoices" })}
+            onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
           />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">

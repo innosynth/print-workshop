@@ -68,6 +68,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
         }
         return response.status(200).json(updated[0]);
       }
+      if (method === 'DELETE') {
+        const { id } = request.query;
+        await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, parseInt(id as string)));
+        await db.delete(invoices).where(eq(invoices.id, parseInt(id as string)));
+        return response.status(200).json({ success: true });
+      }
     }
 
     if (resource === 'quotations') {
@@ -131,6 +137,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
           }
         }
         return response.status(200).json(updated[0]);
+      }
+      if (method === 'DELETE') {
+        const { id } = request.query;
+        await db.delete(quotationItems).where(eq(quotationItems.quotationId, parseInt(id as string)));
+        await db.delete(quotations).where(eq(quotations.id, parseInt(id as string)));
+        return response.status(200).json({ success: true });
       }
     }
 
