@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, Fragment } from "react";
 import { useReactToPrint } from "react-to-print";
 import html2canvas from "html2canvas";
+import JSZip from "jszip";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -229,7 +230,13 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   );
 }
 
-function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invoice: any, onClose: () => void, docType?: string, autoDownload?: boolean }) {
+function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownloadComplete }: { 
+  invoice: any, 
+  onClose: () => void, 
+  docType?: string, 
+  autoDownload?: boolean,
+  onDownloadComplete?: (blob: Blob, filename: string) => void
+}) {
   const { settings } = usePrintSettings();
   const { toast } = useToast();
   const [paperSize, setPaperSize] = useState<"A4" | "A5" | "thermal">("A4");
@@ -433,12 +440,18 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
       }
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${docNo}_${custName}.pdf`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const filename = `${custName}_${docNo}.pdf`;
+
+      if (onDownloadComplete) {
+        onDownloadComplete(blob, filename);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
     } catch (err: any) {
       console.error("Failed to generate PDF:", err);
       toast({
@@ -489,32 +502,40 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         windowHeight: element.scrollHeight
       });
 
-      // Use Blob instead of dataURL for better reliability with large images
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error("Canvas to Blob conversion failed");
-        }
+      // Wrap toBlob in a Promise so we can await it
+      await new Promise<void>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          try {
+            if (!blob) {
+              reject(new Error("Canvas to Blob conversion failed"));
+              return;
+            }
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
-        const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
+            const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
+            const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
+            const filename = `${custName}_${docNo}.jpg`;
 
-        link.download = `${docNo}_${custName}.jpg`;
-        link.href = url;
-        link.click();
+            if (onDownloadComplete) {
+              onDownloadComplete(blob, filename);
+            } else {
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.download = filename;
+              link.href = url;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
 
-        // Cleanup the object URL
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 1000);
-
-        toast({
-          title: "Success",
-          description: "Image downloaded successfully.",
-        });
-        setIsDownloading(false);
-      }, "image/jpeg", 1.0);
+            toast({
+              title: "Success",
+              description: "Image generated successfully.",
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }, "image/jpeg", 1.0);
+      });
 
     } catch (err) {
       console.error("Failed to generate image:", err);
@@ -523,8 +544,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload }: { invo
         description: "Failed to generate image. Please try again.",
         variant: "destructive"
       });
-      setIsDownloading(false);
     } finally {
+      setIsDownloading(false);
       element.style.minHeight = originalMinHeight;
       element.style.height = originalHeight;
     }
@@ -2176,7 +2197,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -2190,7 +2211,9 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   onDownload?: (r: any) => void,
   enableMultiSelect?: boolean,
   onBulkConvert?: (selected: any[]) => void,
-  bulkConvertLoading?: boolean
+  bulkConvertLoading?: boolean,
+  onBulkDownload?: (selected: any[]) => void,
+  bulkDownloadLoading?: boolean
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -2285,6 +2308,33 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                     <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                     <p className="text-xs font-bold text-destructive leading-relaxed">
                       Only estimates belonging to the same customer can be converted into a single invoice.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="relative group/download">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-green-600 text-green-600 hover:bg-green-50 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                disabled={!hasSelection || isMixedCustomer || bulkDownloadLoading}
+                onClick={() => onBulkDownload && onBulkDownload(selectedRows)}
+              >
+                {bulkDownloadLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Bulk Download
+              </Button>
+              {/* Tooltip for mixed customer error */}
+              {hasSelection && isMixedCustomer && (
+                <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/download:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-destructive leading-relaxed">
+                      Only estimates belonging to the same customer can be downloaded in bulk.
                     </p>
                   </div>
                 </div>
@@ -2482,6 +2532,43 @@ export default function Sales() {
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [convertDialog, setConvertDialog] = useState<{ open: boolean, data: any, type: string }>({ open: false, data: null, type: "" });
   const [bulkConvertLoading, setBulkConvertLoading] = useState(false);
+  const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false);
+  const [bulkQueue, setBulkQueue] = useState<any[]>([]);
+  const [bulkIndex, setBulkIndex] = useState(-1);
+  const bulkBlobs = useRef<{ blob: Blob, filename: string }[]>([]);
+  const selectedEstimatesCount = useRef(0);
+
+  useEffect(() => {
+    const processFinalZip = async () => {
+      if (bulkBlobs.current.length > 0) {
+        const zip = new JSZip();
+        bulkBlobs.current.forEach(item => {
+          zip.file(item.filename, item.blob);
+        });
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        const customerName = bulkBlobs.current[0].filename.split('_')[0] || 'Customer';
+        const month = new Date().toLocaleString('default', { month: 'long' });
+        a.download = `${customerName}_${month}.zip`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        bulkBlobs.current = [];
+        toast({ title: "Bulk Download Complete", description: `ZIP file generated with ${selectedEstimatesCount.current} estimate(s).` });
+      }
+    };
+
+    if (bulkIndex >= 0 && bulkIndex < bulkQueue.length) {
+      setSelectedInvoice({ data: bulkQueue[bulkIndex], type: "estimates", autoDownload: true });
+    } else if (bulkIndex >= bulkQueue.length && bulkQueue.length > 0) {
+      processFinalZip();
+      setBulkQueue([]);
+      setBulkIndex(-1);
+    }
+  }, [bulkIndex, bulkQueue.length]);
 
   // Bulk convert multiple estimates into a single invoice
   const handleBulkConvert = async (selectedEstimates: any[]) => {
@@ -2597,6 +2684,41 @@ export default function Sales() {
       toast({ variant: "destructive", title: "Bulk Conversion Failed", description: e.message });
     } finally {
       setBulkConvertLoading(false);
+    }
+  };
+
+  const handleBulkDownload = async (selectedEstimates: any[]) => {
+    if (selectedEstimates.length === 0) return;
+
+    // Validate: all must be same customer
+    const customerIds = [...new Set(selectedEstimates.map(e => e.customerId || e.customerName || '__none__'))];
+    if (customerIds.length > 1) {
+      toast({ variant: "destructive", title: "Mixed Customers", description: "Only estimates belonging to the same customer can be downloaded in bulk." });
+      return;
+    }
+
+    setBulkDownloadLoading(true);
+    bulkBlobs.current = [];
+    selectedEstimatesCount.current = selectedEstimates.length;
+
+    try {
+      // 1. Fetch full details for all selected estimates
+      const detailPromises = selectedEstimates.map(est =>
+        fetch(`/api/sales?resource=invoices&id=${est.id}`).then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch estimate ${est.invoiceNo}`);
+          return res.json();
+        })
+      );
+      const details = await Promise.all(detailPromises);
+
+      // 2. Start sequential download queue
+      setBulkQueue(details);
+      setBulkIndex(0);
+
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Bulk Download Failed", description: e.message });
+    } finally {
+      setBulkDownloadLoading(false);
     }
   };
 
@@ -2953,6 +3075,8 @@ export default function Sales() {
             enableMultiSelect
             onBulkConvert={handleBulkConvert}
             bulkConvertLoading={bulkConvertLoading}
+            onBulkDownload={handleBulkDownload}
+            bulkDownloadLoading={bulkDownloadLoading}
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
@@ -3105,7 +3229,13 @@ export default function Sales() {
           invoice={selectedInvoice.data}
           docType={selectedInvoice.type}
           autoDownload={selectedInvoice.autoDownload}
-          onClose={() => setSelectedInvoice({ data: null, type: "invoices" })}
+          onClose={() => {
+            setSelectedInvoice({ data: null, type: "invoices" });
+            if (bulkIndex >= 0) setBulkIndex(prev => prev + 1);
+          }}
+          onDownloadComplete={(blob, filename) => {
+            bulkBlobs.current.push({ blob, filename });
+          }}
         />
       )}
     </div>
