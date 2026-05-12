@@ -1950,7 +1950,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       type="number"
                       min="0"
                       value={pendingItem.rate}
-                      className="h-8 font-bold text-xs"
+                      className={cn(
+                        "h-8 font-bold text-xs",
+                        (type === 'estimates' && !((pendingItem.name || "").toLowerCase() === "custom" || (pendingItem.subCategory || "").toLowerCase() === "custom")) && "bg-muted/50 cursor-not-allowed"
+                      )}
+                      readOnly={type === 'estimates' && !((pendingItem.name || "").toLowerCase() === "custom" || (pendingItem.subCategory || "").toLowerCase() === "custom")}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           addPendingItem();
