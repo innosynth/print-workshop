@@ -3275,9 +3275,9 @@ export default function Sales() {
             setSelectedInvoice({ data: null, type: "invoices" });
             if (bulkIndex >= 0) setBulkIndex(prev => prev + 1);
           }}
-          onDownloadComplete={(blob, filename) => {
+          onDownloadComplete={bulkIndex >= 0 ? (blob, filename) => {
             bulkBlobs.current.push({ blob, filename });
-          }}
+          } : undefined}
         />
       )}
 
