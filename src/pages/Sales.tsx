@@ -2197,7 +2197,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading }: {
+function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading, selectionLabel }: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -2213,7 +2213,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   onBulkConvert?: (selected: any[]) => void,
   bulkConvertLoading?: boolean,
   onBulkDownload?: (selected: any[]) => void,
-  bulkDownloadLoading?: boolean
+  bulkDownloadLoading?: boolean,
+  selectionLabel?: string
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -2279,67 +2280,71 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
             Clear Filters
           </Button>
         )}
-        {/* Bulk Convert to Invoice Button */}
-        {enableMultiSelect && onBulkConvert && (
+        {/* Bulk Actions Button */}
+        {enableMultiSelect && (onBulkConvert || onBulkDownload) && (
           <div className="ml-auto flex items-center gap-2">
             {hasSelection && (
               <span className="text-xs font-bold text-muted-foreground animate-in fade-in slide-in-from-left-2 duration-200">
-                {selectedRows.length} estimate{selectedRows.length > 1 ? 's' : ''} selected
+                {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
               </span>
             )}
-            <div className="relative group/convert">
-              <Button
-                size="sm"
-                className="h-9 gap-2 shadow-lg shadow-primary/20 font-black uppercase tracking-tight text-[0.6875rem] px-4"
-                disabled={!hasSelection || isMixedCustomer || bulkConvertLoading}
-                onClick={() => onBulkConvert(selectedRows)}
-              >
-                {bulkConvertLoading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                )}
-                Convert to Invoice
-              </Button>
-              {/* Tooltip for mixed customer error */}
-              {hasSelection && isMixedCustomer && (
-                <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/convert:opacity-100 transition-opacity duration-200 pointer-events-none">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                    <p className="text-xs font-bold text-destructive leading-relaxed">
-                      Only estimates belonging to the same customer can be converted into a single invoice.
-                    </p>
+            {onBulkConvert && (
+              <div className="relative group/convert">
+                <Button
+                  size="sm"
+                  className="h-9 gap-2 shadow-lg shadow-primary/20 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                  disabled={!hasSelection || isMixedCustomer || bulkConvertLoading}
+                  onClick={() => onBulkConvert(selectedRows)}
+                >
+                  {bulkConvertLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                  )}
+                  Convert to Invoice
+                </Button>
+                {/* Tooltip for mixed customer error */}
+                {hasSelection && isMixedCustomer && (
+                  <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/convert:opacity-100 transition-opacity duration-200 pointer-events-none">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs font-bold text-destructive leading-relaxed">
+                        Only estimates belonging to the same customer can be converted into a single invoice.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-            <div className="relative group/download">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 gap-2 border-green-600 text-green-600 hover:bg-green-50 font-black uppercase tracking-tight text-[0.6875rem] px-4"
-                disabled={!hasSelection || isMixedCustomer || bulkDownloadLoading}
-                onClick={() => onBulkDownload && onBulkDownload(selectedRows)}
-              >
-                {bulkDownloadLoading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
                 )}
-                Bulk Download
-              </Button>
-              {/* Tooltip for mixed customer error */}
-              {hasSelection && isMixedCustomer && (
-                <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/download:opacity-100 transition-opacity duration-200 pointer-events-none">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                    <p className="text-xs font-bold text-destructive leading-relaxed">
-                      Only estimates belonging to the same customer can be downloaded in bulk.
-                    </p>
+              </div>
+            )}
+            {onBulkDownload && (
+              <div className="relative group/download">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2 border-green-600 text-green-600 hover:bg-green-50 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                  disabled={!hasSelection || isMixedCustomer || bulkDownloadLoading}
+                  onClick={() => onBulkDownload && onBulkDownload(selectedRows)}
+                >
+                  {bulkDownloadLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  Bulk Download
+                </Button>
+                {/* Tooltip for mixed customer error */}
+                {hasSelection && isMixedCustomer && (
+                  <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-destructive/10 border border-destructive/30 rounded-lg shadow-xl z-50 opacity-0 group-hover/download:opacity-100 transition-opacity duration-200 pointer-events-none">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs font-bold text-destructive leading-relaxed">
+                        Only estimates belonging to the same customer can be downloaded in bulk.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             {hasSelection && (
               <Button
                 variant="ghost"
@@ -2562,7 +2567,12 @@ export default function Sales() {
     };
 
     if (bulkIndex >= 0 && bulkIndex < bulkQueue.length) {
-      setSelectedInvoice({ data: bulkQueue[bulkIndex], type: "estimates", autoDownload: true });
+      const item = bulkQueue[bulkIndex];
+      setSelectedInvoice({ 
+        data: item, 
+        type: item.resourceType || "estimates", 
+        autoDownload: true 
+      });
     } else if (bulkIndex >= bulkQueue.length && bulkQueue.length > 0) {
       processFinalZip();
       setBulkQueue([]);
@@ -2687,32 +2697,32 @@ export default function Sales() {
     }
   };
 
-  const handleBulkDownload = async (selectedEstimates: any[]) => {
-    if (selectedEstimates.length === 0) return;
+  const handleBulkDownload = async (selectedItems: any[], resourceType: string = "estimates") => {
+    if (selectedItems.length === 0) return;
 
     // Validate: all must be same customer
-    const customerIds = [...new Set(selectedEstimates.map(e => e.customerId || e.customerName || '__none__'))];
+    const customerIds = [...new Set(selectedItems.map(e => e.customerId || e.customerName || '__none__'))];
     if (customerIds.length > 1) {
-      toast({ variant: "destructive", title: "Mixed Customers", description: "Only estimates belonging to the same customer can be downloaded in bulk." });
+      toast({ variant: "destructive", title: "Mixed Customers", description: `Only ${resourceType} belonging to the same customer can be downloaded in bulk.` });
       return;
     }
 
     setBulkDownloadLoading(true);
     bulkBlobs.current = [];
-    selectedEstimatesCount.current = selectedEstimates.length;
+    selectedEstimatesCount.current = selectedItems.length;
 
     try {
-      // 1. Fetch full details for all selected estimates
-      const detailPromises = selectedEstimates.map(est =>
-        fetch(`/api/sales?resource=invoices&id=${est.id}`).then(res => {
-          if (!res.ok) throw new Error(`Failed to fetch estimate ${est.invoiceNo}`);
+      // 1. Fetch full details for all selected items
+      const detailPromises = selectedItems.map(item =>
+        fetch(`/api/sales?resource=invoices&id=${item.id}`).then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch ${resourceType} ${item.invoiceNo || item.quotationNo}`);
           return res.json();
         })
       );
       const details = await Promise.all(detailPromises);
 
       // 2. Start sequential download queue
-      setBulkQueue(details);
+      setBulkQueue(details.map(d => ({ ...d, resourceType })));
       setBulkIndex(0);
 
     } catch (e: any) {
@@ -3075,8 +3085,9 @@ export default function Sales() {
             enableMultiSelect
             onBulkConvert={handleBulkConvert}
             bulkConvertLoading={bulkConvertLoading}
-            onBulkDownload={handleBulkDownload}
+            onBulkDownload={(selected) => handleBulkDownload(selected, "estimates")}
             bulkDownloadLoading={bulkDownloadLoading}
+            selectionLabel="estimate"
           />
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
@@ -3091,6 +3102,10 @@ export default function Sales() {
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "quotations" })}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "quotations") : undefined}
+            enableMultiSelect
+            onBulkDownload={(selected) => handleBulkDownload(selected, "quotations")}
+            bulkDownloadLoading={bulkDownloadLoading}
+            selectionLabel="quotation"
           />
         </TabsContent>
         <TabsContent value="invoices" className="mt-4">
@@ -3104,10 +3119,22 @@ export default function Sales() {
             onWhatsApp={handleWhatsApp}
             onEdit={(r) => setEditingRecord({ data: r, type: "invoices" })}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
+            enableMultiSelect
+            onBulkDownload={(selected) => handleBulkDownload(selected, "invoices")}
+            bulkDownloadLoading={bulkDownloadLoading}
+            selectionLabel="invoice"
           />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">
-          <TxTable data={returns} cols={srCols} isLoading={srLoading} />
+          <TxTable 
+            data={returns} 
+            cols={srCols} 
+            isLoading={srLoading} 
+            enableMultiSelect
+            onBulkDownload={(selected) => handleBulkDownload(selected, "returns")}
+            bulkDownloadLoading={bulkDownloadLoading}
+            selectionLabel="return"
+          />
         </TabsContent>
         <TabsContent value="receipts" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No receipts recorded today</div>
