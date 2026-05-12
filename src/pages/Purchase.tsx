@@ -105,7 +105,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
               <CommandItem value="___hidden_default___" onSelect={() => { justClosed.current = true; setOpen(false); onSelect(""); }} />
             </CommandGroup>
             <CommandGroup>
-              {Array.from(new Set(options)).map((opt: string) => (
+              {Array.from(new Set(options.map(o => String(o || "").trim()))).map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
@@ -509,7 +509,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                       autoOpenTrigger={focusNextItemTrigger}
                       label="Category"
                       value={pendingItem.category}
-                      options={Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[]}
+                      options={Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                         updatePendingItem("category", v);
                         if (v) {
@@ -528,7 +528,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                       label="Product"
                       value={pendingItem.name}
                       autoOpenTrigger={productTrigger}
-                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => p.name))).filter(Boolean) as string[]}
+                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => (p.name || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                         updatePendingItem("name", v);
                         setSubCategoryTrigger(prev => prev + 1);
@@ -548,7 +548,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                       options={Array.from(new Set(products.filter((p: any) =>
                         (!pendingItem.category || p.category === pendingItem.category) &&
                         (!pendingItem.name || p.name === pendingItem.name)
-                      ).map((p: any) => p.subCategory))).filter(Boolean) as string[]}
+                      ).map((p: any) => (p.subCategory || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                          const exactProd = products.find((p: any) => 
                            p.name === pendingItem.name && p.subCategory === v &&

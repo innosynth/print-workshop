@@ -83,7 +83,7 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
   const inactiveCount = (products || []).filter((p: any) => p.status === "Inactive").length;
 
   const categories = Array.isArray(products) 
-    ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
+    ? Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean)
     : [];
 
   const filtered = (products || [])
@@ -271,7 +271,7 @@ function CategoryList({ products, dbCategories }: { products: any[], dbCategorie
     ? Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean)
     : [];
   
-  const allCategoryNames = Array.from(new Set([...catNamesFromProducts, ...dbCategories.map(c => c.name)]))
+  const allCategoryNames = Array.from(new Set([...catNamesFromProducts.map(c => c.trim()), ...dbCategories.map(c => (c.name || "").trim())]))
     .filter(cat => cat.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -323,7 +323,7 @@ function BrandList({ products, dbBrands }: { products: any[], dbBrands: any[] })
     ? Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean)
     : [];
   
-  const allBrandNames = Array.from(new Set([...brandNamesFromProducts, ...dbBrands.map(b => b.name)]))
+  const allBrandNames = Array.from(new Set([...brandNamesFromProducts.map(b => b.trim()), ...dbBrands.map(b => (b.name || "").trim())]))
     .filter(brand => brand.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -557,7 +557,7 @@ function FormCombobox({ label, value, options, onSelect, triggerRef, onKeyDown, 
           <CommandList>
             <CommandEmpty>No {label.toLowerCase()} found.</CommandEmpty>
             <CommandGroup>
-              {Array.from(new Set(options)).map((opt: string) => (
+              {Array.from(new Set(options.map(o => String(o || "").trim()))).map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
@@ -628,26 +628,69 @@ function CreateProductModal({ trigger, title, tabName, products, initialData }: 
 
   const categories = Array.isArray(products) 
     ? Array.from(new Set([
-        ...products.map((p: any) => p.category), 
-        ...(Array.isArray(initialData?.dbCategories) ? initialData.dbCategories : []).map((c: any) => c.name)
+        ...products.map((p: any) => (p.category || "").trim()), 
+        ...(Array.isArray(initialData?.dbCategories) ? initialData.dbCategories : []).map((c: any) => (c.name || "").trim())
       ])).filter(Boolean)
     : [];
   const brands = Array.isArray(products)
     ? Array.from(new Set([
-        ...products.map((p: any) => p.brand), 
-        ...(Array.isArray(initialData?.dbBrands) ? initialData.dbBrands : []).map((b: any) => b.name)
+        ...products.map((p: any) => (p.brand || "").trim()), 
+        ...(Array.isArray(initialData?.dbBrands) ? initialData.dbBrands : []).map((b: any) => (b.name || "").trim())
       ])).filter(Boolean)
     : [];
 
   const handleSave = async () => {
     if (!formData.name) {
-      toast({ variant: "destructive", title: "Missing Name", description: "Product name is required" });
+      toast({ variant: "destructive", title: "Missing Name", description: "Name is required" });
       return;
     }
     setLoading(true);
     try {
       const { createdAt, ...saveData } = formData;
+      // Trim all string fields
+      Object.keys(saveData).forEach(key => {
+        if (typeof saveData[key] === 'string') {
+          saveData[key] = saveData[key].trim();
+        }
+      });
+
       const resource = tabName === 'categories' ? 'categories' : tabName === 'brands' ? 'brands' : tabName === 'pricelists' ? 'pricelists' : 'products';
+
+      // Duplication Check
+      if (resource === 'products') {
+        const isDup = products.some((p: any) => 
+          p.id !== formData.id && 
+          (p.name || "").trim().toLowerCase() === (saveData.name || "").toLowerCase() &&
+          (p.category || "").trim().toLowerCase() === (saveData.category || "").toLowerCase() &&
+          (p.subCategory || "").trim().toLowerCase() === (saveData.subCategory || "").toLowerCase()
+        );
+        if (isDup) {
+          toast({ variant: "destructive", title: "Duplicate Product", description: "A product with this Name, Category, and Sub-Category already exists." });
+          setLoading(false);
+          return;
+        }
+      } else if (resource === 'categories') {
+        const isDup = (initialData?.dbCategories || []).some((c: any) => 
+          c.id !== formData.id && 
+          (c.name || "").trim().toLowerCase() === (saveData.name || "").toLowerCase()
+        );
+        if (isDup) {
+          toast({ variant: "destructive", title: "Duplicate Category", description: "This category name already exists." });
+          setLoading(false);
+          return;
+        }
+      } else if (resource === 'brands') {
+        const isDup = (initialData?.dbBrands || []).some((b: any) => 
+          b.id !== formData.id && 
+          (b.name || "").trim().toLowerCase() === (saveData.name || "").toLowerCase()
+        );
+        if (isDup) {
+          toast({ variant: "destructive", title: "Duplicate Brand", description: "This brand name already exists." });
+          setLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/core?resource=${resource}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

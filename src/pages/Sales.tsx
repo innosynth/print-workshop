@@ -1870,7 +1870,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       autoOpenTrigger={focusNextItemTrigger}
                       label="Category"
                       value={pendingItem.category}
-                      options={Array.from(new Set(products.map((p: any) => p.category))).filter(Boolean) as string[]}
+                      options={Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                         updatePendingItem({ category: v, name: "", subCategory: "" });
                         if (v) {
@@ -1889,7 +1889,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       label="Product"
                       value={pendingItem.name}
                       autoOpenTrigger={productTrigger}
-                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => p.name))).filter(Boolean) as string[]}
+                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => (p.name || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                         updatePendingItem({ name: v, subCategory: "" });
                         setSubCategoryTrigger(prev => prev + 1);
@@ -1909,7 +1909,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       options={Array.from(new Set(products.filter((p: any) =>
                         (!pendingItem.category || p.category === pendingItem.category) &&
                         (!pendingItem.name || p.name === pendingItem.name)
-                      ).map((p: any) => p.subCategory))).filter(Boolean) as string[]}
+                      ).map((p: any) => (p.subCategory || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
                         const exactProd = products.find((p: any) =>
                           p.name === pendingItem.name && p.subCategory === v &&
