@@ -230,12 +230,13 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   );
 }
 
-function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownloadComplete }: { 
+function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownloadComplete, forcedPaperSize }: { 
   invoice: any, 
   onClose: () => void, 
   docType?: string, 
   autoDownload?: boolean,
-  onDownloadComplete?: (blob: Blob, filename: string) => void
+  onDownloadComplete?: (blob: Blob, filename: string) => void,
+  forcedPaperSize?: "A4" | "A5" | "thermal"
 }) {
   const { settings } = usePrintSettings();
   const { toast } = useToast();
@@ -558,13 +559,15 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
   });
 
   useEffect(() => {
-    if (docType === "estimates") {
+    if (forcedPaperSize) {
+      setPaperSize(forcedPaperSize);
+    } else if (docType === "estimates") {
       setPaperSize("thermal");
     } else if (activeInvoice?.items) {
       if (activeInvoice.items.length <= MAX_ITEMS_A5) setPaperSize("A5");
       else setPaperSize("A4");
     }
-  }, [activeInvoice?.id, docType]);
+  }, [activeInvoice?.id, docType, forcedPaperSize]);
 
   useEffect(() => {
     // Only trigger download if QR is loaded (if dynamic)
@@ -2538,6 +2541,7 @@ export default function Sales() {
   const [convertDialog, setConvertDialog] = useState<{ open: boolean, data: any, type: string }>({ open: false, data: null, type: "" });
   const [bulkConvertLoading, setBulkConvertLoading] = useState(false);
   const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false);
+  const [bulkDownloadDialog, setBulkDownloadDialog] = useState<{ open: boolean, selectedItems: any[], resourceType: string, forcedPaperSize?: "A4" | "A5" }>({ open: false, selectedItems: [], resourceType: "" });
   const [bulkQueue, setBulkQueue] = useState<any[]>([]);
   const [bulkIndex, setBulkIndex] = useState(-1);
   const bulkBlobs = useRef<{ blob: Blob, filename: string }[]>([]);
@@ -2571,7 +2575,8 @@ export default function Sales() {
       setSelectedInvoice({ 
         data: item, 
         type: item.resourceType || "estimates", 
-        autoDownload: true 
+        autoDownload: true,
+        forcedPaperSize: bulkDownloadDialog.forcedPaperSize
       });
     } else if (bulkIndex >= bulkQueue.length && bulkQueue.length > 0) {
       processFinalZip();
@@ -2700,6 +2705,14 @@ export default function Sales() {
   const handleBulkDownload = async (selectedItems: any[], resourceType: string = "estimates") => {
     if (selectedItems.length === 0) return;
 
+    if (resourceType === "estimates") {
+      startBulkDownload(selectedItems, resourceType);
+    } else {
+      setBulkDownloadDialog({ open: true, selectedItems, resourceType });
+    }
+  };
+
+  const startBulkDownload = async (selectedItems: any[], resourceType: string, forcedPaperSize?: "A4" | "A5") => {
     // Validate: all must be same customer
     const customerIds = [...new Set(selectedItems.map(e => e.customerId || e.customerName || '__none__'))];
     if (customerIds.length > 1) {
@@ -2708,6 +2721,7 @@ export default function Sales() {
     }
 
     setBulkDownloadLoading(true);
+    setBulkDownloadDialog(prev => ({ ...prev, open: false, forcedPaperSize }));
     bulkBlobs.current = [];
     selectedEstimatesCount.current = selectedItems.length;
 
@@ -3256,6 +3270,7 @@ export default function Sales() {
           invoice={selectedInvoice.data}
           docType={selectedInvoice.type}
           autoDownload={selectedInvoice.autoDownload}
+          forcedPaperSize={selectedInvoice.forcedPaperSize}
           onClose={() => {
             setSelectedInvoice({ data: null, type: "invoices" });
             if (bulkIndex >= 0) setBulkIndex(prev => prev + 1);
@@ -3265,6 +3280,53 @@ export default function Sales() {
           }}
         />
       )}
+
+      {/* Bulk Download Paper Size Dialog */}
+      <Dialog open={bulkDownloadDialog.open} onOpenChange={(open) => setBulkDownloadDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Paper Size</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 flex flex-col gap-6">
+            <p className="text-sm text-muted-foreground text-center">
+              Bulk Download: <b>{bulkDownloadDialog.selectedItems.length} {bulkDownloadDialog.resourceType}</b> selected. Please choose a format:
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                className="flex flex-col items-center justify-center h-48 p-4 gap-3 group border-2 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-300 relative"
+                variant="outline"
+                onClick={() => startBulkDownload(bulkDownloadDialog.selectedItems, bulkDownloadDialog.resourceType, "A4")}
+              >
+                <div className="bg-blue-100 p-4 rounded-full group-hover:scale-110 transition-transform duration-300">
+                  <FileText className="h-8 w-8 text-blue-600" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="font-black text-blue-900 uppercase text-[0.75rem] tracking-wider">A4 Format</p>
+                  <p className="text-[0.625rem] font-medium text-muted-foreground leading-tight px-2">Standard vertical layout</p>
+                </div>
+              </Button>
+
+              <Button
+                className="flex flex-col items-center justify-center h-48 p-4 gap-3 group border-2 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all duration-300 relative"
+                variant="outline"
+                onClick={() => startBulkDownload(bulkDownloadDialog.selectedItems, bulkDownloadDialog.resourceType, "A5")}
+              >
+                <div className="bg-primary/10 p-4 rounded-full group-hover:scale-110 transition-transform duration-300 rotate-90">
+                  <FileText className="h-8 w-8 text-primary" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="font-black text-primary uppercase text-[0.75rem] tracking-wider">A5 Format</p>
+                  <p className="text-[0.625rem] font-medium text-muted-foreground leading-tight px-2">Paper-saving landscape layout</p>
+                </div>
+              </Button>
+            </div>
+
+            <p className="text-[0.625rem] text-center text-muted-foreground uppercase font-bold tracking-widest opacity-50">
+              Selected size will apply to all items in the ZIP
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
