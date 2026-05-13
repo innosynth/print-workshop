@@ -209,12 +209,12 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
         return [
           { key: "name", name: "Company Name", placeholder: "Enter company name", required: true },
           { key: "contactPerson", name: "Contact Person", placeholder: "Enter contact person name", required: false },
-          { key: "mobile", name: "Mobile", placeholder: "Enter mobile number", required: true },
+          { key: "mobile", name: "Mobile", placeholder: "Enter mobile number", required: false },
           { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
-          { key: "email", name: "Email", placeholder: "Enter email address", required: true },
+          { key: "email", name: "Email", placeholder: "Enter email address", required: false },
           { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
-          { key: "city", name: "City", placeholder: "Enter city", required: true },
-          { key: "address", name: "Billing Address", placeholder: "Enter billing address", required: true, type: "textarea" },
+          { key: "city", name: "City", placeholder: "Enter city", required: false },
+          { key: "address", name: "Billing Address", placeholder: "Enter billing address", required: false, type: "textarea" },
           { key: "paymentTerms", name: "Payment Terms", placeholder: "e.g., 30 days credit" },
           { key: "status", name: "Status", placeholder: "Select status", isStatus: true },
         ];
@@ -230,7 +230,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     const missing = formFields.filter(f => f.required && !formData[f.key]);
     
     // Custom GST Logic
-    const isCompany = tabName === "B2B" || tabName === "Supplier";
+    const isCompany = tabName === "B2B";
     const gstMissing = isCompany && !formData.gst && !noGst && formData.gst !== "-";
 
     if (missing.length > 0 || gstMissing) {

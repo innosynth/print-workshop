@@ -105,7 +105,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
               <CommandItem value="___hidden_default___" onSelect={() => { justClosed.current = true; setOpen(false); onSelect(""); }} />
             </CommandGroup>
             <CommandGroup>
-              {Array.from(new Set(options.map(o => String(o || "").trim()))).map((opt: string) => (
+              {Array.from(new Set(options.map(o => String(o || "").trim()))).sort().map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}

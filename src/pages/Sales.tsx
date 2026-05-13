@@ -198,7 +198,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
                   <span className="text-muted-foreground italic">-- Skip / None --</span>
                 </CommandItem>
               )}
-              {Array.from(new Set(options)).map((opt: string) => (
+              {Array.from(new Set(options.map(o => String(o || "").trim()))).sort().map((opt: string) => (
                 <CommandItem
                   key={opt}
                   value={opt}
