@@ -113,12 +113,6 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
   });
 
   const filteredGstLines = gstLines.filter((line: any) => {
-    // Tax Return For filter
-    if (returnFor === "invoice") {
-      const ref = (line.invoiceNo || "").toUpperCase();
-      if (ref.startsWith("EST") || ref.startsWith("QUO")) return false;
-    }
-
     // Date Range filter
     const lineDateStr = line.date || line.invoiceDate; // Supporting both if available
     if (lineDateStr) {
@@ -212,9 +206,8 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
               <SelectTrigger className="h-10 bg-gray-50/50 border-gray-200 font-bold"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="invoice">invoice</SelectItem>
-                <SelectItem value="expense">expense</SelectItem>
-                <SelectItem value="sales_return">sales_return</SelectItem>
-                <SelectItem value="purchase_return">purchase_return</SelectItem>
+                <SelectItem value="estimate">estimate</SelectItem>
+                <SelectItem value="quotation">quotation</SelectItem>
               </SelectContent>
             </Select>
           </div>

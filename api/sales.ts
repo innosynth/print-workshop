@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
 import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, purchaseItems, contacts } from '../db/schema.js';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, like, notLike } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   const { resource, type } = request.query;
@@ -159,23 +159,64 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (resource === 'gst_report') {
       const { returnFor } = request.query;
       
-      // Aggregate by Invoice for GST Reporting (One row per invoice)
-      const lines = await db.select({
-        companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
-        gstin: contacts.gst,
-        invoiceNo: invoices.invoiceNo,
-        date: invoices.date,
-        taxableValue: sql<string>`SUM(CAST(${invoiceItems.amount} AS NUMERIC))`,
-        totalTax: invoices.tax,
-        grandTotal: invoices.total,
-        isIgst: invoices.isIgst,
-        placeOfSupply: contacts.city
-      })
-      .from(invoices)
-      .leftJoin(contacts, eq(invoices.customerId, contacts.id))
-      .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
-      .groupBy(invoices.id, contacts.id)
-      .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+      let lines;
+      if (returnFor === 'quotation') {
+        // Query from Quotations table (Prefix QT-)
+        lines = await db.select({
+          companyName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
+          gstin: contacts.gst,
+          invoiceNo: quotations.quotationNo,
+          date: quotations.date,
+          taxableValue: sql<string>`SUM(CAST(${quotationItems.amount} AS NUMERIC))`,
+          totalTax: quotations.tax,
+          grandTotal: quotations.total,
+          isIgst: quotations.isIgst,
+          placeOfSupply: contacts.city
+        })
+        .from(quotations)
+        .leftJoin(contacts, eq(quotations.customerId, contacts.id))
+        .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
+        .groupBy(quotations.id, contacts.id)
+        .orderBy(desc(quotations.date), desc(quotations.quotationNo));
+      } else if (returnFor === 'estimate') {
+        // Query from Invoices table for EST- prefix
+        lines = await db.select({
+          companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+          gstin: contacts.gst,
+          invoiceNo: invoices.invoiceNo,
+          date: invoices.date,
+          taxableValue: sql<string>`SUM(CAST(${invoiceItems.amount} AS NUMERIC))`,
+          totalTax: invoices.tax,
+          grandTotal: invoices.total,
+          isIgst: invoices.isIgst,
+          placeOfSupply: contacts.city
+        })
+        .from(invoices)
+        .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+        .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+        .where(like(invoices.invoiceNo, 'EST%'))
+        .groupBy(invoices.id, contacts.id)
+        .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+      } else {
+        // Default (Invoice): Query from Invoices table, excluding EST- prefix
+        lines = await db.select({
+          companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+          gstin: contacts.gst,
+          invoiceNo: invoices.invoiceNo,
+          date: invoices.date,
+          taxableValue: sql<string>`SUM(CAST(${invoiceItems.amount} AS NUMERIC))`,
+          totalTax: invoices.tax,
+          grandTotal: invoices.total,
+          isIgst: invoices.isIgst,
+          placeOfSupply: contacts.city
+        })
+        .from(invoices)
+        .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+        .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+        .where(notLike(invoices.invoiceNo, 'EST%'))
+        .groupBy(invoices.id, contacts.id)
+        .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+      }
       
       return response.status(200).json(lines);
     }
