@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
@@ -135,18 +136,20 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   );
 }
 
-function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpenChange: controlledOnOpenChange }: { trigger: React.ReactNode; title: string, type: string, open?: boolean, onOpenChange?: (open: boolean) => void }) {
+function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpenChange: controlledOnOpenChange, editData = null }: { trigger: React.ReactNode; title: string, type: string, open?: boolean, onOpenChange?: (open: boolean) => void, editData?: any }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
   
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   // Form States
   const [supplierId, setSupplierId] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [isIgst, setIsIgst] = useState(false);
   const [orderNo, setOrderNo] = useState("");
   const [invNo, setInvNo] = useState("");
@@ -159,13 +162,12 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
 
   const [items, setItems] = useState<any[]>([]);
   const [pendingItem, setPendingItem] = useState({
-    category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", 
-    gstRate: "18", disPct: 0, unit: "Nos" 
+    name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+    gstRate: "18"
   });
 
   const [focusNextItemTrigger, setFocusNextItemTrigger] = useState(0);
   const [productTrigger, setProductTrigger] = useState(0);
-  const [subCategoryTrigger, setSubCategoryTrigger] = useState(0);
 
   // Navigation Refs
   const supplierRef = useRef<HTMLButtonElement>(null);
@@ -177,9 +179,8 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   const dcRef = useRef<HTMLInputElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   
-  const pendingCategoryRef = useRef<HTMLButtonElement>(null);
-  const pendingSubCategoryRef = useRef<HTMLButtonElement>(null);
-  const pendingProductRef = useRef<HTMLButtonElement>(null);
+  const pendingProductRef = useRef<HTMLInputElement>(null);
+  const pendingHsnRef = useRef<HTMLInputElement>(null);
   const pendingQtyRef = useRef<HTMLInputElement>(null);
   const pendingRateRef = useRef<HTMLInputElement>(null);
   const pendingGstRef = useRef<HTMLInputElement>(null);
@@ -211,10 +212,34 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
 
   useEffect(() => {
     if (open) {
-      setTimeout(() => supplierRef.current?.focus(), 150);
+      if (editData && editData.id) {
+        setFetching(true);
+        const type = editData.purchaseNo ? "entries" : "orders";
+        fetch(`/api/sales?resource=purchases&type=${type}&id=${editData.id}`)
+          .then(res => res.json())
+          .then(data => {
+            setSupplierId(data.supplierId?.toString() || "");
+            setSupplierName(data.supplierName || "");
+            setOrderNo(data.orderNo || "");
+            setInvNo(data.invNo || "");
+            setOurPoNo(data.ourPoNo || "");
+            setOurDcNo(data.ourDcNo || "");
+            setIsIgst(data.isIgst || false);
+            setCreateDate(data.date ? new Date(data.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            setDueDate(data.dueDate ? new Date(data.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            setReceivedAmount(data.receivedAmount?.toString() || "0");
+            setItems(data.items || []);
+            setTimeout(() => pendingProductRef.current?.focus(), 250);
+          })
+          .finally(() => setFetching(false));
+      } else {
+        setTimeout(() => supplierRef.current?.focus(), 150);
+      }
     } else {
+       setFetching(false);
        setItems([]);
        setSupplierId("");
+       setSupplierName("");
        setInvNo("");
        setOrderNo("");
        setOurPoNo("");
@@ -222,14 +247,13 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
        setReceivedAmount("0");
        setGstEnabled(true);
        setPendingItem({
-          category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", 
-          gstRate: "18", disPct: 0, unit: "Nos" 
+          name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+          gstRate: "18"
        });
        setFocusNextItemTrigger(0);
        setProductTrigger(0);
-       setSubCategoryTrigger(0);
     }
-  }, [open]);
+  }, [open, editData]);
 
   const { data: contacts = [] } = useQuery({ 
     queryKey: ["contacts-suppliers"], 
@@ -244,12 +268,8 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   const products = allProducts.filter((p: any) => p.status === "Active" || !p.status);
 
   const addPendingItem = () => {
-    if (!pendingItem.category) {
-      toast({ variant: "destructive", title: "Error", description: "Please select a category first" });
-      return;
-    }
     if (!pendingItem.name) {
-      toast({ variant: "destructive", title: "Error", description: "Please select a product first" });
+      toast({ variant: "destructive", title: "Error", description: "Please enter a product name" });
       return;
     }
     if (pendingItem.qty <= 0) {
@@ -263,12 +283,12 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     
     const itemToAdd = {
       ...pendingItem,
-      amount: pendingItem.qty * pendingItem.rate * (1 - (pendingItem.disPct / 100))
+      amount: pendingItem.qty * pendingItem.rate
     };
     setItems([...items, itemToAdd]);
     setPendingItem({
-      category: "", subCategory: "", sku: "", name: "", qty: 1, rate: 0, amount: 0, hsn: "", packing: "", 
-      gstRate: "18", disPct: 0, unit: "Nos" 
+      name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+      gstRate: "18"
     });
     setFocusNextItemTrigger(prev => prev + 1);
   };
@@ -276,7 +296,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   useEffect(() => {
     if (focusNextItemTrigger > 0 && open) {
       const timer = setTimeout(() => {
-        pendingCategoryRef.current?.focus();
+        pendingProductRef.current?.focus();
         if (scrollViewportRef.current) {
           scrollViewportRef.current.scrollTo({
             top: scrollViewportRef.current.scrollHeight,
@@ -315,21 +335,9 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         updated = { ...prev, ...fieldOrUpdates };
       }
 
-      if (fieldOrUpdates === "category") {
-        updated.name = "";
-        updated.subCategory = "";
-        updated.sku = "";
-      } else if (fieldOrUpdates === "name") {
-        updated.subCategory = "";
-        updated.sku = "";
-      }
-
       const qty = Number(updated.qty || 0);
       const rate = Number(updated.rate || 0);
-      const disPct = Number(updated.disPct || 0);
-      const baseAmount = qty * rate;
-      const discount = (baseAmount * (disPct / 100));
-      updated.amount = baseAmount - discount;
+      updated.amount = qty * rate;
       
       return updated;
     });
@@ -345,11 +353,11 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     return { subTotal, totalTax, total, cgst, sgst, igst };
   };
 
-  const { subTotal, totalTax, total } = calculateTotals();
+  const { subTotal, totalTax, total, cgst, sgst, igst } = calculateTotals();
 
   const handleSave = async (stayOpen: boolean = false) => {
-    if (!supplierId) {
-      toast({ variant: "destructive", title: "Error", description: "Please select a supplier" });
+    if (!supplierId && !supplierName) {
+      toast({ variant: "destructive", title: "Error", description: "Please select or enter a supplier name" });
       return;
     }
     if (total <= 0) {
@@ -360,7 +368,8 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     setLoading(true);
     try {
       const payload = {
-        supplierId: parseInt(supplierId),
+        supplierId: supplierId ? parseInt(supplierId) : null,
+        supplierName: supplierName,
         date: createDate,
         dueDate: dueDate,
         invNo: invNo,
@@ -376,12 +385,12 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
       };
 
       const res = await fetch(`/api/sales?resource=purchases&type=${type === 'expenses' ? 'expenses' : type === 'entry' ? 'entries' : type}`, {
-        method: "POST",
+        method: editData ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(editData ? { ...payload, id: editData.id } : payload)
       });
       if (!res.ok) throw new Error("Failed to save");
-      toast({ title: "Success", description: `${title} created successfully` });
+      toast({ title: "Success", description: `${title} ${editData ? 'updated' : 'created'} successfully` });
       queryClient.invalidateQueries({ queryKey: ["purchase-entries"] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       
@@ -405,29 +414,49 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
-        <div className="flex flex-col h-full bg-white relative">
-          <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" /> {title}
-            </DialogTitle>
-            {items.length > 0 && (
-              <div className="flex items-center gap-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                <div className="text-right">
-                  <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
-                  <p className="text-xs font-bold tabular-nums">₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+        {fetching ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground animate-pulse">Fetching Purchase Records...</div>
+          </div>
+        ) : (
+          <div className="flex flex-col h-full bg-white relative">
+            <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-primary" /> {title}
+              </DialogTitle>
+              {items.length > 0 && (
+                <div className="flex items-center gap-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="text-right">
+                    <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">Subtotal</p>
+                    <p className="text-xs font-bold tabular-nums">₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  {gstEnabled && !isIgst && (
+                    <>
+                      <div className="text-right">
+                        <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">CGST</p>
+                        <p className="text-xs font-bold tabular-nums text-orange-600">₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">SGST</p>
+                        <p className="text-xs font-bold tabular-nums text-orange-600">₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </>
+                  )}
+                  {gstEnabled && isIgst && (
+                    <div className="text-right">
+                      <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">IGST</p>
+                      <p className="text-xs font-bold tabular-nums text-orange-600">₹{igst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  )}
+                  <div className="h-8 w-px bg-border mx-1" />
+                  <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
+                    <p className="text-[0.5625rem] font-black text-green-800 uppercase leading-none">Grand Total</p>
+                    <p className="text-sm font-black text-green-600 tabular-nums">₹{Math.round(total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[0.5625rem] font-black text-muted-foreground uppercase opacity-70 leading-none">{isIgst ? 'IGST' : 'CGST + SGST'}</p>
-                  <p className="text-xs font-bold tabular-nums text-orange-600">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div className="h-8 w-px bg-border mx-1" />
-                <div className="text-right bg-green-50 px-3 py-1 rounded-lg border border-green-200">
-                  <p className="text-[0.5625rem] font-black text-green-800 uppercase leading-none">Grand Total</p>
-                  <p className="text-sm font-black text-green-600 tabular-nums">₹{Math.round(total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </div>
-            )}
-          </DialogHeader>
+              )}
+            </DialogHeader>
 
           <div className="flex-1 flex flex-col min-h-0 relative">
             <div className="p-3 md:p-4 pb-2 space-y-2 shrink-0">
@@ -438,12 +467,19 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                     triggerRef={supplierRef}
                     openOnFocus
                     onKeyDown={(e) => handleEnter(e, invNoRef, null)}
+                    allowCustom
                     label="Supplier"
-                    value={suppliers.find((s: any) => s.id.toString() === supplierId)?.name || ""}
+                    value={suppliers.find((s: any) => s.id.toString() === supplierId)?.name || supplierName || ""}
                     options={suppliers.map((s: any) => s.name)}
                     onSelect={(v) => {
                       const s = suppliers.find((s: any) => s.name === v);
-                      if (s) setSupplierId(s.id.toString());
+                      if (s) {
+                        setSupplierId(s.id.toString());
+                        setSupplierName(s.name);
+                      } else {
+                        setSupplierId("");
+                        setSupplierName(v);
+                      }
                     }}
                     action={
                       <Button variant="ghost" className="w-full justify-start text-primary h-8 px-2 text-xs gap-2 hover:bg-primary/5" onClick={() => navigate("/contacts?tab=suppliers&action=add")}>
@@ -470,7 +506,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                 </div>
                 <div className="space-y-0.5">
                    <Label className="text-[0.6875rem] font-bold text-muted-foreground">Our PO #</Label>
-                   <Input ref={poRef} value={ourPoNo} onChange={e => setOurPoNo(e.target.value)} onKeyDown={e => handleEnter(e, pendingCategoryRef.current, orderRef)} className="h-8 text-xs" />
+                   <Input ref={poRef} value={ourPoNo} onChange={e => setOurPoNo(e.target.value)} onKeyDown={e => handleEnter(e, pendingProductRef.current, orderRef)} className="h-8 text-xs" />
                 </div>
               </div>
               <Separator />
@@ -494,96 +530,51 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                 </div>
 
                 <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-2 space-y-0.5">
-                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Category</Label>
-                    <FormCombobox
-                      triggerRef={pendingCategoryRef}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !pendingItem.category && items.length > 0) {
+                  <div className="col-span-4 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Product</Label>
+                    <Input 
+                      ref={pendingProductRef}
+                      value={pendingItem.name}
+                      onChange={e => updatePendingItem("name", e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey && !pendingItem.name) {
+                          e.preventDefault();
                           saveBtnRef.current?.focus();
                         } else {
-                          handleEnter(e, pendingProductRef.current, poRef.current);
+                          handleEnter(e, pendingHsnRef.current, poRef.current);
                         }
                       }}
-                      openOnFocus
-                      autoOpenTrigger={focusNextItemTrigger}
-                      label="Category"
-                      value={pendingItem.category}
-                      options={Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean) as string[]}
-                      onSelect={(v) => {
-                        updatePendingItem("category", v);
-                        if (v) {
-                          setProductTrigger(prev => prev + 1);
-                          setTimeout(() => pendingProductRef.current?.focus(), 250);
-                        }
-                      }}
+                      placeholder="Product description"
+                      className="h-8 font-bold text-xs"
                     />
                   </div>
-                  <div className="col-span-3 space-y-0.5">
-                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Product</Label>
-                    <FormCombobox
-                      triggerRef={pendingProductRef}
-                      onKeyDown={(e) => handleEnter(e, pendingSubCategoryRef.current, pendingCategoryRef.current)}
-                      openOnFocus
-                      label="Product"
-                      value={pendingItem.name}
-                      autoOpenTrigger={productTrigger}
-                      options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => (p.name || "").trim()))).filter(Boolean) as string[]}
-                      onSelect={(v) => {
-                        updatePendingItem("name", v);
-                        setSubCategoryTrigger(prev => prev + 1);
-                        setTimeout(() => pendingSubCategoryRef.current?.focus(), 250);
-                      }}
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-0.5">
-                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Sub Category</Label>
-                    <FormCombobox
-                      triggerRef={pendingSubCategoryRef}
-                      onKeyDown={(e) => handleEnter(e, pendingQtyRef.current, pendingProductRef.current)}
-                      openOnFocus
-                      label="Sub Category"
-                      value={pendingItem.subCategory}
-                      autoOpenTrigger={subCategoryTrigger}
-                      options={Array.from(new Set(products.filter((p: any) =>
-                        (!pendingItem.category || p.category === pendingItem.category) &&
-                        (!pendingItem.name || p.name === pendingItem.name)
-                      ).map((p: any) => (p.subCategory || "").trim()))).filter(Boolean) as string[]}
-                      onSelect={(v) => {
-                         const exactProd = products.find((p: any) => 
-                           p.name === pendingItem.name && p.subCategory === v &&
-                           (!pendingItem.category || p.category === pendingItem.category)
-                         );
-                         if (exactProd) {
-                           updatePendingItem({
-                             subCategory: v,
-                             sku: exactProd.sku || "",
-                             rate: parseFloat(exactProd.purchasePrice || 0),
-                             hsn: exactProd.hsnCode || "",
-                             gstRate: exactProd.gstRate || "18",
-                             unit: exactProd.unit || "Nos",
-                             category: exactProd.category || pendingItem.category
-                           });
-                         } else {
-                           updatePendingItem("subCategory", v);
-                         }
-                         setTimeout(() => pendingQtyRef.current?.focus(), 250);
-                      }}
+                  <div className="col-span-1 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">HSN</Label>
+                    <Input 
+                      ref={pendingHsnRef}
+                      value={pendingItem.hsn}
+                      onChange={e => updatePendingItem("hsn", e.target.value)}
+                      onKeyDown={e => handleEnter(e, pendingQtyRef.current, pendingProductRef.current)}
+                      className="h-8 font-bold text-xs text-center"
                     />
                   </div>
                   <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block">Qty</Label>
-                    <Input ref={pendingQtyRef} type="number" min="0" value={pendingItem.qty} className="h-8 font-bold text-center text-xs" onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingSubCategoryRef.current)} onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)} />
+                    <Input ref={pendingQtyRef} type="number" min="0" value={pendingItem.qty} className="h-8 font-bold text-center text-xs" onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingHsnRef.current)} onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)} />
                   </div>
                   <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Rate</Label>
                     <Input ref={pendingRateRef} type="number" min="0" value={pendingItem.rate} className="h-8 font-bold text-xs text-center" onKeyDown={(e) => handleEnter(e, pendingGstRef.current, pendingQtyRef.current)} onChange={e => updatePendingItem("rate", parseFloat(e.target.value) || 0)} />
                   </div>
                   <div className="col-span-1 space-y-0.5">
-                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block">GST%</Label>
-                    <Input ref={pendingGstRef} type="number" value={pendingItem.gstRate} className="h-8 font-bold text-xs text-center" onChange={e => updatePendingItem("gstRate", e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) addPendingItem(); else handleEnter(e, null, pendingRateRef.current); }} />
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block text-orange-600">GST%</Label>
+                    <Input ref={pendingGstRef} type="number" value={pendingItem.gstRate} className="h-8 font-bold text-xs text-center border-orange-200" onChange={e => updatePendingItem("gstRate", e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) addPendingItem(); else handleEnter(e, null, pendingRateRef.current); }} />
                   </div>
-                  <div className="col-span-2 flex justify-end">
+                  <div className="col-span-1 space-y-0.5">
+                    <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block">Amount</Label>
+                    <div className="h-8 flex items-center justify-center font-black text-xs bg-muted/50 rounded-md">₹{pendingItem.amount.toFixed(2)}</div>
+                  </div>
+                  <div className="col-span-3 flex justify-end">
                     <Button onClick={addPendingItem} size="sm" className="h-8 w-full gap-1.5 shadow-sm">
                       <Plus className="h-3 w-3" /> Add Item
                     </Button>
@@ -596,39 +587,76 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="sticky top-0 bg-white border-b z-10 shadow-sm">
                   <tr>
-                    <th className="p-1.5 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[15%]">Category</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[15%]">Sub Category</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[25%]">Product</th>
+                    <th className="p-1.5 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest">Product</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">HSN</th>
                     <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">Qty</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-28 text-center">Rate</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>
-                    <th className="p-1.5 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-24 text-center">Rate</th>
+                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-24 text-center">Amount</th>
+                    {gstEnabled && !isIgst && (
+                      <>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-16">CGST%</th>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">CGST</th>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-16">SGST%</th>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">SGST</th>
+                      </>
+                    )}
+                    {gstEnabled && isIgst && (
+                      <>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-16">IGST%</th>
+                        <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">IGST</th>
+                      </>
+                    )}
+                    <th className="p-1.5 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-28">Total</th>
                     <th className="p-1.5 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y bg-white">
-                  {items.map((item, index) => (
-                    <tr key={index} className="hover:bg-muted/20 transition-colors group">
-                      <td className="p-1.5 pl-4 text-[0.6875rem] font-black text-muted-foreground/70 uppercase truncate">{item.category}</td>
-                      <td className="p-1.5 text-[0.6875rem] font-bold text-muted-foreground uppercase truncate">{item.subCategory}</td>
-                      <td className="p-1.5 text-xs font-black text-primary uppercase truncate">{item.name}</td>
-                      <td className="p-1.5 text-center">
-                        <Input type="number" min="0" value={item.qty} className="h-8 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
-                      </td>
-                      <td className="p-1.5 text-center">
-                        <Input type="number" min="0" value={item.rate} className="h-8 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
-                      </td>
-                      <td className="p-1.5 text-center">
-                        <div className="text-[0.6875rem] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">{item.gstRate}%</div>
-                      </td>
-                      <td className="p-1.5 pr-4 text-right text-xs font-black text-primary tabular-nums">₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                      <td className="p-1.5 text-center">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeItem(index)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item, index) => {
+                    const gst = parseFloat(item.gstRate || 0);
+                    const amount = item.qty * item.rate;
+                    const taxTotal = gstEnabled ? (amount * (gst / 100)) : 0;
+                    const cgstRate = gst / 2;
+                    const sgstRate = gst / 2;
+                    const cgstAmount = isIgst ? 0 : taxTotal / 2;
+                    const sgstAmount = isIgst ? 0 : taxTotal / 2;
+                    const igstAmount = isIgst ? taxTotal : 0;
+
+                    return (
+                      <tr key={index} className="hover:bg-muted/20 transition-colors group border-b">
+                        <td className="p-1.5 pl-4 text-xs font-black text-primary uppercase truncate">{item.name}</td>
+                        <td className="p-1.5 text-center text-[0.6875rem] font-bold text-muted-foreground font-mono">{item.hsn || "—"}</td>
+                        <td className="p-1.5 text-center">
+                          <Input type="number" min="0" value={item.qty} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
+                        </td>
+                        <td className="p-1.5 text-center">
+                          <Input type="number" min="0" value={item.rate} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
+                        </td>
+                        <td className="p-1.5 text-center text-xs font-bold tabular-nums text-muted-foreground">₹{(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        
+                        {gstEnabled && !isIgst && (
+                          <>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{cgstRate}%</td>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{sgstRate}%</td>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          </>
+                        )}
+                        {gstEnabled && isIgst && (
+                          <>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{gst}%</td>
+                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          </>
+                        )}
+
+                        <td className="p-1.5 pr-4 text-right text-xs font-black text-primary tabular-nums">₹{(amount + taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        <td className="p-1.5 text-center">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeItem(index)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -639,7 +667,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                 <div className="flex-1 w-full sm:max-w-xs space-y-2">
                    <div className="space-y-1">
                       <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">Our DC #</Label>
-                      <Input ref={dcRef} value={ourDcNo} onChange={e => setOurDcNo(e.target.value)} onKeyDown={e => handleEnter(e, pendingCategoryRef.current, poRef)} className="h-8 text-xs" />
+                      <Input ref={dcRef} value={ourDcNo} onChange={e => setOurDcNo(e.target.value)} onKeyDown={e => handleEnter(e, pendingProductRef.current, poRef)} className="h-8 text-xs" />
                    </div>
                    <div className="space-y-1">
                       <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">Received Amount</Label>
@@ -654,10 +682,24 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
                     <span className="font-bold tabular-nums">₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">{isIgst ? 'IGST' : 'CGST + SGST'}</span>
-                    <span className="font-bold tabular-nums text-orange-600">₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
+                  {gstEnabled && !isIgst && (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">CGST</span>
+                        <span className="font-bold tabular-nums text-orange-600">₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">SGST</span>
+                        <span className="font-bold tabular-nums text-orange-600">₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  )}
+                  {gstEnabled && isIgst && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground font-medium uppercase tracking-tighter">IGST</span>
+                      <span className="font-bold tabular-nums text-orange-600">₹{igst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
@@ -679,12 +721,13 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </DialogContent>
+  </Dialog>
   );
 }
 
-function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoading?: boolean }) {
+function TxTable({ data, cols, isLoading, onEdit, onDelete }: { data: any[]; cols: any[]; isLoading?: boolean, onEdit?: (r: any) => void, onDelete?: (r: any) => void }) {
   const [search, setSearch] = useState("");
   const filtered = (data || []).filter(row =>
     Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
@@ -708,6 +751,7 @@ function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoadin
                     {cols.map((c: any) => (
                       <th key={c.key} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{c.label}</th>
                     ))}
+                    {(onEdit || onDelete) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -718,6 +762,40 @@ function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoadin
                           {c.render ? c.render(row) : row[c.key]}
                         </td>
                       ))}
+                      {(onEdit || onDelete) && (
+                        <td className="px-4 py-2.5">
+                          <div className="flex gap-1">
+                            {onEdit && (
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
+                                <Edit className="h-3.5 w-3.5" />Edit
+                              </Button>
+                            )}
+                            {onDelete && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                                    <Trash2 className="h-3.5 w-3.5" />Delete
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the purchase record and all its associated items.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {filtered.length === 0 && (
@@ -735,20 +813,37 @@ function TxTable({ data, cols, isLoading }: { data: any[]; cols: any[]; isLoadin
 }
 
 export default function Purchase() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "entries";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editData, setEditData] = useState<any>(null);
 
   const { data: entries = [], isLoading: entriesLoading } = useQuery({ queryKey: ["purchase-entries"], queryFn: () => fetch("/api/sales?resource=purchases&type=entries").then(res => res.json()) });
   const { data: orders = [], isLoading: ordersLoading } = useQuery({ queryKey: ["purchase-orders"], queryFn: () => fetch("/api/sales?resource=purchases&type=orders").then(res => res.json()) });
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({ queryKey: ["expenses"], queryFn: () => fetch("/api/system?resource=expenses").then(res => res.json()) });
 
+  const handleDelete = async (row: any, type: string) => {
+    try {
+      const res = await fetch(`/api/sales?resource=purchases&type=${type}&id=${row.id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast({ title: "Success", description: "Record deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["purchase-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+  };
+
   const purCols = [
-    { key: "purchaseNo", label: "Entry #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.purchaseNo}</span> },
+    { key: "purchaseNo", label: "Entry #", render: (r: any) => <span className="cursor-pointer font-mono text-xs font-semibold text-primary hover:underline" onClick={() => { setEditData(r); setShowCreateModal(true); }}>{r.purchaseNo}</span> },
     { key: "date", label: "Date" },
     { key: "supplierName", label: "Supplier", render: (r: any) => <span className="font-medium">{r.supplierName}</span> },
-    { key: "items", label: "Items", render: (r: any) => <span className="tabular-nums">{r.items || 0}</span> },
+    { key: "totalQty", label: "Qty", render: (r: any) => <span className="tabular-nums font-bold text-zinc-600">{r.totalQty || 0}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
     { key: "tax", label: "GST", render: (r: any) => <span className="tabular-nums text-muted-foreground">₹{parseFloat(r.tax || (r.amount * 0.18)).toLocaleString("en-IN")}</span> },
     { key: "total", label: "Total", render: (r: any) => <span className="tabular-nums font-bold">₹{parseFloat(r.total || (r.amount * 1.18)).toLocaleString("en-IN")}</span> },
@@ -759,6 +854,7 @@ export default function Purchase() {
     { key: "orderNo", label: "PO #", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary">{r.orderNo}</span> },
     { key: "date", label: "Date" },
     { key: "supplierName", label: "Supplier", render: (r: any) => <span className="font-medium">{r.supplierName}</span> },
+    { key: "totalQty", label: "Qty", render: (r: any) => <span className="tabular-nums font-bold text-zinc-600">{r.totalQty || 0}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums font-semibold">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },
     { key: "status", label: "Status", render: (r: any) => <StatusBadge status={r.status} /> },
   ];
@@ -799,17 +895,23 @@ export default function Purchase() {
           </TabsList>
           <CreatePurchaseModal
             type={activeTab}
-            title={`Add New ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+            title={editData ? `Edit ${activeTab === 'entries' ? 'Entry' : activeTab.slice(0, -1)}` : `Add New ${activeTab === 'entries' ? 'Entry' : activeTab.slice(0, -1)}`}
+            open={showCreateModal}
+            onOpenChange={(v) => {
+              setShowCreateModal(v);
+              if (!v) setEditData(null);
+            }}
+            editData={editData}
             trigger={
-              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20" onClick={() => { setEditData(null); setShowCreateModal(true); }}>
                 <Plus className="h-3.5 w-3.5" />New {activeTab === "entries" ? "Entry" : activeTab.slice(0, -1)}
               </Button>
             }
           />
         </div>
 
-        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} /></TabsContent>
-        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} /></TabsContent>
+        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={(r) => { setEditData(r); setShowCreateModal(true); }} onDelete={(r) => handleDelete(r, 'entries')} /></TabsContent>
+        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={(r) => { setEditData(r); setShowCreateModal(true); }} onDelete={(r) => handleDelete(r, 'orders')} /></TabsContent>
         <TabsContent value="returns" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No purchase returns recorded today</div>
         </TabsContent>

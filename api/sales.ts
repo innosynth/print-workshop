@@ -200,7 +200,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
             total: table.total,
             status: table.status,
             ...(type === 'entries' ? { receivedAmount: purchaseEntries.receivedAmount } : {}),
-            supplierName: contacts.name
+            supplierName: sql<string>`COALESCE(${contacts.name}, ${table.supplierName})`
           }).from(table).leftJoin(contacts, eq(table.supplierId, contacts.id)).where(eq(table.id, parseInt(id as string))).limit(1);
           
           if (main.length === 0) return response.status(404).json({ error: 'Purchase record not found' });
@@ -213,16 +213,30 @@ export default async function handler(request: VercelRequest, response: VercelRe
         if (type === 'orders') {
           const data = await db.select({
             id: purchaseOrders.id, orderNo: purchaseOrders.orderNo, date: purchaseOrders.date,
-            amount: purchaseOrders.amount, status: purchaseOrders.status, supplierName: contacts.name,
-            tax: purchaseOrders.tax, total: purchaseOrders.total
-          }).from(purchaseOrders).leftJoin(contacts, eq(purchaseOrders.supplierId, contacts.id)).orderBy(desc(purchaseOrders.createdAt));
+            amount: purchaseOrders.amount, status: purchaseOrders.status, 
+            supplierName: sql<string>`COALESCE(${contacts.name}, ${purchaseOrders.supplierName})`,
+            tax: purchaseOrders.tax, total: purchaseOrders.total,
+            totalQty: sql<number>`SUM(CAST(${purchaseItems.qty} AS NUMERIC))`
+          })
+          .from(purchaseOrders)
+          .leftJoin(contacts, eq(purchaseOrders.supplierId, contacts.id))
+          .leftJoin(purchaseItems, eq(purchaseOrders.id, purchaseItems.purchaseOrderId))
+          .groupBy(purchaseOrders.id, contacts.id, purchaseOrders.orderNo, purchaseOrders.date, purchaseOrders.amount, purchaseOrders.status, purchaseOrders.tax, purchaseOrders.total, purchaseOrders.supplierName)
+          .orderBy(desc(purchaseOrders.createdAt));
           return response.status(200).json(data);
         } else {
           const data = await db.select({
             id: purchaseEntries.id, purchaseNo: purchaseEntries.purchaseNo, date: purchaseEntries.date,
-            amount: purchaseEntries.amount, status: purchaseEntries.status, supplierName: contacts.name,
-            tax: purchaseEntries.tax, total: purchaseEntries.total
-          }).from(purchaseEntries).leftJoin(contacts, eq(purchaseEntries.supplierId, contacts.id)).orderBy(desc(purchaseEntries.createdAt));
+            amount: purchaseEntries.amount, status: purchaseEntries.status, 
+            supplierName: sql<string>`COALESCE(${contacts.name}, ${purchaseEntries.supplierName})`,
+            tax: purchaseEntries.tax, total: purchaseEntries.total,
+            totalQty: sql<number>`SUM(CAST(${purchaseItems.qty} AS NUMERIC))`
+          })
+          .from(purchaseEntries)
+          .leftJoin(contacts, eq(purchaseEntries.supplierId, contacts.id))
+          .leftJoin(purchaseItems, eq(purchaseEntries.id, purchaseItems.purchaseId))
+          .groupBy(purchaseEntries.id, contacts.id, purchaseEntries.purchaseNo, purchaseEntries.date, purchaseEntries.amount, purchaseEntries.status, purchaseEntries.tax, purchaseEntries.total, purchaseEntries.supplierName)
+          .orderBy(desc(purchaseEntries.createdAt));
           return response.status(200).json(data);
         }
       }
@@ -230,7 +244,19 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const { items, ...data } = request.body;
         if (type === 'orders') {
           // Auto-generate orderNo if missing
-          if (!data.orderNo && !data.id) data.orderNo = `PO-${Date.now().toString().slice(-6)}`;
+          if (!data.orderNo && !data.id) {
+            const lastOrder = await db.select({ orderNo: purchaseOrders.orderNo })
+              .from(purchaseOrders)
+              .orderBy(desc(purchaseOrders.id))
+              .limit(1);
+            
+            let nextNo = 1000;
+            if (lastOrder.length > 0 && lastOrder[0].orderNo) {
+              const lastNo = parseInt(lastOrder[0].orderNo.replace("PO-", ""));
+              if (!isNaN(lastNo)) nextNo = lastNo + 1;
+            }
+            data.orderNo = `PO-${nextNo}`;
+          }
           const newOrder = await db.insert(purchaseOrders).values(data).returning();
           if (items?.length > 0) {
             const itemsWithId = items.map((item: any) => ({
@@ -250,7 +276,19 @@ export default async function handler(request: VercelRequest, response: VercelRe
           return response.status(200).json(newOrder[0]);
         } else {
           // Auto-generate purchaseNo if missing
-          if (!data.purchaseNo && !data.id) data.purchaseNo = `PUR-${Date.now().toString().slice(-6)}`;
+          if (!data.purchaseNo && !data.id) {
+            const lastEntry = await db.select({ purchaseNo: purchaseEntries.purchaseNo })
+              .from(purchaseEntries)
+              .orderBy(desc(purchaseEntries.id))
+              .limit(1);
+            
+            let nextNo = 1000;
+            if (lastEntry.length > 0 && lastEntry[0].purchaseNo) {
+              const lastNo = parseInt(lastEntry[0].purchaseNo.replace("PUR-", ""));
+              if (!isNaN(lastNo)) nextNo = lastNo + 1;
+            }
+            data.purchaseNo = `PUR-${nextNo}`;
+          }
           const newEntry = await db.insert(purchaseEntries).values(data).returning();
           if (items?.length > 0) {
             const itemsWithId = items.map((item: any) => ({
@@ -269,6 +307,45 @@ export default async function handler(request: VercelRequest, response: VercelRe
           }
           return response.status(200).json(newEntry[0]);
         }
+      }
+      if (method === 'PUT') {
+        const { items, ...data } = request.body;
+        const { id } = request.query;
+        const table = type === 'orders' ? purchaseOrders : purchaseEntries;
+        
+        if (data.id) delete data.id;
+        const updated = await db.update(table).set(data).where(eq(table.id, parseInt(id as string))).returning();
+        
+        if (items) {
+          await db.delete(purchaseItems).where(
+            type === 'orders' ? eq(purchaseItems.purchaseOrderId, parseInt(id as string)) : eq(purchaseItems.purchaseId, parseInt(id as string))
+          );
+          if (items.length > 0) {
+            const itemsWithId = items.map((item: any) => ({
+              name: item.name,
+              sku: item.sku,
+              qty: item.qty.toString(),
+              rate: item.rate.toString(),
+              amount: item.amount.toString(),
+              hsnCode: item.hsnCode || item.hsn,
+              gstRate: item.gstRate?.toString() || "18",
+              packing: item.packing,
+              unit: item.unit,
+              ...(type === 'orders' ? { purchaseOrderId: parseInt(id as string) } : { purchaseId: parseInt(id as string) })
+            }));
+            await db.insert(purchaseItems).values(itemsWithId);
+          }
+        }
+        return response.status(200).json(updated[0]);
+      }
+      if (method === 'DELETE') {
+        const { id } = request.query;
+        const table = type === 'orders' ? purchaseOrders : purchaseEntries;
+        await db.delete(purchaseItems).where(
+          type === 'orders' ? eq(purchaseItems.purchaseOrderId, parseInt(id as string)) : eq(purchaseItems.purchaseId, parseInt(id as string))
+        );
+        await db.delete(table).where(eq(table.id, parseInt(id as string)));
+        return response.status(200).json({ success: true });
       }
     }
 

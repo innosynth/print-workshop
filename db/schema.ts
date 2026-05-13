@@ -130,6 +130,7 @@ export const purchaseEntries = pgTable("purchaseEntries", {
   total: numeric("total").notNull(),
   receivedAmount: numeric("receivedAmount").default("0"),
   status: text("status").default("Paid"),
+  supplierName: text("supplierName"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -148,6 +149,7 @@ export const purchaseOrders = pgTable("purchaseOrders", {
   tax: numeric("tax").notNull(),
   total: numeric("total").notNull(),
   status: text("status").default("Pending"),
+  supplierName: text("supplierName"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
