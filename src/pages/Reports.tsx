@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const reportTypes = [
   { key: "daily-sales", icon: BarChart2, title: "Daily Sales Report", desc: "Day-wise sales summary with customer and product breakdown" },
@@ -26,11 +27,63 @@ const reportTypes = [
   { key: "meter-reading", icon: Gauge, title: "Meter Analysis", desc: "Cumulative machine consumption and click tracking" },
 ];
 
-const exportToExcel = (data: any[], filename: string) => {
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-  XLSX.writeFile(workbook, `${filename}.xlsx`);
+const exportToExcel = async (data: any[], filename: string, wscols?: any[]) => {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Report');
+
+  if (data.length === 0) return;
+
+  // Add headers
+  const headers = Object.keys(data[0]);
+  const headerRow = worksheet.addRow(headers);
+
+  // Style headers
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 10, name: 'Arial' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+  });
+
+  // Add data rows
+  data.forEach((item) => {
+    const row = worksheet.addRow(Object.values(item));
+    row.eachCell((cell) => {
+      cell.font = { size: 10, name: 'Arial' };
+      cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+  });
+
+  // Set column widths
+  if (wscols) {
+    worksheet.columns = wscols.map((col, i) => ({
+      header: headers[i],
+      key: headers[i],
+      width: col.wch || 15
+    }));
+  } else {
+    worksheet.columns = headers.map(h => ({ header: h, key: h, width: 15 }));
+  }
+
+  // Generate buffer and download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${filename}.xlsx`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
 };
 
 const exportToCSV = (data: any[], filename: string) => {
@@ -95,7 +148,44 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
   });
 
   useEffect(() => {
-    onRegisterExport(() => exportToExcel(filteredGstLines, `GST_Audit_${returnFor}_${new Date().toLocaleDateString()}`));
+    const exportData = filteredGstLines.map((line: any) => {
+      const taxable = parseFloat(line.taxableValue || 0);
+      const totalTax = parseFloat(line.totalTax || 0);
+      const grandTotal = parseFloat(line.grandTotal || 0);
+      const isIgst = !!line.isIgst;
+      
+      const igst = isIgst ? totalTax : 0;
+      const cgst = isIgst ? 0 : totalTax / 2;
+      const sgst = isIgst ? 0 : totalTax / 2;
+
+      return {
+        "Company Name": line.companyName,
+        "GSTIN": line.gstin || "N/A",
+        "Invoice No": line.invoiceNo,
+        "Invoice Date": line.date,
+        "Tax Before Value": taxable,
+        "HSN": "4909",
+        "GST %": 18,
+        "IGST %": isIgst ? 18 : 0,
+        "IGST": igst,
+        "CGST %": isIgst ? 0 : 9,
+        "CGST": cgst,
+        "SGST %": isIgst ? 0 : 9,
+        "SGST": sgst,
+        "Tax Amount": totalTax,
+        "Total Value": grandTotal,
+        "Place of Supply": line.placeOfSupply || "Tamil Nadu"
+      };
+    });
+
+    const wscols = [
+      { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+      { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 },
+      { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 20 }
+    ];
+
+    const currentMonth = format(new Date(), "MMM");
+    onRegisterExport(() => exportToExcel(exportData, `invoiceBoth - ${currentMonth}`, wscols));
   }, [filteredGstLines, returnFor]);
 
   const handleClear = () => {
@@ -110,7 +200,7 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
     setHsnSearch("");
   };
 
-  const isFiltered = returnFor !== "invoice" || dateRange !== "Previous Month" || taxType !== "Both" || filterType !== "Both" || hsnSearch !== "" || dateRange === "Custom";
+  const isFiltered = returnFor !== "invoice" || dateRange !== "Previous Month" || taxType !== "Both" || filterType !== "Both" || hsnSearch !== "";
 
   return (
     <div className="space-y-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100 print:bg-white print:p-0 print:border-none">
@@ -251,11 +341,14 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
                 <tbody className="divide-y font-medium text-gray-700">
                   {filteredGstLines.map((line: any, idx: number) => {
                     const taxable = parseFloat(line.taxableValue || 0);
-                    const cgst = taxable * 0.09;
-                    const sgst = taxable * 0.09;
-                    const taxAmt = cgst + sgst;
-                    const totalVal = taxable + taxAmt;
+                    const totalTax = parseFloat(line.totalTax || 0);
+                    const grandTotal = parseFloat(line.grandTotal || 0);
+                    const isIgst = !!line.isIgst;
                     
+                    const igst = isIgst ? totalTax : 0;
+                    const cgst = isIgst ? 0 : totalTax / 2;
+                    const sgst = isIgst ? 0 : totalTax / 2;
+
                     return (
                       <tr key={idx} className="hover:bg-primary/5 transition-colors odd:bg-gray-50/30">
                         <td className="border px-3 py-2 font-bold uppercase">{line.companyName}</td>
@@ -265,14 +358,14 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
                         <td className="border px-2 py-2 text-right tabular-nums">{taxable.toFixed(2)}</td>
                         <td className="border px-2 py-2 text-center">4909</td>
                         <td className="border px-2 py-2 text-center font-bold">18</td>
-                        <td className="border px-2 py-2 text-center">0</td>
-                        <td className="border px-2 py-2 text-right tabular-nums text-gray-400">0</td>
-                        <td className="border px-2 py-2 text-center">9</td>
+                        <td className="border px-2 py-2 text-center">{isIgst ? 18 : 0}</td>
+                        <td className="border px-2 py-2 text-right tabular-nums">{igst.toFixed(2)}</td>
+                        <td className="border px-2 py-2 text-center">{isIgst ? 0 : 9}</td>
                         <td className="border px-2 py-2 text-right tabular-nums">{cgst.toFixed(2)}</td>
-                        <td className="border px-2 py-2 text-center">9</td>
+                        <td className="border px-2 py-2 text-center">{isIgst ? 0 : 9}</td>
                         <td className="border px-2 py-2 text-right tabular-nums">{sgst.toFixed(2)}</td>
-                        <td className="border px-2 py-2 text-right tabular-nums font-bold">{taxAmt.toFixed(2)}</td>
-                        <td className="border px-2 py-2 text-right tabular-nums font-black">{totalVal.toFixed(2)}</td>
+                        <td className="border px-2 py-2 text-right tabular-nums font-bold">{totalTax.toFixed(2)}</td>
+                        <td className="border px-2 py-2 text-right tabular-nums font-black">{grandTotal.toFixed(2)}</td>
                         <td className="border px-3 py-2 text-gray-500 italic">{line.placeOfSupply || "Tamil Nadu"}</td>
                       </tr>
                     );

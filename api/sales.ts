@@ -158,23 +158,23 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     if (resource === 'gst_report') {
       const { returnFor } = request.query;
-      // For now, we mainly support Invoice-based GST reporting
+      
+      // Aggregate by Invoice for GST Reporting (One row per invoice)
       const lines = await db.select({
         companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
         gstin: contacts.gst,
         invoiceNo: invoices.invoiceNo,
         date: invoices.date,
-        lineName: invoiceItems.name,
-        qty: invoiceItems.qty,
-        rate: invoiceItems.rate,
-        taxableValue: invoiceItems.amount,
-        totalTax: invoices.tax, // Note: This is invoice-level, ideally we want line-level tax
+        taxableValue: sql<string>`SUM(CAST(${invoiceItems.amount} AS NUMERIC))`,
+        totalTax: invoices.tax,
         grandTotal: invoices.total,
+        isIgst: invoices.isIgst,
         placeOfSupply: contacts.city
       })
-      .from(invoiceItems)
-      .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+      .from(invoices)
       .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+      .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+      .groupBy(invoices.id, contacts.id)
       .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
       
       return response.status(200).json(lines);
