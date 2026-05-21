@@ -344,8 +344,8 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   };
 
   const calculateTotals = () => {
-    const subTotal = items.reduce((sum, item) => sum + item.amount, 0);
-    const totalTax = gstEnabled ? items.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate) / 100)), 0) : 0;
+    const subTotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const totalTax = gstEnabled ? items.reduce((sum, item) => sum + (Number(item.amount || 0) * (parseFloat(item.gstRate || 0) / 100)), 0) : 0;
     const total = subTotal + totalTax;
     const cgst = isIgst ? 0 : totalTax / 2;
     const sgst = isIgst ? 0 : totalTax / 2;
@@ -364,6 +364,19 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
       toast({ variant: "destructive", title: "Invalid Bill Value", description: "0 bill value is not allowed to store. Add any items and try again." });
       return;
     }
+
+    if (type === 'entries' && invNo && invNo.trim()) {
+      const cachedEntries = queryClient.getQueryData<any[]>(["purchase-entries"]) || [];
+      const isDuplicate = cachedEntries.some((entry: any) => 
+        entry.invNo && 
+        entry.invNo.trim().toLowerCase() === invNo.trim().toLowerCase() && 
+        (!editData || entry.id !== editData.id)
+      );
+      if (isDuplicate) {
+        toast({ variant: "destructive", title: "Duplicate Invoice", description: `Invoice number '${invNo}' already exists.` });
+        return;
+      }
+    }
     
     setLoading(true);
     try {
@@ -372,7 +385,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         supplierName: supplierName,
         date: createDate,
         dueDate: dueDate,
-        invNo: invNo,
+        invNo: invNo ? invNo.trim() : "",
         orderNo: orderNo,
         ourPoNo: ourPoNo,
         ourDcNo: ourDcNo,
@@ -384,12 +397,15 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         items: items.filter(i => i.name.trim() !== "")
       };
 
-      const res = await fetch(`/api/sales?resource=purchases&type=${type === 'expenses' ? 'expenses' : type === 'entry' ? 'entries' : type}`, {
+      const res = await fetch(`/api/sales?resource=purchases&type=${type === 'expenses' ? 'expenses' : type === 'entry' ? 'entries' : type}${editData ? `&id=${editData.id}` : ''}`, {
         method: editData ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editData ? { ...payload, id: editData.id } : payload)
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save");
+      }
       toast({ title: "Success", description: `${title} ${editData ? 'updated' : 'created'} successfully` });
       queryClient.invalidateQueries({ queryKey: ["purchase-entries"] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -613,7 +629,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                 <tbody className="divide-y bg-white">
                   {items.map((item, index) => {
                     const gst = parseFloat(item.gstRate || 0);
-                    const amount = item.qty * item.rate;
+                    const amount = Number(item.qty || 0) * Number(item.rate || 0);
                     const taxTotal = gstEnabled ? (amount * (gst / 100)) : 0;
                     const cgstRate = gst / 2;
                     const sgstRate = gst / 2;
@@ -842,6 +858,7 @@ export default function Purchase() {
   const purCols = [
     { key: "purchaseNo", label: "Entry #", render: (r: any) => <span className="cursor-pointer font-mono text-xs font-semibold text-primary hover:underline" onClick={() => { setEditData(r); setShowCreateModal(true); }}>{r.purchaseNo}</span> },
     { key: "date", label: "Date" },
+    { key: "invNo", label: "Invoice No", render: (r: any) => <span className="font-mono text-xs">{r.invNo || "—"}</span> },
     { key: "supplierName", label: "Supplier", render: (r: any) => <span className="font-medium">{r.supplierName}</span> },
     { key: "totalQty", label: "Qty", render: (r: any) => <span className="tabular-nums font-bold text-zinc-600">{r.totalQty || 0}</span> },
     { key: "amount", label: "Amount", render: (r: any) => <span className="tabular-nums">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span> },

@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../db/index.js';
 import { invoices, invoiceItems, quotations, quotationItems, salesReturns, purchaseEntries, purchaseOrders, purchaseItems, contacts } from '../db/schema.js';
-import { eq, desc, sql, like, notLike } from 'drizzle-orm';
+import { eq, desc, sql, like, notLike, and, ne } from 'drizzle-orm';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   const { resource, type } = request.query;
@@ -268,6 +268,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         } else {
           const data = await db.select({
             id: purchaseEntries.id, purchaseNo: purchaseEntries.purchaseNo, date: purchaseEntries.date,
+            invNo: purchaseEntries.invNo,
             amount: purchaseEntries.amount, status: purchaseEntries.status, 
             supplierName: sql<string>`COALESCE(${contacts.name}, ${purchaseEntries.supplierName})`,
             tax: purchaseEntries.tax, total: purchaseEntries.total,
@@ -276,7 +277,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           .from(purchaseEntries)
           .leftJoin(contacts, eq(purchaseEntries.supplierId, contacts.id))
           .leftJoin(purchaseItems, eq(purchaseEntries.id, purchaseItems.purchaseId))
-          .groupBy(purchaseEntries.id, contacts.id, purchaseEntries.purchaseNo, purchaseEntries.date, purchaseEntries.amount, purchaseEntries.status, purchaseEntries.tax, purchaseEntries.total, purchaseEntries.supplierName)
+          .groupBy(purchaseEntries.id, contacts.id, purchaseEntries.purchaseNo, purchaseEntries.date, purchaseEntries.invNo, purchaseEntries.amount, purchaseEntries.status, purchaseEntries.tax, purchaseEntries.total, purchaseEntries.supplierName)
           .orderBy(desc(purchaseEntries.createdAt));
           return response.status(200).json(data);
         }
@@ -330,6 +331,17 @@ export default async function handler(request: VercelRequest, response: VercelRe
             }
             data.purchaseNo = `PUR-${nextNo}`;
           }
+          // Check for duplicate invoice number
+          if (data.invNo && data.invNo.trim()) {
+            const existing = await db.select({ id: purchaseEntries.id })
+              .from(purchaseEntries)
+              .where(eq(sql`LOWER(${purchaseEntries.invNo})`, data.invNo.trim().toLowerCase()))
+              .limit(1);
+            if (existing.length > 0) {
+              return response.status(400).json({ error: `Invoice number '${data.invNo}' already exists` });
+            }
+          }
+
           const newEntry = await db.insert(purchaseEntries).values(data).returning();
           if (items?.length > 0) {
             const itemsWithId = items.map((item: any) => ({
@@ -350,16 +362,36 @@ export default async function handler(request: VercelRequest, response: VercelRe
         }
       }
       if (method === 'PUT') {
-        const { items, ...data } = request.body;
-        const { id } = request.query;
+        const { items, id: bodyId, ...data } = request.body;
+        const { id: queryId } = request.query;
+        const id = queryId || bodyId;
+        const parsedId = parseInt(id as string);
         const table = type === 'orders' ? purchaseOrders : purchaseEntries;
+
+        if (isNaN(parsedId)) {
+          return response.status(400).json({ error: 'Missing or invalid ID' });
+        }
         
-        if (data.id) delete data.id;
-        const updated = await db.update(table).set(data).where(eq(table.id, parseInt(id as string))).returning();
+        if (type !== 'orders' && data.invNo && data.invNo.trim()) {
+          const existing = await db.select({ id: purchaseEntries.id })
+            .from(purchaseEntries)
+            .where(
+              and(
+                eq(sql`LOWER(${purchaseEntries.invNo})`, data.invNo.trim().toLowerCase()),
+                ne(purchaseEntries.id, parsedId)
+              )
+            )
+            .limit(1);
+          if (existing.length > 0) {
+            return response.status(400).json({ error: `Invoice number '${data.invNo}' already exists` });
+          }
+        }
+
+        const updated = await db.update(table).set(data).where(eq(table.id, parsedId)).returning();
         
         if (items) {
           await db.delete(purchaseItems).where(
-            type === 'orders' ? eq(purchaseItems.purchaseOrderId, parseInt(id as string)) : eq(purchaseItems.purchaseId, parseInt(id as string))
+            type === 'orders' ? eq(purchaseItems.purchaseOrderId, parsedId) : eq(purchaseItems.purchaseId, parsedId)
           );
           if (items.length > 0) {
             const itemsWithId = items.map((item: any) => ({
@@ -372,7 +404,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
               gstRate: item.gstRate?.toString() || "18",
               packing: item.packing,
               unit: item.unit,
-              ...(type === 'orders' ? { purchaseOrderId: parseInt(id as string) } : { purchaseId: parseInt(id as string) })
+              ...(type === 'orders' ? { purchaseOrderId: parsedId } : { purchaseId: parsedId })
             }));
             await db.insert(purchaseItems).values(itemsWithId);
           }
