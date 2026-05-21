@@ -2041,17 +2041,17 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   {items.map((item, index) => (
                     <tr key={index} className="hover:bg-muted/20 transition-colors group">
                       <td className="p-1 pl-4 py-0">
-                        <span className="text-[0.6875rem] font-black text-muted-foreground/70 uppercase tracking-tight leading-tight block truncate" title={item.category}>
+                        <span className="text-xs font-normal text-foreground uppercase tracking-tight leading-tight block truncate" title={item.category}>
                           {item.category || "-"}
                         </span>
                       </td>
                       <td className="p-1 py-0">
-                        <span className="text-xs font-black text-primary uppercase leading-tight block truncate" title={item.name}>
+                        <span className="text-xs font-normal text-foreground uppercase leading-tight block truncate" title={item.name}>
                           {item.name}
                         </span>
                       </td>
                       <td className="p-1 py-0">
-                        <span className="text-[0.6875rem] font-bold text-muted-foreground uppercase tracking-tight leading-tight block truncate" title={item.subCategory}>
+                        <span className="text-xs font-normal text-foreground uppercase tracking-tight leading-tight block truncate" title={item.subCategory}>
                           {item.subCategory || "-"}
                         </span>
                       </td>
@@ -2060,31 +2060,31 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           type="number"
                           min="0"
                           value={item.qty}
-                          className="h-6 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
+                          className="h-6 font-normal text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
                           onChange={e => updateItem(index, "qty", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                           title={item.qty.toString()}
                         />
                       </td>
                       <td className="p-1 py-0">
                         <div className="relative group/rate">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.625rem] font-bold text-muted-foreground opacity-0 group-focus-within/rate:opacity-100 transition-opacity">₹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-normal text-muted-foreground opacity-0 group-focus-within/rate:opacity-100 transition-opacity">₹</span>
                           <Input
                             type="number"
                             min="0"
                             value={item.rate}
-                            className="h-6 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
+                            className="h-6 font-normal text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
                             onChange={e => updateItem(index, "rate", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                             title={item.rate.toString()}
                           />
                         </div>
                       </td>
                       <td className="p-1 py-0">
-                        <div className="text-[0.6875rem] font-black text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
+                        <div className="text-xs font-normal text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
                           {item.gstRate}%
                         </div>
                       </td>
                       <td className="p-1 pr-4 py-0 text-right">
-                        <span className="text-xs font-black text-primary tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
+                        <span className="text-xs font-normal text-foreground tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
                           ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </td>

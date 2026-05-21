@@ -653,32 +653,32 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
 
                     return (
                       <tr key={index} className="hover:bg-muted/20 transition-colors group border-b">
-                        <td className="p-1.5 pl-4 text-xs font-black text-primary uppercase truncate">{item.name}</td>
-                        <td className="p-1.5 text-center text-[0.6875rem] font-bold text-muted-foreground font-mono">{item.hsn || "—"}</td>
+                        <td className="p-1.5 pl-4 text-xs font-normal text-foreground uppercase truncate">{item.name}</td>
+                        <td className="p-1.5 text-center text-xs font-normal text-muted-foreground font-mono">{item.hsn || "—"}</td>
                         <td className="p-1.5 text-center">
-                          <Input type="number" min="0" value={item.qty} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
+                          <Input type="number" min="0" value={item.qty} className="h-7 font-normal text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                         </td>
                         <td className="p-1.5 text-center">
-                          <Input type="number" min="0" value={item.rate} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
+                          <Input type="number" min="0" value={item.rate} className="h-7 font-normal text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                         </td>
-                        <td className="p-1.5 text-center text-xs font-bold tabular-nums text-muted-foreground">₹{(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        <td className="p-1.5 text-center text-xs font-normal tabular-nums text-muted-foreground">₹{(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         
                         {gstEnabled && !isIgst && (
                           <>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{cgstRate}%</td>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{sgstRate}%</td>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600/70">{cgstRate}%</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600 tabular-nums">₹{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600/70">{sgstRate}%</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600 tabular-nums">₹{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                           </>
                         )}
                         {gstEnabled && isIgst && (
                           <>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600/70">{gst}%</td>
-                            <td className="p-1.5 text-center text-[0.625rem] font-bold text-orange-600 tabular-nums">₹{igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600/70">{gst}%</td>
+                            <td className="p-1.5 text-center text-xs font-normal text-orange-600 tabular-nums">₹{igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                           </>
                         )}
 
-                        <td className="p-1.5 pr-4 text-right text-xs font-black text-primary tabular-nums">₹{(amount + taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        <td className="p-1.5 pr-4 text-right text-xs font-normal text-foreground tabular-nums">₹{(amount + taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         <td className="p-1.5 text-center">
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeItem(index)}>
                             <Trash2 className="h-3.5 w-3.5" />
