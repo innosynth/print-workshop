@@ -71,7 +71,7 @@ const generateNextNo = (list: any[], type: string) => {
   return `${prefix}-${max + 1}`;
 };
 
-function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean }) {
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
   const [search, setSearch] = useState("");
@@ -113,7 +113,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           ref={triggerRef}
           variant="outline"
           role="combobox"
-          className="w-full mt-1 h-8 justify-between font-normal text-[0.75rem] px-2"
+          className={cn("w-full mt-1 h-7 justify-between font-normal text-[0.75rem] px-2", className)}
           title={value || `Select ${label.toLowerCase()}`}
           onFocus={(e) => {
             if (openOnFocus && !open && !justClosed.current) {
@@ -125,7 +125,7 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           onKeyDown={onKeyDown}
         >
           <span className="truncate" title={value || `Select ${label.toLowerCase()}`}>{value || `Select ${label.toLowerCase()}`}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
@@ -1821,13 +1821,13 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 </div>
                 <div className="space-y-0.5">
                   <Label className="text-[0.6875rem] font-bold text-muted-foreground">Date</Label>
-                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-8 text-xs px-2" />
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-7 text-xs px-2 mt-1" />
                 </div>
               </div>
               <Separator />
 
               {/* Quick Add Section */}
-              <div className="bg-muted/30 p-2.5 rounded-lg border border-primary/10 space-y-2">
+              <div className="bg-muted/30 p-1.5 rounded-lg border border-primary/10 space-y-1">
                 <div className="flex justify-between items-center px-1">
                   <Label className="text-[0.6875rem] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
                     <Plus className="h-3 w-3" /> Quick Add Item
@@ -1878,6 +1878,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           setTimeout(() => pendingProductRef.current?.focus(), 250);
                         }
                       }}
+                      className="h-6 text-xs mt-0.5"
                     />
                   </div>
                   <div className="col-span-3 space-y-0.5">
@@ -1895,6 +1896,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         setSubCategoryTrigger(prev => prev + 1);
                         setTimeout(() => pendingSubCategoryRef.current?.focus(), 250);
                       }}
+                      className="h-6 text-xs mt-0.5"
                     />
                   </div>
                   <div className="col-span-2 space-y-0.5">
@@ -1929,6 +1931,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         }
                         setTimeout(() => pendingQtyRef.current?.focus(), 250);
                       }}
+                      className="h-6 text-xs mt-0.5"
                     />
                   </div>
                   <div className="col-span-1 space-y-0.5">
@@ -1938,7 +1941,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       type="number"
                       min="0"
                       value={pendingItem.qty}
-                      className="h-8 font-bold text-center text-xs"
+                      className="h-6 font-bold text-center text-xs mt-0.5 py-0"
                       onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingSubCategoryRef.current)}
                       onChange={e => updatePendingItem("qty", Math.max(0, parseFloat(e.target.value) || 0))}
                     />
@@ -1951,7 +1954,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       min="0"
                       value={pendingItem.rate}
                       className={cn(
-                        "h-8 font-bold text-xs",
+                        "h-6 font-bold text-xs mt-0.5 py-0",
                         (type === 'estimates' && !((pendingItem.name || "").toLowerCase() === "custom" || (pendingItem.subCategory || "").toLowerCase() === "custom")) && "bg-muted/50 cursor-not-allowed"
                       )}
                       readOnly={type === 'estimates' && !((pendingItem.name || "").toLowerCase() === "custom" || (pendingItem.subCategory || "").toLowerCase() === "custom")}
@@ -1966,7 +1969,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     />
                   </div>
                   <div className="col-span-2 flex justify-end">
-                    <Button onClick={addPendingItem} size="sm" className="h-8 w-full gap-1.5 shadow-sm">
+                    <Button onClick={addPendingItem} size="sm" className="h-6 w-full gap-1 text-xs px-2 shadow-sm">
                       <Plus className="h-3 w-3" /> Add Item
                     </Button>
                   </div>
@@ -1979,75 +1982,75 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="sticky top-0 bg-white border-b z-10 shadow-sm">
                   <tr>
-                    <th className="p-1.5 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Category</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[22%]">Product</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Sub Category</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">Qty</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-28">Rate</th>
-                    <th className="p-1.5 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>
-                    <th className="p-1.5 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
-                    <th className="p-1.5 w-10"></th>
+                    <th className="p-1 py-1 pl-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Category</th>
+                    <th className="p-1 py-1 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[22%]">Product</th>
+                    <th className="p-1 py-1 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-[18%]">Sub Category</th>
+                    <th className="p-1 py-1 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">Qty</th>
+                    <th className="p-1 py-1 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest w-28">Rate</th>
+                    <th className="p-1 py-1 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-center w-20">GST</th>
+                    <th className="p-1 py-1 pr-4 text-[0.625rem] font-black uppercase text-muted-foreground tracking-widest text-right w-32">Total</th>
+                    <th className="p-1 py-1 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y bg-white">
                   {items.map((item, index) => (
                     <tr key={index} className="hover:bg-muted/20 transition-colors group">
-                      <td className="p-1.5 pl-4 py-1.5">
+                      <td className="p-1 pl-4 py-0">
                         <span className="text-[0.6875rem] font-black text-muted-foreground/70 uppercase tracking-tight leading-tight block truncate" title={item.category}>
                           {item.category || "-"}
                         </span>
                       </td>
-                      <td className="p-1.5 py-1.5">
+                      <td className="p-1 py-0">
                         <span className="text-xs font-black text-primary uppercase leading-tight block truncate" title={item.name}>
                           {item.name}
                         </span>
                       </td>
-                      <td className="p-1.5 py-1.5">
+                      <td className="p-1 py-0">
                         <span className="text-[0.6875rem] font-bold text-muted-foreground uppercase tracking-tight leading-tight block truncate" title={item.subCategory}>
                           {item.subCategory || "-"}
                         </span>
                       </td>
-                      <td className="p-1.5 py-1.5">
+                      <td className="p-1 py-0">
                         <Input
                           type="number"
                           min="0"
                           value={item.qty}
-                          className="h-8 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
+                          className="h-6 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
                           onChange={e => updateItem(index, "qty", Math.max(0, parseFloat(e.target.value) || 0))}
                           title={item.qty.toString()}
                         />
                       </td>
-                      <td className="p-2 py-3">
+                      <td className="p-1 py-0">
                         <div className="relative group/rate">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.625rem] font-bold text-muted-foreground opacity-0 group-focus-within/rate:opacity-100 transition-opacity">₹</span>
                           <Input
                             type="number"
                             min="0"
                             value={item.rate}
-                            className="h-8 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all"
+                            className="h-6 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
                             onChange={e => updateItem(index, "rate", Math.max(0, parseFloat(e.target.value) || 0))}
                             title={item.rate.toString()}
                           />
                         </div>
                       </td>
-                      <td className="p-2 py-3">
+                      <td className="p-1 py-0">
                         <div className="text-[0.6875rem] font-black text-orange-600 text-center bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title={`${item.gstRate}% GST`}>
                           {item.gstRate}%
                         </div>
                       </td>
-                      <td className="p-1.5 pr-4 py-1.5 text-right">
+                      <td className="p-1 pr-4 py-0 text-right">
                         <span className="text-xs font-black text-primary tabular-nums" title={`₹${item.amount.toFixed(2)}`}>
                           ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </td>
-                      <td className="p-1.5 py-1.5 text-center">
+                      <td className="p-1 py-0 text-center">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                          className="h-5 w-5 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full opacity-0 group-hover:opacity-100 transition-all mx-auto"
                           onClick={() => removeItem(index)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </td>
                     </tr>

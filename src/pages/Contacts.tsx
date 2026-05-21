@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/compon
 import { cn } from "@/lib/utils";
 import { Filter, Check } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -37,6 +38,8 @@ interface Contact {
   approval: string;
   city: string;
   balance: string;
+  pan?: string;
+  receivableOpeningBalance?: string;
 }
 
 function ColumnFilter({ label, column, filters, setFilters, options }: any) {
@@ -155,7 +158,9 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       if (!showInactive && c.status === "Inactive") return false;
       const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
         (c.mobile && c.mobile.includes(search)) ||
-        (c.gst && c.gst.toLowerCase().includes(search.toLowerCase()));
+        (c.gst && c.gst.toLowerCase().includes(search.toLowerCase())) ||
+        (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
+        (c.pan && c.pan.toLowerCase().includes(search.toLowerCase()));
       
       const matchesColumnFilters = Object.entries(columnFilters).every(([col, val]) => {
         if (!val) return true;
@@ -191,6 +196,8 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
           { key: "email", name: "Email", placeholder: "Enter email address" },
           { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
+          { key: "pan", name: "PAN Card", placeholder: "Enter PAN card number" },
+          { key: "receivableOpeningBalance", name: "Receivable Opening Balance", placeholder: "Enter receivable opening balance", type: "number" },
           { key: "city", name: "City", placeholder: "Enter city" },
           { key: "address", name: "Billing Address", placeholder: "Enter billing address", type: "textarea" },
           { key: "status", name: "Status", placeholder: "Select status", isStatus: true },
@@ -213,6 +220,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           { key: "whatsapp", name: "WhatsApp", placeholder: "Enter WhatsApp number" },
           { key: "email", name: "Email", placeholder: "Enter email address", required: false },
           { key: "gst", name: "GST Number", placeholder: "Enter GST number" },
+          { key: "pan", name: "PAN Card", placeholder: "Enter PAN card number" },
           { key: "city", name: "City", placeholder: "Enter city", required: false },
           { key: "address", name: "Billing Address", placeholder: "Enter billing address", required: false, type: "textarea" },
           { key: "paymentTerms", name: "Payment Terms", placeholder: "e.g., 30 days credit" },
@@ -255,6 +263,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
       return;
     }
 
+    if (formData.pan && formData.pan !== "-" && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan.toUpperCase())) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "PAN card number must be a valid 10-character alphanumeric code (e.g. ABCDE1234F)." });
+      return;
+    }
+
     // Duplicate Check - Now respects Type
     const currentType = Array.isArray(type) ? type[0] : type;
     const existing = contacts.find(c => 
@@ -275,6 +288,9 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     setLoading(true);
     try {
       const payload = { ...formData, type: Array.isArray(type) ? type[0] : type };
+      if (!payload.id && payload.type === "B2B") {
+        payload.balance = payload.receivableOpeningBalance || "0";
+      }
       // Sanitize payload to prevent Date serialization issues on backend
       const { createdAt, ...saveData } = payload;
       
@@ -493,7 +509,10 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                       type={field.type || "text"} 
                       value={formData[field.key!] || ""}
                       onChange={e => {
-                        const val = e.target.value;
+                        let val = e.target.value;
+                        if (field.key === "pan") {
+                          val = val.toUpperCase();
+                        }
                         const newData = { ...formData, [field.key!]: val };
                         if (field.key === "mobile" && sameAsMobile) {
                           newData.whatsapp = val;
@@ -617,10 +636,12 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                       { label: "Type", key: "type" },
                       { label: "Mobile", key: "mobile" },
                       { label: "WhatsApp", key: "whatsapp" },
+                      { label: "Email", key: "email" },
                       { label: "GST No.", key: "gst" },
+                      { label: "PAN", key: "pan" },
                       { label: "City", key: "city" },
                       { label: "Status", key: "status" },
-                      { label: "Approval", key: "approval" },
+                      ...(tabName === "B2B" ? [{ label: "Receivable OB", key: "receivableOpeningBalance" }] : []),
                       { label: "Balance", key: "balance" }
                     ].map(h => (
                       <th key={h.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
@@ -650,14 +671,33 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                   {filtered.map(c => (
                     <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{c.id}</td>
-                      <td className="px-4 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
+                      <td className="px-4 py-2.5 font-semibold whitespace-nowrap">
+                        {c.name.length > 25 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help hover:text-primary transition-colors">{c.name.slice(0, 25)}...</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-xs font-semibold">
+                              {c.name}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          c.name
+                        )}
+                      </td>
                       <td className="px-4 py-2.5"><Badge variant="outline" className="text-xs">{c.type}</Badge></td>
                       <td className="px-4 py-2.5 text-muted-foreground">{c.mobile}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{c.whatsapp}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{c.email || "—"}</td>
                       <td className="px-4 py-2.5 font-mono text-xs">{c.gst || "—"}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs">{c.pan || "—"}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{c.city}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
-                      <td className="px-4 py-2.5"><StatusBadge status={c.approval} /></td>
+                      {tabName === "B2B" && (
+                        <td className="px-4 py-2.5 font-semibold tabular-nums text-muted-foreground">
+                          ₹{c.receivableOpeningBalance ? parseFloat(c.receivableOpeningBalance).toLocaleString("en-IN") : "0"}
+                        </td>
+                      )}
                       <td className={`px-4 py-2.5 font-semibold tabular-nums ${parseFloat(c.balance) > 0 ? "text-primary" : parseFloat(c.balance) < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                         ₹{Math.abs(parseFloat(c.balance)).toLocaleString("en-IN")}
                       </td>
@@ -669,7 +709,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
+                    <tr><td colSpan={tabName === "B2B" ? 13 : 12} className="px-4 py-8 text-center text-muted-foreground">No contacts found</td></tr>
                   )}
                 </tbody>
               </table>

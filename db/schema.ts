@@ -12,7 +12,18 @@ export const contacts = pgTable("contacts", {
   status: text("status").default("Active"), // 'Active', 'Inactive'
   approval: text("approval").default("Approved"), // 'Approved', 'Pending', 'Rejected'
   city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  address: text("address"),
+  shippingAddress: text("shippingAddress"),
+  shippingCity: text("shippingCity"),
+  shippingState: text("shippingState"),
+  shippingPincode: text("shippingPincode"),
+  pan: text("pan"),
+  landline: text("landline"),
   contactPerson: text("contactPerson"),
+  contactPersonMobile: text("contactPersonMobile"),
+  receivableOpeningBalance: numeric("receivableOpeningBalance").default("0"),
   balance: numeric("balance").default("0"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
