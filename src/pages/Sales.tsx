@@ -1390,8 +1390,18 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
 
   const [items, setItems] = useState<any[]>([]);
-  const [pendingItem, setPendingItem] = useState({
-    name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+  const [pendingItem, setPendingItem] = useState<{
+    name: string;
+    qty: number | "";
+    rate: number | "";
+    amount: number;
+    hsnCode: string;
+    gstRate: string;
+    category: string;
+    subCategory: string;
+    sku: string;
+  }>({
+    name: "", qty: "", rate: "", amount: 0, hsnCode: "", gstRate: "0",
     category: "", subCategory: "", sku: ""
   });
   const [focusNextItemTrigger, setFocusNextItemTrigger] = useState(0);
@@ -1570,21 +1580,23 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       toast({ variant: "destructive", title: "Error", description: "Please select a sub-category first" });
       return;
     }
-    if (pendingItem.qty <= 0) {
+    if (Number(pendingItem.qty || 0) <= 0) {
       toast({ variant: "destructive", title: "Error", description: "Quantity cannot be zero" });
       return;
     }
-    if (pendingItem.rate <= 0) {
+    if (Number(pendingItem.rate || 0) <= 0) {
       toast({ variant: "destructive", title: "Error", description: "Rate cannot be zero" });
       return;
     }
     const itemToAdd = {
       ...pendingItem,
-      amount: pendingItem.qty * pendingItem.rate
+      qty: Number(pendingItem.qty),
+      rate: Number(pendingItem.rate),
+      amount: Number(pendingItem.qty) * Number(pendingItem.rate)
     };
     setItems([...items, itemToAdd]);
     setPendingItem({
-      name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+      name: "", qty: "", rate: "", amount: 0, hsnCode: "", gstRate: "0",
       category: "", subCategory: "", sku: ""
     });
     setFocusNextItemTrigger(prev => prev + 1);
@@ -1612,7 +1624,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
 
   const addItem = () => setItems([...items, {
-    name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+    name: "", qty: "", rate: "", amount: 0, hsnCode: "", gstRate: "0",
     category: "", subCategory: "", sku: ""
   }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
@@ -1663,7 +1675,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
   const resetForm = () => {
     setItems([{
-      name: "", qty: 1, rate: 0, amount: 0, hsnCode: "", gstRate: "0",
+      name: "", qty: "", rate: "", amount: 0, hsnCode: "", gstRate: "0",
       category: "", subCategory: "", sku: ""
     }]);
     setCustomerId("");
@@ -1707,9 +1719,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           status: initialData ? initialData.status : (type === 'estimates' ? "Draft" : "Pending"),
           items: validItems.map(item => ({
             ...item,
-            qty: parseFloat(item.qty.toString()),
-            rate: parseFloat(item.rate.toString()).toFixed(2),
-            amount: parseFloat(item.amount.toString()).toFixed(2),
+            qty: parseFloat((item.qty || 0).toString()),
+            rate: parseFloat((item.rate || 0).toString()).toFixed(2),
+            amount: parseFloat((item.amount || 0).toString()).toFixed(2),
             hsnCode: item.hsnCode,
             gstRate: item.gstRate
           }))
@@ -1943,7 +1955,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       value={pendingItem.qty}
                       className="h-6 font-bold text-center text-xs mt-0.5 py-0"
                       onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingSubCategoryRef.current)}
-                      onChange={e => updatePendingItem("qty", Math.max(0, parseFloat(e.target.value) || 0))}
+                      onChange={e => updatePendingItem("qty", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                     />
                   </div>
                   <div className="col-span-1 space-y-0.5">
@@ -1965,7 +1977,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           handleEnter(e, null, pendingQtyRef.current);
                         }
                       }}
-                      onChange={e => updatePendingItem("rate", Math.max(0, parseFloat(e.target.value) || 0))}
+                      onChange={e => updatePendingItem("rate", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                     />
                   </div>
                   <div className="col-span-2 flex justify-end">
@@ -2016,7 +2028,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                           min="0"
                           value={item.qty}
                           className="h-6 font-bold text-center text-xs bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
-                          onChange={e => updateItem(index, "qty", Math.max(0, parseFloat(e.target.value) || 0))}
+                          onChange={e => updateItem(index, "qty", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                           title={item.qty.toString()}
                         />
                       </td>
@@ -2028,7 +2040,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                             min="0"
                             value={item.rate}
                             className="h-6 font-bold text-xs pl-4 bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0"
-                            onChange={e => updateItem(index, "rate", Math.max(0, parseFloat(e.target.value) || 0))}
+                            onChange={e => updateItem(index, "rate", e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0))}
                             title={item.rate.toString()}
                           />
                         </div>

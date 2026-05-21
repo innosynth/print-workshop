@@ -161,8 +161,15 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   const [gstEnabled, setGstEnabled] = useState(true);
 
   const [items, setItems] = useState<any[]>([]);
-  const [pendingItem, setPendingItem] = useState({
-    name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+  const [pendingItem, setPendingItem] = useState<{
+    name: string;
+    qty: number | "";
+    rate: number | "";
+    amount: number;
+    hsn: string;
+    gstRate: string;
+  }>({
+    name: "", qty: "", rate: "", amount: 0, hsn: "", 
     gstRate: "18"
   });
 
@@ -247,7 +254,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
        setReceivedAmount("0");
        setGstEnabled(true);
        setPendingItem({
-          name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+          name: "", qty: "", rate: "", amount: 0, hsn: "", 
           gstRate: "18"
        });
        setFocusNextItemTrigger(0);
@@ -272,22 +279,24 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
       toast({ variant: "destructive", title: "Error", description: "Please enter a product name" });
       return;
     }
-    if (pendingItem.qty <= 0) {
+    if (Number(pendingItem.qty || 0) <= 0) {
       toast({ variant: "destructive", title: "Error", description: "Quantity cannot be zero" });
       return;
     }
-    if (pendingItem.rate <= 0) {
+    if (Number(pendingItem.rate || 0) <= 0) {
       toast({ variant: "destructive", title: "Error", description: "Rate cannot be zero" });
       return;
     }
     
     const itemToAdd = {
       ...pendingItem,
-      amount: pendingItem.qty * pendingItem.rate
+      qty: Number(pendingItem.qty),
+      rate: Number(pendingItem.rate),
+      amount: Number(pendingItem.qty) * Number(pendingItem.rate)
     };
     setItems([...items, itemToAdd]);
     setPendingItem({
-      name: "", qty: 1, rate: 0, amount: 0, hsn: "", 
+      name: "", qty: "", rate: "", amount: 0, hsn: "", 
       gstRate: "18"
     });
     setFocusNextItemTrigger(prev => prev + 1);
@@ -394,7 +403,12 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         tax: totalTax.toString(),
         total: Math.round(total).toString(),
         receivedAmount: receivedAmount,
-        items: items.filter(i => i.name.trim() !== "")
+        items: items.filter(i => i.name.trim() !== "").map(item => ({
+          ...item,
+          qty: parseFloat((item.qty || 0).toString()),
+          rate: parseFloat((item.rate || 0).toString()),
+          amount: parseFloat((item.amount || 0).toString())
+        }))
       };
 
       const res = await fetch(`/api/sales?resource=purchases&type=${type === 'expenses' ? 'expenses' : type === 'entry' ? 'entries' : type}${editData ? `&id=${editData.id}` : ''}`, {
@@ -576,11 +590,11 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                   </div>
                   <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block">Qty</Label>
-                    <Input ref={pendingQtyRef} type="number" min="0" value={pendingItem.qty} className="h-8 font-bold text-center text-xs" onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingHsnRef.current)} onChange={e => updatePendingItem("qty", parseFloat(e.target.value) || 0)} />
+                    <Input ref={pendingQtyRef} type="number" min="0" value={pendingItem.qty} className="h-8 font-bold text-center text-xs" onKeyDown={(e) => handleEnter(e, pendingRateRef.current, pendingHsnRef.current)} onChange={e => updatePendingItem("qty", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                   </div>
                   <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Rate</Label>
-                    <Input ref={pendingRateRef} type="number" min="0" value={pendingItem.rate} className="h-8 font-bold text-xs text-center" onKeyDown={(e) => handleEnter(e, pendingGstRef.current, pendingQtyRef.current)} onChange={e => updatePendingItem("rate", parseFloat(e.target.value) || 0)} />
+                    <Input ref={pendingRateRef} type="number" min="0" value={pendingItem.rate} className="h-8 font-bold text-xs text-center" onKeyDown={(e) => handleEnter(e, pendingGstRef.current, pendingQtyRef.current)} onChange={e => updatePendingItem("rate", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                   </div>
                   <div className="col-span-1 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground text-center block text-orange-600">GST%</Label>
@@ -642,10 +656,10 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                         <td className="p-1.5 pl-4 text-xs font-black text-primary uppercase truncate">{item.name}</td>
                         <td className="p-1.5 text-center text-[0.6875rem] font-bold text-muted-foreground font-mono">{item.hsn || "—"}</td>
                         <td className="p-1.5 text-center">
-                          <Input type="number" min="0" value={item.qty} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", parseFloat(e.target.value) || 0)} />
+                          <Input type="number" min="0" value={item.qty} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "qty", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                         </td>
                         <td className="p-1.5 text-center">
-                          <Input type="number" min="0" value={item.rate} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", parseFloat(e.target.value) || 0)} />
+                          <Input type="number" min="0" value={item.rate} className="h-7 font-bold text-center text-xs bg-transparent border-transparent hover:bg-muted/30 focus:bg-white" onChange={e => updateItem(index, "rate", e.target.value === "" ? "" : parseFloat(e.target.value) || 0)} />
                         </td>
                         <td className="p-1.5 text-center text-xs font-bold tabular-nums text-muted-foreground">₹{(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         
