@@ -19,7 +19,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
             fileName: invoices.fileName,
             isIgst: invoices.isIgst,
             customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
-            customerGst: contacts.gst
+            customerGst: contacts.gst,
+            customerAddress: contacts.address,
+            customerCity: contacts.city,
+            customerState: contacts.state,
+            customerPincode: contacts.pincode
           }).from(invoices).leftJoin(contacts, eq(invoices.customerId, contacts.id)).where(eq(invoices.id, parseInt(id as string))).limit(1);
           if (main.length === 0) return response.status(404).json({ error: 'Invoice not found' });
           const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, main[0].id));
@@ -86,7 +90,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
             status: quotations.status, customerId: contacts.id,
             fileName: quotations.fileName, isIgst: quotations.isIgst,
             customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
-            customerGst: contacts.gst
+            customerGst: contacts.gst,
+            customerAddress: contacts.address,
+            customerCity: contacts.city,
+            customerState: contacts.state,
+            customerPincode: contacts.pincode
           }).from(quotations).leftJoin(contacts, eq(quotations.customerId, contacts.id)).where(eq(quotations.id, parseInt(id as string))).limit(1);
           
           if (main.length === 0) return response.status(404).json({ error: 'Quotation not found' });

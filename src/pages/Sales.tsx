@@ -287,6 +287,35 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
     return d;
   };
 
+  const getStateCode = () => {
+    if (activeInvoice.customerGst && activeInvoice.customerGst.length >= 2) {
+      const code = activeInvoice.customerGst.substring(0, 2);
+      if (/^\d+$/.test(code)) {
+        return code;
+      }
+    }
+    const state = (activeInvoice.customerState || "").toLowerCase().trim();
+    if (state === "tamil nadu" || state === "tamilnadu") return "33";
+    if (state === "kerala") return "32";
+    if (state === "karnataka") return "29";
+    if (state === "andhra pradesh") return "37";
+    return "";
+  };
+
+  const getCustomerAddressDisplay = () => {
+    if (activeInvoice.customerAddress) {
+      let addr = activeInvoice.customerAddress.replace(/_x000D_/g, '').trim();
+      addr = addr.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      return addr;
+    }
+    const parts = [
+      activeInvoice.customerCity,
+      activeInvoice.customerState,
+      activeInvoice.customerPincode
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : "COIMBATORE";
+  };
+
   const items = (activeInvoice?.items || []).map((item: any) => {
     if (item.category) return item;
     const match = allProducts.find((p: any) => p.name === item.name || (item.sku && p.sku === item.sku));
@@ -974,9 +1003,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   <div className="col-span-7 space-y-0.5">
                     <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-base mt-0 leading-tight")}>TO :</p>
                     <p className={cn("text-base font-black uppercase", paperSize === "A5" && "text-xl mt-0 leading-tight")}>{activeInvoice.customerName || invoice.customerName || ""}</p>
-                    <p className={cn("text-gray-600 font-bold", paperSize === "A5" && "mt-0 leading-tight")}>COIMBATORE</p>
+                    <div className={cn("text-gray-600 font-bold whitespace-pre-line uppercase leading-tight text-[0.65rem]", paperSize === "A5" && "mt-0 text-[0.55rem]")}>
+                      {getCustomerAddressDisplay()}
+                    </div>
                     <p className={cn("mt-2 font-bold uppercase", paperSize === "A5" && "mt-1 leading-tight")}>GSTIN : {activeInvoice.customerGst || "N/A"}</p>
-                    <p className={cn("font-bold uppercase", paperSize === "A5" && "mt-0 leading-tight")}>State & Code:</p>
+                    <p className={cn("font-bold uppercase", paperSize === "A5" && "mt-0 leading-tight")}>
+                      State & Code: {(activeInvoice.customerState || "TAMIL NADU").toUpperCase()}{getStateCode() ? ` - ${getStateCode()}` : " - 33"}
+                    </p>
                   </div>
                   <div className="col-span-5">
                     <table className="text-[0.7rem] font-bold" style={{ marginLeft: 'auto', tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
