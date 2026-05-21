@@ -82,11 +82,35 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'POST') {
         const data = request.body;
-        const newRole = await db.insert(roles).values({
-          name: data.name,
-          permissions: JSON.stringify(data.permissions)
-        }).returning();
-        return response.status(200).json(newRole[0]);
+        if (data.id) {
+          const updatedRole = await db.update(roles).set({
+            name: data.name,
+            permissions: JSON.stringify(data.permissions)
+          }).where(eq(roles.id, data.id)).returning();
+          return response.status(200).json(updatedRole[0]);
+        } else {
+          const newRole = await db.insert(roles).values({
+            name: data.name,
+            permissions: JSON.stringify(data.permissions)
+          }).returning();
+          return response.status(200).json(newRole[0]);
+        }
+      }
+      if (method === 'DELETE') {
+        const { id } = request.query;
+        if (!id) {
+          return response.status(400).json({ error: 'Missing role ID' });
+        }
+        const roleId = parseInt(id as string);
+        
+        // Check if role is assigned to any users
+        const assignedUsers = await db.select().from(users).where(eq(users.roleId, roleId)).limit(1);
+        if (assignedUsers.length > 0) {
+          return response.status(400).json({ error: 'Cannot delete role because it is assigned to staff members.' });
+        }
+        
+        await db.delete(roles).where(eq(roles.id, roleId));
+        return response.status(200).json({ success: true });
       }
     }
 

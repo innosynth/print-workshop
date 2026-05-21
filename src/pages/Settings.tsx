@@ -35,28 +35,82 @@ function RolesManager() {
   const { toast } = useToast();
   const [roleName, setRoleName] = useState("");
   const [permissions, setPermissions] = useState<Permission[]>(INITIAL_PERMISSIONS);
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
 
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: () => fetch("/api/core?resource=roles").then(res => res.json())
   });
 
-  const createRoleMutation = useMutation({
+  const saveRoleMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await fetch("/api/core?resource=roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save role");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       setRoleName("");
       setPermissions(INITIAL_PERMISSIONS);
-      toast({ title: "Role created", description: "The new role has been added." });
+      setSelectedRoleId(null);
+      toast({ 
+        title: selectedRoleId ? "Role updated" : "Role created", 
+        description: selectedRoleId ? "The role has been updated." : "The new role has been added." 
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error saving role", description: err.message, variant: "destructive" });
     }
   });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/core?resource=roles&id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete role");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      if (selectedRoleId) {
+        setSelectedRoleId(null);
+        setRoleName("");
+        setPermissions(INITIAL_PERMISSIONS);
+      }
+      toast({ title: "Role deleted", description: "The role has been removed successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const handleSelectRole = (r: any) => {
+    if (selectedRoleId === r.id) {
+      setSelectedRoleId(null);
+      setRoleName("");
+      setPermissions(INITIAL_PERMISSIONS);
+    } else {
+      setSelectedRoleId(r.id);
+      setRoleName(r.name);
+      try {
+        const parsed = typeof r.permissions === "string" ? JSON.parse(r.permissions) : r.permissions;
+        setPermissions(parsed);
+      } catch (e) {
+        setPermissions(INITIAL_PERMISSIONS);
+      }
+    }
+  };
 
   const handlePermissionChange = (moduleIndex: number, field: keyof Permission, value: boolean) => {
     const newPerms = [...permissions];
@@ -91,13 +145,32 @@ function RolesManager() {
         <Label className="text-sm font-bold flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Existing Roles</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {roles.map((r: any) => (
-            <Card key={r.id} className="border-border bg-muted/20 shadow-sm">
+            <Card 
+              key={r.id} 
+              className={`cursor-pointer transition-all shadow-sm ${selectedRoleId === r.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-muted/20 hover:bg-muted/30'}`}
+              onClick={() => handleSelectRole(r)}
+            >
               <CardHeader className="p-4 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold">{r.name}</CardTitle>
                   <CardDescription className="text-[0.625rem] uppercase font-semibold">Created {new Date(r.createdAt || Date.now()).toLocaleDateString()}</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteRoleMutation.mutate(r.id);
+                  }}
+                  disabled={deleteRoleMutation.isPending}
+                >
+                  {deleteRoleMutation.isPending && deleteRoleMutation.variables === r.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
               </CardHeader>
             </Card>
           ))}
@@ -116,10 +189,35 @@ function RolesManager() {
           <Label>Role Name</Label>
           <Input placeholder="e.g. Sales Manager" value={roleName} onChange={e => setRoleName(e.target.value)} className="h-9" />
         </div>
-        <Button size="sm" onClick={() => createRoleMutation.mutate({ name: roleName, permissions })} disabled={!roleName || createRoleMutation.isPending}>
-          {createRoleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-          Create New Role
-        </Button>
+        <div className="flex gap-2">
+          {selectedRoleId && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => {
+                setSelectedRoleId(null);
+                setRoleName("");
+                setPermissions(INITIAL_PERMISSIONS);
+              }}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button 
+            size="sm" 
+            onClick={() => saveRoleMutation.mutate({ id: selectedRoleId || undefined, name: roleName, permissions })} 
+            disabled={!roleName || saveRoleMutation.isPending}
+          >
+            {saveRoleMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : selectedRoleId ? (
+              <Save className="h-4 w-4 mr-2" />
+            ) : (
+              <Plus className="h-4 w-4 mr-2" />
+            )}
+            {selectedRoleId ? "Update Role" : "Create New Role"}
+          </Button>
+        </div>
       </div>
 
       <Card className="border-border">
