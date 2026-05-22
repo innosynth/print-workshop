@@ -32,7 +32,6 @@ export function AppSidebar() {
   const { hasPermission } = useAuth();
 
   const filteredNavItems = navItems.filter(item => {
-    if (item.title === "Meter Readings") return true; // Always visible as requested
     return hasPermission(item.title, 'view');
   });
 

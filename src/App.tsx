@@ -50,7 +50,6 @@ const NAV_ITEMS = [
 const HomeRedirect = () => {
   const { hasPermission } = useAuth();
   const firstAvailable = NAV_ITEMS.find(item => {
-    if (item.module === "Meter Readings") return true; // Always visible as per sidebar logic
     return hasPermission(item.module, 'view');
   });
 
@@ -78,7 +77,7 @@ const App = () => (
             <Route path="/inventory" element={<ProtectedRoute module="Inventory"><Inventory /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute module="Products"><Products /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute module="Reports"><Reports /></ProtectedRoute>} />
-            <Route path="/meter-readings" element={<ProtectedRoute><MeterReadings /></ProtectedRoute>} />
+            <Route path="/meter-readings" element={<ProtectedRoute module="Meter Readings"><MeterReadings /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute module="Settings"><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

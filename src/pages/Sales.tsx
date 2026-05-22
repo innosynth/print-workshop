@@ -1422,6 +1422,18 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
 
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const isConfirmedCloseRef = useRef(false);
+  const initialValuesRef = useRef<{
+    items: any[];
+    customerId: string;
+    customerName: string;
+    fileName: string;
+    date: string;
+    gstEnabled: boolean;
+    isIgst: boolean;
+  } | null>(null);
+
   const [items, setItems] = useState<any[]>([]);
   const [pendingItem, setPendingItem] = useState<{
     name: string;
@@ -1526,6 +1538,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       setFocusNextItemTrigger(0);
       setProductTrigger(0);
       setSubCategoryTrigger(0);
+      initialValuesRef.current = null;
     }
   }, [open]);
 
@@ -1565,6 +1578,17 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(source.date || new Date().toISOString().split('T')[0]);
         setGstEnabled(source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates');
         setIsIgst(source.isIgst === true);
+        
+        initialValuesRef.current = {
+          items: mappedItems,
+          customerId: source.customerId?.toString() || "",
+          customerName: source.customerName || "",
+          fileName: source.fileName || "",
+          date: source.date || new Date().toISOString().split('T')[0],
+          gstEnabled: source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates',
+          isIgst: source.isIgst === true
+        };
+        
         formInitialized.current = true;
       } else {
         // Create new mode
@@ -1575,10 +1599,69 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(new Date().toISOString().split('T')[0]);
         setGstEnabled(type !== 'estimates');
         setIsIgst(false);
+        
+        initialValuesRef.current = {
+          items: [],
+          customerId: "",
+          customerName: "",
+          fileName: "",
+          date: new Date().toISOString().split('T')[0],
+          gstEnabled: type !== 'estimates',
+          isIgst: false
+        };
+        
         formInitialized.current = true;
       }
     }
   }, [open, type, initialData, fullDetails, products]);
+
+  const hasChanges = () => {
+    if (!initialValuesRef.current) return false;
+    const init = initialValuesRef.current;
+    
+    // Check if pending items have any input
+    if (pendingItem.category || pendingItem.name || pendingItem.qty || pendingItem.rate) return true;
+    
+    // Compare basic fields
+    if (customerId !== init.customerId) return true;
+    if (customerName !== init.customerName) return true;
+    if (fileName !== init.fileName) return true;
+    if (date !== init.date) return true;
+    if (isIgst !== init.isIgst) return true;
+    if (gstEnabled !== init.gstEnabled) return true;
+    
+    // Compare items list
+    if (items.length !== init.items.length) return true;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const initItem = init.items[i];
+      if (!initItem) return true;
+      if (item.name !== initItem.name) return true;
+      if (Number(item.qty) !== Number(initItem.qty)) return true;
+      if (Number(item.rate) !== Number(initItem.rate)) return true;
+      if (item.hsnCode !== initItem.hsnCode) return true;
+      if (item.gstRate !== initItem.gstRate) return true;
+      if (item.category !== initItem.category) return true;
+      if (item.subCategory !== initItem.subCategory) return true;
+      if (item.sku !== initItem.sku) return true;
+    }
+    
+    return false;
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      if (isConfirmedCloseRef.current || !hasChanges()) {
+        isConfirmedCloseRef.current = false;
+        setOpen(false);
+        resetForm();
+      } else {
+        setShowConfirmClose(true);
+      }
+    } else {
+      setOpen(true);
+    }
+  };
 
   // Focus appropriate field on open
   useEffect(() => {
@@ -1771,6 +1854,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       if (stayOpen) {
         resetForm();
       } else {
+        isConfirmedCloseRef.current = true;
         setOpen(false);
         resetForm();
       }
@@ -1782,9 +1866,13 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
+      <DialogContent 
+        className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <div className="flex flex-col h-full bg-white relative">
           <DialogHeader className="p-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0 pr-12 shrink-0">
             <DialogTitle>{title}</DialogTitle>
@@ -2159,7 +2247,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           </div>
 
           <div className="p-2.5 px-4 border-t bg-muted/30 flex justify-end gap-3 shrink-0">
-            <Button variant="outline" size="lg" className="px-8" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" size="lg" className="px-8" onClick={() => handleOpenChange(false)}>Cancel</Button>
             <Button variant="secondary" size="lg" className="px-4 gap-2 border-primary/10" onClick={() => handleSave(true)} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Save & Create Another
@@ -2181,6 +2269,33 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Are you sure you want to close?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              You have unsaved changes. Closing will permanently discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9 text-xs">Keep Editing</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground h-9 text-xs font-bold"
+              onClick={() => {
+                isConfirmedCloseRef.current = true;
+                setShowConfirmClose(false);
+                setOpen(false);
+                resetForm();
+              }}
+            >
+              Discard Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

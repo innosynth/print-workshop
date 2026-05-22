@@ -24,17 +24,19 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
 
   const today = format(new Date(), "yyyy-MM-dd");
+  const hasMeterReadingsPermission = hasPermission("Meter Readings", "view");
 
   const { data: machinesList = [] } = useQuery({ 
     queryKey: ["machines"], 
     queryFn: () => fetch("/api/system?resource=machines").then(res => {
       if (!res.ok) throw new Error("Failed to fetch machines");
       return res.json();
-    }) 
+    }),
+    enabled: hasMeterReadingsPermission
   });
 
   const { data: readingsData = [] } = useQuery({
@@ -42,7 +44,8 @@ export function Layout({ children }: LayoutProps) {
     queryFn: () => fetch("/api/system?resource=meter_readings").then(res => {
       if (!res.ok) throw new Error("Failed to fetch readings");
       return res.json();
-    })
+    }),
+    enabled: hasMeterReadingsPermission
   });
 
   const handleLogout = () => {
@@ -52,6 +55,8 @@ export function Layout({ children }: LayoutProps) {
 
   // Generate dynamic notifications
   const notifications = (() => {
+    if (!hasMeterReadingsPermission) return [];
+    
     const alerts: any[] = [];
     
     // 1. Missing Opening Reading for Today

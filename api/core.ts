@@ -279,6 +279,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
           return response.status(200).json(newUser[0]);
         }
       }
+      if (method === 'DELETE') {
+        const { id } = request.query;
+        if (!id) {
+          return response.status(400).json({ error: 'Missing user ID' });
+        }
+        await db.delete(users).where(eq(users.id, parseInt(id as string)));
+        return response.status(200).json({ success: true });
+      }
     }
 
     if (resource === 'auth') {

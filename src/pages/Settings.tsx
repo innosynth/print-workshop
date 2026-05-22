@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Building2, Save, Printer, Users, ShieldCheck, Loader2, Plus, Trash2, Mail, Lock, Eye, EyeOff, Edit } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
@@ -274,7 +274,12 @@ function EmployeesManager() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", password: "", roleId: "" });
+  const [formData, setFormData] = useState<{ id?: number; name: string; email: string; password: string; roleId: string }>({
+    name: "",
+    email: "",
+    password: "",
+    roleId: ""
+  });
 
   const { data: employees = [], isLoading: empLoading } = useQuery({
     queryKey: ["employees"],
@@ -286,7 +291,7 @@ function EmployeesManager() {
     queryFn: () => fetch("/api/core?resource=roles").then(res => res.json())
   });
 
-  const createEmpMutation = useMutation({
+  const saveEmpMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await fetch("/api/core?resource=users", {
         method: "POST",
@@ -295,11 +300,34 @@ function EmployeesManager() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       setFormData({ name: "", email: "", password: "", roleId: "" });
       setOpen(false);
-      toast({ title: "Employee added", description: "The employee profile has been created." });
+      toast({ 
+        title: variables.id ? "Employee updated" : "Employee added", 
+        description: variables.id ? "The employee profile has been updated." : "The employee profile has been created." 
+      });
+    }
+  });
+
+  const deleteEmpMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/core?resource=users&id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete employee");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      toast({ title: "Employee deleted", description: "The employee profile has been removed successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
     }
   });
 
@@ -316,7 +344,14 @@ function EmployeesManager() {
           <h3 className="text-lg font-semibold">Workshop Staff</h3>
           <p className="text-sm text-muted-foreground">Manage user accounts and assign roles</p>
         </div>
-        <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
+        <Button 
+          size="sm" 
+          onClick={() => {
+            setFormData({ name: "", email: "", password: "", roleId: "" });
+            setOpen(true);
+          }} 
+          className="gap-2"
+        >
           <Plus className="h-4 w-4" /> Add Employee
         </Button>
       </div>
@@ -325,6 +360,11 @@ function EmployeesManager() {
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <h4 className="text-sm font-bold text-primary">
+                  {formData.id ? `Edit Staff Member: ${formData.name}` : "Add New Staff Member"}
+                </h4>
+              </div>
               <div className="space-y-2">
                 <Label>Full Name</Label>
                 <Input placeholder="Employee Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
@@ -347,10 +387,23 @@ function EmployeesManager() {
                 </Select>
               </div>
               <div className="col-span-2 flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button size="sm" onClick={() => createEmpMutation.mutate(formData)} disabled={createEmpMutation.isPending}>
-                  {createEmpMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Employee
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setOpen(false);
+                    setFormData({ name: "", email: "", password: "", roleId: "" });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => saveEmpMutation.mutate(formData)} 
+                  disabled={saveEmpMutation.isPending || !formData.name || !formData.email || (!formData.id && !formData.password)}
+                >
+                  {saveEmpMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  {formData.id ? "Save Changes" : "Save Employee"}
                 </Button>
               </div>
             </div>
@@ -382,7 +435,40 @@ function EmployeesManager() {
                     <span className="bg-primary/10 text-primary text-[0.625rem] px-2 py-0.5 rounded-full font-bold uppercase">{emp.status}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <div className="flex justify-end gap-1.5">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setFormData({ 
+                            id: emp.id, 
+                            name: emp.name, 
+                            email: emp.email, 
+                            password: emp.password, 
+                            roleId: emp.roleId ? String(emp.roleId) : "" 
+                          });
+                          setOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          deleteEmpMutation.mutate(emp.id);
+                        }}
+                        disabled={deleteEmpMutation.isPending}
+                      >
+                        {deleteEmpMutation.isPending && deleteEmpMutation.variables === emp.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

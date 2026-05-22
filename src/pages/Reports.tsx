@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Navigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -1200,6 +1201,9 @@ function MeterReadingReport({ onRegisterExport }: { onRegisterExport: (fn: () =>
 }
 
 export default function Reports() {
+  const { hasPermission } = useAuth();
+  const hasMeterReadingsPermission = hasPermission("Meter Readings", "view");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const active = searchParams.get("active");
   const setActive = (v: string | null) => {
@@ -1215,6 +1219,9 @@ export default function Reports() {
   };
 
   if (active) {
+    if (active === "meter-reading" && !hasMeterReadingsPermission) {
+      return <Navigate to="/reports" replace />;
+    }
     const report = reportTypes.find(r => r.key === active)!;
     return (
       <div className="p-8 space-y-8 bg-white min-h-screen print:p-0">
@@ -1272,7 +1279,9 @@ export default function Reports() {
         <p className="text-sm text-muted-foreground">Generate business reports with real-time data</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {reportTypes.map(r => (
+        {reportTypes
+          .filter(r => r.key !== "meter-reading" || hasMeterReadingsPermission)
+          .map(r => (
           <button
             key={r.key}
             onClick={() => setActive(r.key)}
