@@ -120,11 +120,13 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   const [showInactive, setShowInactive] = useState(false);
   const [sameAsMobile, setSameAsMobile] = useState(true);
   const [noGst, setNoGst] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   
   const resetForm = () => {
     setFormData({});
     setSameAsMobile(true);
     setNoGst(false);
+    setPopoverOpen(false);
   };
   
   const { data: contacts = [], isLoading, isError } = useQuery<Contact[]>({
@@ -363,16 +365,25 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                     {field.name} {field.required && <span className="text-destructive">*</span>}
                   </Label>
                   {field.key === "name" && !formData.id ? (
-                    <Popover open={!!(formData?.name && contacts?.filter(c => c.type === (Array.isArray(type) ? type[0] : type) && c.status !== "Inactive" && c.name?.toLowerCase().includes(formData.name.toLowerCase())).length > 0)}>
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                       <PopoverAnchor asChild>
                         <Input 
                           className="mt-1 h-9" 
                           placeholder={field.placeholder} 
                           value={formData[field.key!] || ""}
                           autoComplete="off"
+                          onFocus={() => {
+                            const val = formData.name || "";
+                            const currentTypeName = Array.isArray(type) ? type[0] : type;
+                            const matches = contacts?.filter(c => c.type === currentTypeName && c.status !== "Inactive" && c.name?.toLowerCase().includes(val.toLowerCase()));
+                            setPopoverOpen(!!(val && matches && matches.length > 0));
+                          }}
                           onChange={e => {
                             const val = e.target.value;
                             setFormData({ ...formData, [field.key!]: val });
+                            const currentTypeName = Array.isArray(type) ? type[0] : type;
+                            const matches = contacts?.filter(c => c.type === currentTypeName && c.status !== "Inactive" && c.name?.toLowerCase().includes(val.toLowerCase()));
+                            setPopoverOpen(!!(val && matches && matches.length > 0));
                           }}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
@@ -390,6 +401,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                                 setFormData(firstMatch);
                                 setNoGst(firstMatch.gst === "-");
                               }
+                              setPopoverOpen(false);
                               // Move to next field regardless
                               const form = e.currentTarget.closest('[role="dialog"]');
                               if (form) {
@@ -437,6 +449,7 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                                       toast({ title: "Contact Selected", description: `Loaded details for ${c.name}` });
                                       setFormData(c);
                                       setNoGst(c.gst === "-");
+                                      setPopoverOpen(false);
                                     }}
                                   >
                                     <Check className="mr-2 h-4 w-4 opacity-0" />
