@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Loader2, Trash2, RefreshCw, Check, ChevronsUpDown, Calendar, FileText, Save, Edit, RefreshCcw } from "lucide-react";
+import { Search, Plus, Loader2, Trash2, RefreshCw, Check, ChevronsUpDown, Calendar, FileText, Save, Edit, RefreshCcw, AlertTriangle } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -160,6 +160,23 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   const [receivedAmount, setReceivedAmount] = useState("0");
   const [gstEnabled, setGstEnabled] = useState(true);
 
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const isConfirmedCloseRef = useRef(false);
+  const initialValuesRef = useRef<{
+    supplierId: string;
+    supplierName: string;
+    isIgst: boolean;
+    orderNo: string;
+    invNo: string;
+    createDate: string;
+    dueDate: string;
+    ourPoNo: string;
+    ourDcNo: string;
+    receivedAmount: string;
+    gstEnabled: boolean;
+    items: any[];
+  } | null>(null);
+
   const [items, setItems] = useState<any[]>([]);
   const [pendingItem, setPendingItem] = useState<{
     name: string;
@@ -235,11 +252,46 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
             setCreateDate(data.date ? new Date(data.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             setDueDate(data.dueDate ? new Date(data.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             setReceivedAmount(data.receivedAmount?.toString() || "0");
-            setItems(data.items || []);
+            const mappedItems = (data.items || []).map((item: any) => ({
+              ...item,
+              qty: parseFloat(item.qty || 0),
+              rate: parseFloat(item.rate || 0),
+              amount: parseFloat(item.amount || 0)
+            }));
+            setItems(mappedItems);
             setTimeout(() => pendingProductRef.current?.focus(), 250);
+            
+            initialValuesRef.current = {
+              supplierId: data.supplierId?.toString() || "",
+              supplierName: data.supplierName || "",
+              orderNo: data.orderNo || "",
+              invNo: data.invNo || "",
+              ourPoNo: data.ourPoNo || "",
+              ourDcNo: data.ourDcNo || "",
+              isIgst: data.isIgst || false,
+              createDate: data.date ? new Date(data.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              dueDate: data.dueDate ? new Date(data.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              receivedAmount: data.receivedAmount?.toString() || "0",
+              gstEnabled: true,
+              items: mappedItems
+            };
           })
           .finally(() => setFetching(false));
       } else {
+        initialValuesRef.current = {
+          supplierId: "",
+          supplierName: "",
+          orderNo: "",
+          invNo: "",
+          ourPoNo: "",
+          ourDcNo: "",
+          isIgst: false,
+          createDate: new Date().toISOString().split('T')[0],
+          dueDate: new Date().toISOString().split('T')[0],
+          receivedAmount: "0",
+          gstEnabled: true,
+          items: []
+        };
         setTimeout(() => supplierRef.current?.focus(), 150);
       }
     } else {
@@ -259,6 +311,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
        });
        setFocusNextItemTrigger(0);
        setProductTrigger(0);
+       initialValuesRef.current = null;
     }
   }, [open, editData]);
 
@@ -362,6 +415,55 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     return { subTotal, totalTax, total, cgst, sgst, igst };
   };
 
+  const hasChanges = () => {
+    if (!initialValuesRef.current) return false;
+    const init = initialValuesRef.current;
+
+    // Check if pending items have any input
+    if (pendingItem.name || pendingItem.qty || pendingItem.rate) return true;
+
+    // Compare fields
+    if (supplierId !== init.supplierId) return true;
+    if (supplierName !== init.supplierName) return true;
+    if (isIgst !== init.isIgst) return true;
+    if (orderNo !== init.orderNo) return true;
+    if (invNo !== init.invNo) return true;
+    if (createDate !== init.createDate) return true;
+    if (dueDate !== init.dueDate) return true;
+    if (ourPoNo !== init.ourPoNo) return true;
+    if (ourDcNo !== init.ourDcNo) return true;
+    if (receivedAmount !== init.receivedAmount) return true;
+    if (gstEnabled !== init.gstEnabled) return true;
+
+    // Compare items list
+    if (items.length !== init.items.length) return true;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const initItem = init.items[i];
+      if (!initItem) return true;
+      if (item.name !== initItem.name) return true;
+      if (Number(item.qty) !== Number(initItem.qty)) return true;
+      if (Number(item.rate) !== Number(initItem.rate)) return true;
+      if (item.hsn !== initItem.hsn) return true;
+      if (item.gstRate !== initItem.gstRate) return true;
+    }
+
+    return false;
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      if (isConfirmedCloseRef.current || !hasChanges()) {
+        isConfirmedCloseRef.current = false;
+        setOpen(false);
+      } else {
+        setShowConfirmClose(true);
+      }
+    } else {
+      setOpen(true);
+    }
+  };
+
   const { subTotal, totalTax, total, cgst, sgst, igst } = calculateTotals();
 
   const handleSave = async (stayOpen: boolean = false) => {
@@ -430,7 +532,22 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         setOrderNo("");
         setOurPoNo("");
         setOurDcNo("");
+        initialValuesRef.current = {
+          supplierId: "",
+          supplierName: "",
+          orderNo: "",
+          invNo: "",
+          ourPoNo: "",
+          ourDcNo: "",
+          isIgst: false,
+          createDate: new Date().toISOString().split('T')[0],
+          dueDate: new Date().toISOString().split('T')[0],
+          receivedAmount: "0",
+          gstEnabled: true,
+          items: []
+        };
       } else {
+        isConfirmedCloseRef.current = true;
         setOpen(false);
       }
     } catch (error: any) {
@@ -441,7 +558,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300">
         {fetching ? (
@@ -708,9 +825,9 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                    </div>
                 </div>
                 <div className="w-full sm:w-[320px] bg-muted/20 p-2.5 rounded-lg space-y-1 border shadow-inner">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
-                    <span className="font-bold tabular-nums">₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Subtotal</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                   {gstEnabled && !isIgst && (
                     <>
@@ -741,7 +858,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
           </div>
 
           <div className="p-2.5 px-4 border-t bg-muted/30 flex justify-end gap-3 shrink-0">
-            <Button variant="outline" size="lg" className="px-8 h-10 text-xs font-bold uppercase tracking-widest" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" size="lg" className="px-8 h-10 text-xs font-bold uppercase tracking-widest" onClick={() => handleOpenChange(false)}>Cancel</Button>
             <Button variant="secondary" size="lg" className="px-4 gap-2 border-primary/10 h-10 text-xs font-bold uppercase tracking-widest" onClick={() => handleSave(true)} disabled={loading}>
               <RefreshCw className="h-4 w-4" /> Save & Create Another
             </Button>
@@ -753,6 +870,32 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
         </div>
       )}
     </DialogContent>
+
+    <AlertDialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" /> Are you sure you want to close?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-sm">
+            You have unsaved changes. Closing will permanently discard them.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="h-9 text-xs">Keep Editing</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground h-9 text-xs font-bold"
+            onClick={() => {
+              isConfirmedCloseRef.current = true;
+              setShowConfirmClose(false);
+              setOpen(false);
+            }}
+          >
+            Discard Changes
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </Dialog>
   );
 }

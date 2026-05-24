@@ -105,7 +105,11 @@ function RolesManager() {
       setRoleName(r.name);
       try {
         const parsed = typeof r.permissions === "string" ? JSON.parse(r.permissions) : r.permissions;
-        setPermissions(parsed);
+        const merged = INITIAL_PERMISSIONS.map(initPerm => {
+          const found = Array.isArray(parsed) ? parsed.find((p: any) => p.module === initPerm.module) : null;
+          return found ? { ...initPerm, ...found } : initPerm;
+        });
+        setPermissions(merged);
       } catch (e) {
         setPermissions(INITIAL_PERMISSIONS);
       }

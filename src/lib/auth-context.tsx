@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete'): boolean => {
     if (!user) return false;
     if (!role) return true; // Default to full access if no role assigned (e.g. super admin) or decide otherwise
+    if (role.name.toLowerCase() === "super admin") return true;
     
     try {
       const permissions = JSON.parse(role.permissions);

@@ -4,12 +4,13 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Loader2, Gauge, Save, History, TrendingDown, LayoutPanelLeft, Edit2, Download, Calendar, Check, ChevronsUpDown } from "lucide-react";
+import { Search, Plus, Loader2, Gauge, Save, History, TrendingDown, LayoutPanelLeft, Edit2, Download, Calendar, Check, ChevronsUpDown, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,21 @@ export default function MeterReadings() {
   const [newMachineMode, setNewMachineMode] = useState(false);
   const [newMachineName, setNewMachineName] = useState("");
   const [comboOpen, setComboOpen] = useState(false);
+
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const isConfirmedCloseRef = useRef(false);
+  const initialValuesRef = useRef<{
+    machineName: string;
+    date: string;
+    bwLarge: string;
+    bwSmall: string;
+    colorLarge: string;
+    colorSmall: string;
+    lsColor: string;
+    lsMono: string;
+    openingReading: string;
+    closingReading: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -169,6 +185,7 @@ export default function MeterReadings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meter_readings"] });
+      isConfirmedCloseRef.current = true;
       setOpen(false);
       resetForm();
       toast({ title: "Success", description: "Meter reading saved successfully." });
@@ -222,6 +239,41 @@ export default function MeterReadings() {
     });
     setNewMachineMode(false);
     setNewMachineName("");
+  };
+
+  const hasChanges = () => {
+    if (!initialValuesRef.current) return false;
+    const init = initialValuesRef.current;
+    
+    if (newMachineMode) return true;
+    if (newMachineName) return true;
+    
+    if (formData.machineName !== init.machineName) return true;
+    if (formData.date !== init.date) return true;
+    if (formData.bwLarge !== init.bwLarge) return true;
+    if (formData.bwSmall !== init.bwSmall) return true;
+    if (formData.colorLarge !== init.colorLarge) return true;
+    if (formData.colorSmall !== init.colorSmall) return true;
+    if (formData.lsColor !== init.lsColor) return true;
+    if (formData.lsMono !== init.lsMono) return true;
+    if (formData.openingReading !== init.openingReading) return true;
+    if (formData.closingReading !== init.closingReading) return true;
+
+    return false;
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      if (isConfirmedCloseRef.current || !hasChanges()) {
+        isConfirmedCloseRef.current = false;
+        setOpen(false);
+        resetForm();
+      } else {
+        setShowConfirmClose(true);
+      }
+    } else {
+      setOpen(true);
+    }
   };
 
   const handleRangeChange = (range: string) => {
@@ -289,12 +341,28 @@ export default function MeterReadings() {
           <Button onClick={handleExport} variant="outline" className="h-11 px-6 gap-2 font-black uppercase text-[0.625rem] tracking-widest border-2 border-gray-100 rounded-xl hover:bg-gray-50 flex shadow-sm">
             <Download className="h-4 w-4" /> Export Report
           </Button>
-          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[0.6875rem]">
-                <Plus className="h-4 w-4" /> Start New Shift
-              </Button>
-            </DialogTrigger>
+          <Dialog open={open} onOpenChange={handleOpenChange}>
+            <Button 
+              onClick={() => {
+                resetForm();
+                initialValuesRef.current = {
+                  machineName: "",
+                  date: getLocalDateString(),
+                  bwLarge: "0",
+                  bwSmall: "0",
+                  colorLarge: "0",
+                  colorSmall: "0",
+                  lsColor: "0",
+                  lsMono: "0",
+                  openingReading: "0",
+                  closingReading: "0"
+                };
+                setOpen(true);
+              }}
+              className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[0.6875rem]"
+            >
+              <Plus className="h-4 w-4" /> Start New Shift
+            </Button>
             <DialogContent className="max-w-2xl bg-white border-none shadow-2xl rounded-2xl overflow-hidden">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight">Log Daily Meter Reading</DialogTitle>
@@ -527,6 +595,33 @@ export default function MeterReadings() {
                 </Button>
               </div>
             </DialogContent>
+
+            <AlertDialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="h-5 w-5" /> Are you sure you want to close?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-sm">
+                    You have unsaved changes. Closing will permanently discard them.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="h-9 text-xs">Keep Editing</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground h-9 text-xs font-bold"
+                    onClick={() => {
+                      isConfirmedCloseRef.current = true;
+                      setShowConfirmClose(false);
+                      setOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    Discard Changes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </Dialog>
         </div>
       </div>
@@ -608,7 +703,7 @@ export default function MeterReadings() {
                     </td>
                     <td className="px-4 py-2.5 text-center">
                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-all rounded-full" onClick={() => {
-                          setFormData({
+                          const data = {
                             id: r.id,
                             machineName: r.machineName,
                             date: r.date,
@@ -620,7 +715,20 @@ export default function MeterReadings() {
                             lsMono: r.lsMono || "0",
                             openingReading: r.openingReading || "0",
                             closingReading: r.closingReading || "0"
-                          });
+                          };
+                          setFormData(data);
+                          initialValuesRef.current = {
+                            machineName: r.machineName,
+                            date: r.date,
+                            bwLarge: r.bwLarge || "0",
+                            bwSmall: r.bwSmall || "0",
+                            colorLarge: r.colorLarge || "0",
+                            colorSmall: r.colorSmall || "0",
+                            lsColor: r.lsColor || "0",
+                            lsMono: r.lsMono || "0",
+                            openingReading: r.openingReading || "0",
+                            closingReading: r.closingReading || "0"
+                          };
                           setOpen(true);
                        }}>
                          <Edit2 className="h-4 w-4" />

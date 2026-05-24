@@ -2211,9 +2211,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   </div>
                 </div>
                 <div className="w-full sm:w-[320px] bg-muted/20 p-2.5 rounded-lg space-y-1 border shadow-inner">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Subtotal</span>
-                    <span className="font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Subtotal</span>
+                    <span className="font-black text-lg text-green-600 tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                   {isIgst ? (
                     <div className="flex justify-between text-xs">
