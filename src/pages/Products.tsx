@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/lib/auth-context";
 
 
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
@@ -73,7 +74,7 @@ function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
   );
 }
 
-function ProductList({ products, isLoading, isError }: { products: any[], isLoading: boolean, isError: boolean }) {
+function ProductList({ products, isLoading, isError, canEdit }: { products: any[], isLoading: boolean, isError: boolean, canEdit: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -182,30 +183,38 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                   {filtered.map((p: any) => (
                     <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors whitespace-nowrap group">
                       <td className="px-4 py-3">
-                        <CreateProductModal 
-                           tabName="products" 
-                           products={products}
-                           initialData={p}
-                           title="Edit Product"
-                           trigger={
-                             <button className="font-mono text-xs text-primary font-bold hover:underline underline-offset-4 decoration-primary/30">
-                               {p.sku || "EDIT"}
-                             </button>
-                           }
-                        />
+                        {canEdit ? (
+                          <CreateProductModal 
+                             tabName="products" 
+                             products={products}
+                             initialData={p}
+                             title="Edit Product"
+                             trigger={
+                               <button className="font-mono text-xs text-primary font-bold hover:underline underline-offset-4 decoration-primary/30">
+                                 {p.sku || "EDIT"}
+                               </button>
+                             }
+                          />
+                        ) : (
+                          <span className="font-mono text-xs text-muted-foreground">{p.sku || "—"}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <CreateProductModal 
-                           tabName="products" 
-                           products={products}
-                           initialData={p}
-                           title="Edit Product"
-                           trigger={
-                             <button className="font-medium text-primary hover:underline underline-offset-4 decoration-primary/30">
-                               {p.name}
-                             </button>
-                           }
-                        />
+                        {canEdit ? (
+                          <CreateProductModal 
+                             tabName="products" 
+                             products={products}
+                             initialData={p}
+                             title="Edit Product"
+                             trigger={
+                               <button className="font-medium text-primary hover:underline underline-offset-4 decoration-primary/30">
+                                 {p.name}
+                               </button>
+                             }
+                          />
+                        ) : (
+                          <span className="font-medium">{p.name}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3"><Badge variant="outline" className="text-[0.625rem] font-bold uppercase">{p.category}</Badge></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{p.subCategory || "—"}</td>
@@ -231,17 +240,19 @@ function ProductList({ products, isLoading, isError }: { products: any[], isLoad
                       </td>
                       <td className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">{p.type || "PRODUCT"}</td>
                       <td className="px-4 py-3 text-right">
-                        <CreateProductModal 
-                          tabName="products" 
-                          products={products}
-                          initialData={p}
-                          title="Edit Product"
-                          trigger={
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground/50">
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                          }
-                        />
+                        {canEdit && (
+                          <CreateProductModal 
+                            tabName="products" 
+                            products={products}
+                            initialData={p}
+                            title="Edit Product"
+                            trigger={
+                              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground/50">
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                            }
+                          />
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -850,6 +861,9 @@ export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "products";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("Products", "edit");
+  const canCreate = hasPermission("Products", "create");
   const { data: products = [], isLoading: productsLoading, isError: productsError } = useQuery({ 
     queryKey: ["products"], 
     queryFn: () => fetch("/api/core?resource=products").then(res => {
@@ -903,21 +917,23 @@ export default function Products() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <CreateProductModal
-            tabName={activeTab}
-            products={products}
-            initialData={{ dbCategories, dbBrands }}
-            title={getNewButtonLabel(activeTab)}
-            trigger={
-              <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
-                <Plus className="h-3.5 w-3.5" />
-                {getNewButtonLabel(activeTab)}
-              </Button>
-            }
-          />
+          {canCreate && (
+            <CreateProductModal
+              tabName={activeTab}
+              products={products}
+              initialData={{ dbCategories, dbBrands }}
+              title={getNewButtonLabel(activeTab)}
+              trigger={
+                <Button size="sm" className="h-9 gap-1 shadow-lg shadow-primary/20">
+                  <Plus className="h-3.5 w-3.5" />
+                  {getNewButtonLabel(activeTab)}
+                </Button>
+              }
+            />
+          )}
         </div>
 
-        <TabsContent value="products" className="mt-4"><ProductList products={products} isLoading={productsLoading} isError={productsError} /></TabsContent>
+        <TabsContent value="products" className="mt-4"><ProductList products={products} isLoading={productsLoading} isError={productsError} canEdit={canEdit} /></TabsContent>
         <TabsContent value="categories" className="mt-4"><CategoryList products={products} dbCategories={dbCategories} /></TabsContent>
         <TabsContent value="brands" className="mt-4"><BrandList products={products} dbBrands={dbBrands} /></TabsContent>
         <TabsContent value="pricelists" className="mt-4">

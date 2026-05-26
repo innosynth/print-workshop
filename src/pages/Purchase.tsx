@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/auth-context";
 
 
 function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
@@ -987,6 +988,9 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete }: { data: any[]; col
 
 export default function Purchase() {
   const { toast } = useToast();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("Purchase", "edit");
+  const canDelete = hasPermission("Purchase", "delete");
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "entries";
@@ -1084,8 +1088,8 @@ export default function Purchase() {
           />
         </div>
 
-        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={(r) => { setEditData(r); setShowCreateModal(true); }} onDelete={(r) => handleDelete(r, 'entries')} /></TabsContent>
-        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={(r) => { setEditData(r); setShowCreateModal(true); }} onDelete={(r) => handleDelete(r, 'orders')} /></TabsContent>
+        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'entries') : undefined} /></TabsContent>
+        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'orders') : undefined} /></TabsContent>
         <TabsContent value="returns" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No purchase returns recorded today</div>
         </TabsContent>

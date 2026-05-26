@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Filter, Check } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/lib/auth-context";
 
 type ContactType = "B2B" | "B2C" | "Supplier";
 
@@ -121,6 +122,9 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
   const [sameAsMobile, setSameAsMobile] = useState(true);
   const [noGst, setNoGst] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("Contacts", "edit");
+  const canCreate = hasPermission("Contacts", "create");
   
   const resetForm = () => {
     setFormData({});
@@ -353,9 +357,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
           </label>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
-          </DialogTrigger>
+          {canCreate && (
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-9 gap-1" onClick={() => resetForm()}><Plus className="h-3.5 w-3.5" />{addButtonLabel}</Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-lg overflow-y-auto max-h-[45rem]">
             <DialogHeader><DialogTitle>{dialogTitle}</DialogTitle></DialogHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
@@ -715,9 +721,11 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
                         ₹{Math.abs(parseFloat(c.balance)).toLocaleString("en-IN")}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(c)}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(c)}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

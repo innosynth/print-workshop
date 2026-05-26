@@ -22,7 +22,9 @@ export default function MeterReadings() {
   const setActiveRange = (v: string) => setSearchParams({ range: v });
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canCreate = hasPermission("Meter Readings", "create");
+  const canEdit = hasPermission("Meter Readings", "edit");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [newMachineMode, setNewMachineMode] = useState(false);
@@ -342,27 +344,29 @@ export default function MeterReadings() {
             <Download className="h-4 w-4" /> Export Report
           </Button>
           <Dialog open={open} onOpenChange={handleOpenChange}>
-            <Button 
-              onClick={() => {
-                resetForm();
-                initialValuesRef.current = {
-                  machineName: "",
-                  date: getLocalDateString(),
-                  bwLarge: "0",
-                  bwSmall: "0",
-                  colorLarge: "0",
-                  colorSmall: "0",
-                  lsColor: "0",
-                  lsMono: "0",
-                  openingReading: "0",
-                  closingReading: "0"
-                };
-                setOpen(true);
-              }}
-              className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[0.6875rem]"
-            >
-              <Plus className="h-4 w-4" /> Start New Shift
-            </Button>
+            {canCreate && (
+              <Button 
+                onClick={() => {
+                  resetForm();
+                  initialValuesRef.current = {
+                    machineName: "",
+                    date: getLocalDateString(),
+                    bwLarge: "0",
+                    bwSmall: "0",
+                    colorLarge: "0",
+                    colorSmall: "0",
+                    lsColor: "0",
+                    lsMono: "0",
+                    openingReading: "0",
+                    closingReading: "0"
+                  };
+                  setOpen(true);
+                }}
+                className="h-11 gap-2 font-black uppercase tracking-widest px-8 shadow-xl shadow-primary/20 bg-primary rounded-xl hover:scale-105 transition-all text-[0.6875rem]"
+              >
+                <Plus className="h-4 w-4" /> Start New Shift
+              </Button>
+            )}
             <DialogContent className="max-w-2xl bg-white border-none shadow-2xl rounded-2xl overflow-hidden">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight">Log Daily Meter Reading</DialogTitle>
@@ -702,37 +706,39 @@ export default function MeterReadings() {
                        ) : parseFloat(r.closingReading || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5 text-center">
-                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-all rounded-full" onClick={() => {
-                          const data = {
-                            id: r.id,
-                            machineName: r.machineName,
-                            date: r.date,
-                            bwLarge: r.bwLarge || "0",
-                            bwSmall: r.bwSmall || "0",
-                            colorLarge: r.colorLarge || "0",
-                            colorSmall: r.colorSmall || "0",
-                            lsColor: r.lsColor || "0",
-                            lsMono: r.lsMono || "0",
-                            openingReading: r.openingReading || "0",
-                            closingReading: r.closingReading || "0"
-                          };
-                          setFormData(data);
-                          initialValuesRef.current = {
-                            machineName: r.machineName,
-                            date: r.date,
-                            bwLarge: r.bwLarge || "0",
-                            bwSmall: r.bwSmall || "0",
-                            colorLarge: r.colorLarge || "0",
-                            colorSmall: r.colorSmall || "0",
-                            lsColor: r.lsColor || "0",
-                            lsMono: r.lsMono || "0",
-                            openingReading: r.openingReading || "0",
-                            closingReading: r.closingReading || "0"
-                          };
-                          setOpen(true);
-                       }}>
-                         <Edit2 className="h-4 w-4" />
-                       </Button>
+                       {canEdit && (
+                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-all rounded-full" onClick={() => {
+                            const data = {
+                              id: r.id,
+                              machineName: r.machineName,
+                              date: r.date,
+                              bwLarge: r.bwLarge || "0",
+                              bwSmall: r.bwSmall || "0",
+                              colorLarge: r.colorLarge || "0",
+                              colorSmall: r.colorSmall || "0",
+                              lsColor: r.lsColor || "0",
+                              lsMono: r.lsMono || "0",
+                              openingReading: r.openingReading || "0",
+                              closingReading: r.closingReading || "0"
+                            };
+                            setFormData(data);
+                            initialValuesRef.current = {
+                              machineName: r.machineName,
+                              date: r.date,
+                              bwLarge: r.bwLarge || "0",
+                              bwSmall: r.bwSmall || "0",
+                              colorLarge: r.colorLarge || "0",
+                              colorSmall: r.colorSmall || "0",
+                              lsColor: r.lsColor || "0",
+                              lsMono: r.lsMono || "0",
+                              openingReading: r.openingReading || "0",
+                              closingReading: r.closingReading || "0"
+                            };
+                            setOpen(true);
+                         }}>
+                           <Edit2 className="h-4 w-4" />
+                         </Button>
+                       )}
                     </td>
                   </tr>
                 </Fragment>

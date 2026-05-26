@@ -2678,8 +2678,10 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
 }
 
 export default function Sales() {
-  const { user, role } = useAuth();
+  const { user, role, hasPermission } = useAuth();
   const isSuperAdmin = !role || role.name === 'Super Admin' || user?.email === 'admin@example.com'; // Adding fallback checks
+  const canEdit = hasPermission("Sales", "edit");
+  const canCreate = hasPermission("Sales", "create");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "estimates";
   const setActiveTab = (v: string) => setSearchParams({ tab: v });
@@ -3259,7 +3261,7 @@ export default function Sales() {
             onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: false })}
             onDownload={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: true })}
             onWhatsApp={handleWhatsApp}
-            onEdit={(r) => setEditingRecord({ data: r, type: "estimates" })}
+            onEdit={canEdit ? (r) => setEditingRecord({ data: r, type: "estimates" }) : undefined}
             onConvert={(r) => setConvertDialog({ open: true, data: r, type: "estimates" })}
             loadingId={convertingId}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
@@ -3281,7 +3283,7 @@ export default function Sales() {
             onConvert={(r) => handleConvert(r, "quotations", "invoices")}
             loadingId={convertingId}
             onWhatsApp={handleWhatsApp}
-            onEdit={(r) => setEditingRecord({ data: r, type: "quotations" })}
+            onEdit={canEdit ? (r) => setEditingRecord({ data: r, type: "quotations" }) : undefined}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "quotations") : undefined}
             enableMultiSelect
             onBulkDownload={(selected) => handleBulkDownload(selected, "quotations")}
@@ -3298,7 +3300,7 @@ export default function Sales() {
             onDownload={(r) => setSelectedInvoice({ data: r, type: "invoices", autoDownload: true })}
             onToggleStatus={handleToggleStatus}
             onWhatsApp={handleWhatsApp}
-            onEdit={(r) => setEditingRecord({ data: r, type: "invoices" })}
+            onEdit={canEdit ? (r) => setEditingRecord({ data: r, type: "invoices" }) : undefined}
             onDelete={isSuperAdmin ? (r) => handleDelete(r, "invoices") : undefined}
             enableMultiSelect
             onBulkDownload={(selected) => handleBulkDownload(selected, "invoices")}
