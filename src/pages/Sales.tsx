@@ -129,7 +129,17 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
-        <Command value={highlighted} onValueChange={setHighlighted}>
+        <Command
+          value={highlighted}
+          onValueChange={setHighlighted}
+          filter={(value, search) => {
+            if (value.startsWith("___custom_value___:")) return 1;
+            const normalizedValue = value.toLowerCase();
+            const normalizedSearch = search.toLowerCase();
+            if (normalizedValue.includes(normalizedSearch)) return 1;
+            return 0;
+          }}
+        >
           <CommandInput
             ref={inputRef}
             placeholder={`Search ${label.toLowerCase()}...`}
@@ -162,18 +172,6 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
           {(!showListOnlyWhenTyping || search) ? (
           <CommandList>
             <CommandEmpty className="p-0">
-              {allowCustom && search ? (
-                <div
-                  className="flex items-center gap-2 p-2 hover:bg-accent cursor-pointer text-xs font-bold text-primary border-b"
-                  onClick={() => {
-                    justClosed.current = true;
-                    onSelect(search);
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="h-3 w-3" /> Use "{search}" as Walk-in
-                </div>
-              ) : null}
               <div className="p-6 text-center text-sm">No {label.toLowerCase()} found.</div>
             </CommandEmpty>
             <CommandGroup className="p-0 h-0 overflow-hidden">
@@ -188,6 +186,19 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
             </CommandGroup>
 
             <CommandGroup>
+              {allowCustom && search && !options.some(opt => opt.trim().toLowerCase() === search.trim().toLowerCase()) && (
+                <CommandItem
+                  value={`___custom_value___:${search}`}
+                  onSelect={() => {
+                    justClosed.current = true;
+                    onSelect(search);
+                    setOpen(false);
+                  }}
+                  className="text-xs font-bold text-primary py-1 px-2 cursor-default flex items-center gap-1.5"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Use "{search}" as Walk-in
+                </CommandItem>
+              )}
               {includeBlank && (
                 <CommandItem
                   value="none_selected"
