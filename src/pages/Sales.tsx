@@ -71,7 +71,7 @@ const generateNextNo = (list: any[], type: string) => {
   return `${prefix}-${max + 1}`;
 };
 
-function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className, showListOnlyWhenTyping }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string, showListOnlyWhenTyping?: boolean }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
   const [search, setSearch] = useState("");
@@ -158,6 +158,8 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
               }
             }}
           />
+          {/* When showListOnlyWhenTyping is true, hide the list until the user types something — matching the B2B Customer screen behavior */}
+          {(!showListOnlyWhenTyping || search) ? (
           <CommandList>
             <CommandEmpty className="p-0">
               {allowCustom && search ? (
@@ -224,6 +226,12 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
               </>
             )}
           </CommandList>
+          ) : (
+            /* Empty state — show a hint so user knows to start typing */
+            <div className="px-3 py-2.5 text-xs text-muted-foreground italic text-center">
+              Type to search {label.toLowerCase()}...
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
@@ -1928,6 +1936,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     onKeyDown={(e) => handleEnter(e, pendingCategoryRef.current, null)}
                     openOnFocus
                     allowCustom
+                    showListOnlyWhenTyping
                     label="Customer"
                     value={contacts.find((c: any) => c.id.toString() === customerId)?.name || customerName || ""}
                     options={Array.from(new Set(contacts.filter((c: any) => c.status !== "Inactive" && (c.type === "B2B" || c.type === "B2C")).map((c: any) => c.name)))}
@@ -2001,6 +2010,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       }}
                       openOnFocus
                       autoOpenTrigger={focusNextItemTrigger}
+                      showListOnlyWhenTyping
                       label="Category"
                       value={pendingItem.category}
                       options={Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean) as string[]}
@@ -2129,9 +2139,13 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   {items.map((item, index) => (
                     <tr key={index} className="hover:bg-muted/20 transition-colors group">
                       <td className="p-1 pl-4 py-0">
-                        <span className="text-xs font-normal text-foreground uppercase tracking-tight leading-tight block truncate" title={item.category}>
-                          {item.category || "-"}
-                        </span>
+                        <Input
+                          value={item.category || ""}
+                          placeholder="—"
+                          className="h-6 font-normal text-xs uppercase tracking-tight bg-transparent border-transparent focus:border-primary/20 hover:bg-muted/30 focus:bg-white transition-all py-0 pl-0"
+                          onChange={e => updateItem(index, "category", e.target.value)}
+                          title={item.category}
+                        />
                       </td>
                       <td className="p-1 py-0">
                         <span className="text-xs font-normal text-foreground uppercase leading-tight block truncate" title={item.name}>
