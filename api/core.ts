@@ -183,6 +183,135 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
     }
 
+    // ─── Bulk Import: Preview ─────────────────────────────────────────────────
+    if (resource === 'product_bulk_preview') {
+      if (method === 'POST') {
+        const rows: any[] = request.body; // array of parsed CSV rows (already mapped to DB fields)
+        if (!Array.isArray(rows) || rows.length === 0) {
+          return response.status(400).json({ error: 'No rows provided' });
+        }
+
+        // Fetch all existing products from DB (keyed by SKU)
+        const existing = await db.select().from(products);
+        const existingBySku = new Map(existing.map(p => [String(p.sku || '').trim().toLowerCase(), p]));
+
+        const newProducts: any[] = [];
+        const changed: any[] = [];      // any field changed
+        const unchanged: any[] = [];
+        const duplicatesInFile: any[] = [];
+        const seenInFile = new Set<string>();
+
+        // Fields to compare: [csvField, dbField, label, isNumeric]
+        const COMPARE_FIELDS: [string, string, string, boolean][] = [
+          ['name',        'name',        'Product Name', false],
+          ['category',    'category',    'Category',     false],
+          ['subCategory', 'subCategory', 'Sub Category', false],
+          ['hsnCode',     'hsnCode',     'HSN Code',     false],
+          ['gstRate',     'gstRate',     'GST %',        true ],
+          ['sellPrice',   'sellPrice',   'Selling Price',true ],
+        ];
+
+        for (const row of rows) {
+          const skuKey = String(row.sku || '').trim().toLowerCase();
+          if (!skuKey) continue;
+
+          // Duplicate within the uploaded file itself
+          if (seenInFile.has(skuKey)) {
+            duplicatesInFile.push({ ...row, _reason: 'Duplicate SKU in file' });
+            continue;
+          }
+          seenInFile.add(skuKey);
+
+          const dbProduct = existingBySku.get(skuKey);
+          if (!dbProduct) {
+            newProducts.push({ ...row, _status: 'new' });
+          } else {
+            // Build a diff list for all changed fields
+            const diff: { field: string; label: string; oldVal: string; newVal: string }[] = [];
+
+            for (const [csvField, dbField, label, isNumeric] of COMPARE_FIELDS) {
+              const csvRaw = String(row[csvField] || '').trim();
+              const dbRaw  = String((dbProduct as any)[dbField] ?? '').trim();
+
+              if (isNumeric) {
+                const csvNum = parseFloat(csvRaw || '0');
+                const dbNum  = parseFloat(dbRaw  || '0');
+                if (Math.abs(csvNum - dbNum) > 0.001) {
+                  diff.push({ field: csvField, label, oldVal: dbRaw, newVal: csvRaw });
+                }
+              } else {
+                if (csvRaw.toLowerCase() !== dbRaw.toLowerCase()) {
+                  diff.push({ field: csvField, label, oldVal: dbRaw, newVal: csvRaw });
+                }
+              }
+            }
+
+            if (diff.length > 0) {
+              changed.push({ ...row, _status: 'changed', _dbId: dbProduct.id, _diff: diff });
+            } else {
+              unchanged.push({ ...row, _status: 'unchanged', _dbId: dbProduct.id });
+            }
+          }
+        }
+
+        return response.status(200).json({
+          summary: {
+            total:            rows.length,
+            new:              newProducts.length,
+            changed:          changed.length,
+            unchanged:        unchanged.length,
+            duplicatesInFile: duplicatesInFile.length,
+          },
+          newProducts,
+          changed,
+          unchanged,
+          duplicatesInFile,
+        });
+      }
+    }
+
+    // ─── Bulk Import: Confirm & Execute ──────────────────────────────────────
+    if (resource === 'product_bulk_confirm') {
+      if (method === 'POST') {
+        const { newProducts = [], changed = [] } = request.body;
+
+        let inserted = 0;
+        let updated = 0;
+        const errors: string[] = [];
+
+        // Insert new products
+        for (const row of newProducts) {
+          try {
+            const { _status, _dbId, _diff, _reason, ...data } = row;
+            await db.insert(products).values(data);
+            inserted++;
+          } catch (err: any) {
+            errors.push(`Insert failed for SKU "${row.sku}": ${err.message}`);
+          }
+        }
+
+        // Update changed products — write all changed fields back
+        for (const row of changed) {
+          try {
+            const { _status, _dbId, _diff, _reason, ...data } = row;
+            // Build update payload from only the fields that actually changed
+            const updatePayload: Record<string, any> = {};
+            for (const d of (_diff || [])) {
+              updatePayload[d.field] = data[d.field];
+            }
+            await db.update(products)
+              .set(updatePayload)
+              .where(eq(products.id, _dbId));
+            updated++;
+          } catch (err: any) {
+            errors.push(`Update failed for SKU "${row.sku}": ${err.message}`);
+          }
+        }
+
+        return response.status(200).json({ inserted, updated, errors });
+      }
+    }
+
     if (resource === 'settings') {
       if (method === 'GET') {
         const profile = await db.select().from(companyProfile).limit(1);

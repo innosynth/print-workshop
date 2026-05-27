@@ -27,46 +27,441 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth-context";
 
 
+// ─── CSV Column → DB Field mapping (the 12 always-filled fields) ──────────────
+const CSV_COLUMN_MAP: Record<string, string> = {
+  sku: "sku",
+  product_name: "name",
+  category: "category",
+  sub_category: "subCategory",
+  stock: "stock",
+  selling_price: "sellPrice",
+  min_stock: "minStock",
+  purchase_price: "purchasePrice",
+  hsn: "hsnCode",
+  gst_percentage: "gstRate",
+  unit: "unit",
+  product_type: "type",
+};
+
+const TEMPLATE_HEADERS = Object.keys(CSV_COLUMN_MAP);
+
+function downloadTemplate() {
+  const header = TEMPLATE_HEADERS.join(",");
+  const exampleRow = [
+    "A4 PHOTO SHEET-FIRST",
+    "A4 PHOTO SHEET",
+    "PHOTO SHEET",
+    "FIRST",
+    "0",
+    "30.00",
+    "0",
+    "0.00",
+    "4909",
+    "18",
+    "Nos",
+    "Service",
+  ].join(",");
+  const csv = `${header}\n${exampleRow}\n`;
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "product_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const rawHeaders = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim().toLowerCase());
+  return lines.slice(1).map(line => {
+    // Handle quoted fields with commas inside
+    const fields: string[] = [];
+    let current = "";
+    let inQuote = false;
+    for (const ch of line) {
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === "," && !inQuote) { fields.push(current); current = ""; }
+      else { current += ch; }
+    }
+    fields.push(current);
+    const row: Record<string, string> = {};
+    rawHeaders.forEach((h, i) => { row[h] = (fields[i] || "").trim(); });
+    return row;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function mapRowToDb(row: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [csvCol, dbField] of Object.entries(CSV_COLUMN_MAP)) {
+    const val = row[csvCol] ?? row[csvCol.replace(/_/g, " ")] ?? "";
+    out[dbField] = val.trim();
+  }
+  return out;
+}
+
+type PreviewResult = {
+  summary: { total: number; new: number; changed: number; unchanged: number; duplicatesInFile: number };
+  newProducts: any[];
+  changed: any[];
+  unchanged: any[];
+  duplicatesInFile: any[];
+};
+
+type ImportStep = "upload" | "preview" | "confirming" | "done";
+
 function BulkImportModal({ trigger }: { trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<ImportStep>("upload");
+  const [dragging, setDragging] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [activeTab, setActiveTab] = useState<"new" | "changed" | "unchanged" | "dup">("new");
+  const [result, setResult] = useState<{ inserted: number; updated: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const handleUpload = async () => {
-    toast({ title: "Importing...", description: "Processing your product catalogue" });
+  const reset = () => {
+    setStep("upload");
+    setFileName("");
+    setPreview(null);
+    setResult(null);
+    setLoading(false);
+    setActiveTab("new");
+  };
+
+  const handleFile = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast({ variant: "destructive", title: "Invalid file", description: "Please upload a .csv file" });
+      return;
+    }
+    setFileName(file.name);
+    setLoading(true);
     try {
-      const mockData = [
-        { sku: "ART-300", name: "Art Paper 300gsm", category: "Paper", sellPrice: "25", stock: "100" },
-        { sku: "VIN-GLO", name: "Vinyl Glossy", category: "Vinyl", sellPrice: "45", stock: "50" },
-      ];
-      const res = await fetch("/api/core?resource=products", {
+      const text = await file.text();
+      const rawRows = parseCSV(text);
+      if (rawRows.length === 0) throw new Error("No data rows found in the CSV.");
+      const mapped = rawRows.map(mapRowToDb);
+      const res = await fetch("/api/core?resource=product_bulk_preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mockData)
+        body: JSON.stringify(mapped),
       });
-      if (!res.ok) throw new Error("Import failed");
-      setOpen(false);
-      toast({ title: "Success", description: "Successfully imported 2 products" });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      if (!res.ok) throw new Error(await res.text());
+      const data: PreviewResult = await res.json();
+      setPreview(data);
+      setActiveTab(data.summary.new > 0 ? "new" : data.summary.changed > 0 ? "changed" : "unchanged");
+      setStep("preview");
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
+      toast({ variant: "destructive", title: "Parse Error", description: e.message });
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleConfirm = async () => {
+    if (!preview) return;
+    setStep("confirming");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/core?resource=product_bulk_confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newProducts: preview.newProducts, changed: preview.changed }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setResult(data);
+      setStep("done");
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Import Failed", description: e.message });
+      setStep("preview");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const SummaryCard = ({ label, value, color }: { label: string; value: number; color: string }) => (
+    <div className={`rounded-xl border-2 p-4 text-center ${color}`}>
+      <p className="text-3xl font-black tabular-nums">{value}</p>
+      <p className="text-[0.625rem] font-bold uppercase tracking-widest mt-1 opacity-70">{label}</p>
+    </div>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); setOpen(v); }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Bulk Import Products</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="border-2 border-dashed border-muted rounded-xl p-8 text-center space-y-2">
-            <Upload className="h-8 w-8 text-muted-foreground mx-auto" />
-            <p className="text-sm font-medium">Drag and drop your Excel/CSV file here</p>
-            <p className="text-xs text-muted-foreground">Download the <span className="text-primary cursor-pointer hover:underline">template file</span> before uploading</p>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
+          <div>
+            <h2 className="font-black text-lg tracking-tight flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" /> Bulk Import Products
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {step === "upload" && "Upload a CSV file to import or update products"}
+              {step === "preview" && `Preview — ${preview?.summary.total} rows from "${fileName}"`}
+              {step === "confirming" && "Applying changes to database…"}
+              {step === "done" && "Import complete!"}
+            </p>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpload}>Start Import</Button>
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 text-[0.6rem] font-black uppercase tracking-widest">
+            {(["upload", "preview", "done"] as ImportStep[]).map((s, i) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[0.55rem] font-black ${step === s || (step === "confirming" && s === "preview") ? "bg-primary text-white" : (["upload","preview","done"].indexOf(step) > i) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{i+1}</div>
+                <span className={step === s ? "text-primary" : "text-muted-foreground"}>{s === "upload" ? "Upload" : s === "preview" ? "Review" : "Done"}</span>
+                {i < 2 && <span className="text-muted-foreground/40 mx-0.5">→</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── Step 1: Upload ─────────────────────────────────────── */}
+          {step === "upload" && (
+            <div className="p-6 space-y-5">
+              {/* Download template */}
+              <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                <div>
+                  <p className="text-sm font-bold text-primary">Step 1: Download the Template</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">12 columns — sku, product_name, category, sub_category, stock, selling_price, min_stock, purchase_price, hsn, gst_percentage, unit, product_type</p>
+                </div>
+                <Button variant="outline" size="sm" className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 shrink-0" onClick={downloadTemplate}>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M12 16l-4-4h3V4h2v8h3l-4 4zM4 20h16" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Download Template
+                </Button>
+              </div>
+
+              {/* Drop zone */}
+              <div
+                className={`border-2 border-dashed rounded-xl p-12 text-center space-y-3 cursor-pointer transition-all ${dragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-muted hover:border-primary/40 hover:bg-muted/20"}`}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {loading ? (
+                  <><Loader2 className="h-10 w-10 text-primary animate-spin mx-auto" /><p className="text-sm font-bold text-primary">Analysing file…</p></>
+                ) : (
+                  <>
+                    <Upload className={`h-10 w-10 mx-auto transition-colors ${dragging ? "text-primary" : "text-muted-foreground"}`} />
+                    <div>
+                      <p className="text-sm font-bold">{dragging ? "Drop it!" : "Drag & Drop your CSV here"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">or click to browse — only .csv files accepted</p>
+                    </div>
+                  </>
+                )}
+                <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
+                <span>Step 2: Upload your filled CSV file above</span>
+                <span>Step 3: Review changes before confirming</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 2: Preview ────────────────────────────────────── */}
+          {step === "preview" && preview && (
+            <div className="p-6 space-y-5">
+              {/* Summary cards */}
+              <div className="grid grid-cols-4 gap-3">
+                <SummaryCard label="New Products" value={preview.summary.new} color="border-emerald-200 bg-emerald-50 text-emerald-700" />
+                <SummaryCard label="Price / GST Changes" value={preview.summary.changed} color="border-amber-200 bg-amber-50 text-amber-700" />
+                <SummaryCard label="Unchanged" value={preview.summary.unchanged} color="border-gray-200 bg-gray-50 text-gray-500" />
+                <SummaryCard label="File Duplicates" value={preview.summary.duplicatesInFile} color="border-red-200 bg-red-50 text-red-600" />
+              </div>
+
+              {/* Tab selector */}
+              <div className="flex gap-1 p-1 bg-muted/40 rounded-lg border w-fit">
+                {([
+                  { key: "new",       label: `New (${preview.summary.new})`,                   color: "text-emerald-700" },
+                  { key: "changed",   label: `Changes (${preview.summary.changed})`,           color: "text-amber-700" },
+                  { key: "unchanged", label: `Unchanged (${preview.summary.unchanged})`,       color: "text-gray-500" },
+                  { key: "dup",       label: `Duplicates (${preview.summary.duplicatesInFile})`,color: "text-red-600" },
+                ] as const).map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={`px-3 py-1.5 rounded-md text-[0.6875rem] font-bold transition-all ${activeTab === t.key ? `bg-white shadow-sm ${t.color}` : "text-muted-foreground hover:text-foreground"}`}
+                  >{t.label}</button>
+                ))}
+              </div>
+
+              {/* Table */}
+              <div className="border rounded-xl overflow-auto max-h-[340px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-muted/60 border-b">
+                    <tr>
+                      <th className="text-left px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground whitespace-nowrap">SKU</th>
+                      <th className="text-left px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground">Product Name</th>
+                      <th className="text-left px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground">Category</th>
+                      <th className="text-left px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground">Sub Category</th>
+                      <th className="text-right px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground">Sell Price</th>
+                      <th className="text-right px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-muted-foreground">GST%</th>
+                      {activeTab === "changed" && (
+                        <th className="text-left px-3 py-2.5 font-black uppercase tracking-wider text-[0.6rem] text-amber-700 whitespace-nowrap">Fields Changed</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(activeTab === "new" ? preview.newProducts :
+                      activeTab === "changed" ? preview.changed :
+                      activeTab === "unchanged" ? preview.unchanged :
+                      preview.duplicatesInFile
+                    ).map((row: any, i: number) => {
+                      const isChanged = activeTab === "changed";
+                      const diff: { field: string; label: string; oldVal: string; newVal: string }[] = row._diff || [];
+                      const getDiff = (field: string) => diff.find(d => d.field === field);
+                      return (
+                        <tr key={i} className={`hover:bg-muted/20 transition-colors align-top ${isChanged ? "bg-amber-50/30" : activeTab === "new" ? "bg-emerald-50/30" : activeTab === "dup" ? "bg-red-50/30" : ""}`}>
+                          <td className="px-3 py-2.5 font-mono text-[0.65rem] text-primary font-bold whitespace-nowrap">{row.sku}</td>
+                          <td className="px-3 py-2.5 max-w-[160px]">
+                            {isChanged && getDiff("name") ? (
+                              <div>
+                                <span className="line-through text-muted-foreground text-[0.6rem] block">{getDiff("name")!.oldVal || "—"}</span>
+                                <span className="font-bold text-amber-700">{getDiff("name")!.newVal}</span>
+                              </div>
+                            ) : <span className="font-medium">{row.name}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 max-w-[120px]">
+                            {isChanged && getDiff("category") ? (
+                              <div>
+                                <span className="line-through text-muted-foreground text-[0.6rem] block">{getDiff("category")!.oldVal || "—"}</span>
+                                <span className="font-bold text-amber-700">{getDiff("category")!.newVal}</span>
+                              </div>
+                            ) : <span className="text-muted-foreground">{row.category}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 max-w-[100px]">
+                            {isChanged && getDiff("subCategory") ? (
+                              <div>
+                                <span className="line-through text-muted-foreground text-[0.6rem] block">{getDiff("subCategory")!.oldVal || "—"}</span>
+                                <span className="font-bold text-amber-700">{getDiff("subCategory")!.newVal}</span>
+                              </div>
+                            ) : <span className="text-muted-foreground">{row.subCategory}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums font-bold whitespace-nowrap">
+                            {isChanged && getDiff("sellPrice") ? (
+                              <div>
+                                <span className="line-through text-muted-foreground text-[0.6rem] block">₹{getDiff("sellPrice")!.oldVal}</span>
+                                <span className="text-amber-700">₹{getDiff("sellPrice")!.newVal}</span>
+                              </div>
+                            ) : <span>₹{row.sellPrice}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">
+                            {isChanged && getDiff("gstRate") ? (
+                              <div>
+                                <span className="line-through text-muted-foreground text-[0.6rem] block">{getDiff("gstRate")!.oldVal}%</span>
+                                <span className="font-bold text-amber-700">{getDiff("gstRate")!.newVal}%</span>
+                              </div>
+                            ) : <span className="text-muted-foreground">{row.gstRate}%</span>}
+                          </td>
+                          {isChanged && (
+                            <td className="px-3 py-2.5">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {diff.map((d, di) => (
+                                  <span key={di} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-[0.6rem] font-black text-amber-800 whitespace-nowrap">
+                                    {d.label}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {((activeTab === "new" ? preview.newProducts :
+                      activeTab === "changed" ? preview.changed :
+                      activeTab === "unchanged" ? preview.unchanged :
+                      preview.duplicatesInFile).length === 0) && (
+                      <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground italic text-xs">No records in this category</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {preview.summary.duplicatesInFile > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                  <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span><b>{preview.summary.duplicatesInFile} duplicate SKUs</b> were found within your file and will be skipped during import.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Step: Done ─────────────────────────────────────────── */}
+          {step === "done" && result && (
+            <div className="p-10 text-center space-y-4">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-gray-900">Import Complete!</h3>
+                <p className="text-sm text-muted-foreground mt-1">Your product catalogue has been updated.</p>
+              </div>
+              <div className="flex gap-4 justify-center">
+                <div className="px-6 py-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-2xl font-black text-emerald-700">{result.inserted}</p>
+                  <p className="text-[0.625rem] font-bold uppercase tracking-widest text-emerald-600 mt-1">Products Added</p>
+                </div>
+                <div className="px-6 py-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-2xl font-black text-amber-700">{result.updated}</p>
+                  <p className="text-[0.625rem] font-bold uppercase tracking-widest text-amber-600 mt-1">Prices Updated</p>
+                </div>
+              </div>
+              {result.errors.length > 0 && (
+                <div className="text-left max-h-32 overflow-y-auto p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 space-y-1">
+                  <p className="font-bold mb-1">⚠ {result.errors.length} errors:</p>
+                  {result.errors.map((e, i) => <p key={i}>{e}</p>)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Confirming spinner */}
+          {step === "confirming" && (
+            <div className="p-16 text-center space-y-3">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+              <p className="font-bold text-sm">Saving to database…</p>
+              <p className="text-xs text-muted-foreground">Please don't close this window</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {step === "preview" && preview && (
+              <span>Will add <b className="text-emerald-700">{preview.summary.new}</b> new & update <b className="text-amber-700">{preview.summary.changed}</b> price/GST changes</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {step === "upload" && <Button variant="outline" onClick={() => { reset(); setOpen(false); }}>Cancel</Button>}
+            {step === "preview" && (
+              <>
+                <Button variant="outline" onClick={reset}>← Back</Button>
+                <Button
+                  onClick={handleConfirm}
+                  disabled={preview.summary.new === 0 && preview.summary.changed === 0}
+                  className="bg-primary text-white hover:bg-primary/90"
+                >
+                  Confirm Import ({preview.summary.new + preview.summary.changed} changes)
+                </Button>
+              </>
+            )}
+            {step === "done" && (
+              <>
+                <Button variant="outline" onClick={reset}>Import Another</Button>
+                <Button onClick={() => { reset(); setOpen(false); }}>Done</Button>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
