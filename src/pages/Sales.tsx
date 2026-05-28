@@ -1429,13 +1429,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
   );
 }
 
-function CreateSalesModal({ trigger, title, type, initialData, open: controlledOpen, onOpenChange: controlledOnOpenChange }: {
+function CreateSalesModal({ trigger, title, type, initialData, open: controlledOpen, onOpenChange: controlledOnOpenChange, onSaveAndDownload }: {
   trigger?: React.ReactNode;
   title: string;
   type: string;
   initialData?: any;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onSaveAndDownload?: (savedRecord: any, type: string) => void;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -1820,7 +1821,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     setIsIgst(false);
   };
 
-  const handleSave = async (stayOpen: boolean = false) => {
+  const handleSave = async (stayOpen: boolean = false, downloadAfterSave: boolean = false) => {
     if (type !== 'estimates' && !customerId && !customerName) {
       toast({ variant: "destructive", title: "Missing information", description: "Please select or type a customer name" });
       return;
@@ -1837,6 +1838,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
     setLoading(true);
     try {
+      const docNo = initialData ? (initialData.invoiceNo || initialData.quotationNo) : generateNextNo(queryClient.getQueryData([type === 'quotations' ? 'quotations' : 'invoices']) || [], type === 'estimates' ? 'estimates' : type === 'quotations' ? 'quotations' : 'invoices');
       const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}${initialData ? `&id=${initialData.id}` : ''}`;
       const res = await fetch(endpoint, {
         method: initialData ? "PUT" : "POST",
@@ -1845,7 +1847,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           customerId: customerId ? parseInt(customerId) : null,
           customerName: customerName || null,
           fileName: fileName || null,
-          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: initialData ? (initialData.invoiceNo || initialData.quotationNo) : generateNextNo(queryClient.getQueryData([type === 'quotations' ? 'quotations' : 'invoices']) || [], type === 'estimates' ? 'estimates' : type === 'quotations' ? 'quotations' : 'invoices'),
+          [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: docNo,
           date: date,
           amount: subtotal.toFixed(2),
           tax: !gstEnabled ? "0" : totalTax.toFixed(2),
@@ -1863,6 +1865,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         })
       });
       if (!res.ok) throw new Error("Failed to save");
+      const savedRecord = await res.json();
       toast({ title: "Success", description: `${title} ${initialData ? 'updated' : 'created'} successfully` });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
@@ -1876,6 +1879,20 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         isConfirmedCloseRef.current = true;
         setOpen(false);
         resetForm();
+      }
+
+      // Trigger download after save if requested
+      if (downloadAfterSave && onSaveAndDownload && savedRecord?.id) {
+        const downloadData = {
+          ...savedRecord,
+          id: savedRecord.id,
+          invoiceNo: savedRecord.invoiceNo || docNo,
+          quotationNo: savedRecord.quotationNo || docNo,
+          estimateNo: savedRecord.invoiceNo || docNo,
+          customerName: customerName || savedRecord.customerName,
+        };
+        // Small delay to ensure modal closes and queries invalidate
+        setTimeout(() => onSaveAndDownload(downloadData, type), 300);
       }
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -2277,6 +2294,22 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Save & Create Another
             </Button>
+            {onSaveAndDownload && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="px-4 gap-2 border-green-600 text-green-600 hover:bg-green-50 hover:text-green-700"
+                onClick={() => handleSave(false, true)}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {initialData ? 'Update' : 'Save'} & Download
+              </Button>
+            )}
             <Button
               ref={saveBtnRef}
               size="lg"
@@ -3275,6 +3308,7 @@ export default function Sales() {
                 <Plus className="h-3.5 w-3.5" />New {activeTab.slice(0, -1)}
               </Button>
             }
+            onSaveAndDownload={(savedRecord, savedType) => setSelectedInvoice({ data: savedRecord, type: savedType, autoDownload: true })}
           />
         </div>
 
@@ -3456,6 +3490,7 @@ export default function Sales() {
           initialData={editingRecord.data}
           type={editingRecord.type}
           title={`Edit ${editingRecord.type.charAt(0).toUpperCase() + editingRecord.type.slice(1, -1)}`}
+          onSaveAndDownload={(savedRecord, savedType) => setSelectedInvoice({ data: savedRecord, type: savedType, autoDownload: true })}
         />
       )}
 
