@@ -60,14 +60,13 @@ const generateNextNo = (list: any[], type: string) => {
       const parts = val.split('-');
       const lastPart = parts[parts.length - 1];
       const num = parseInt(lastPart);
-      // Ignore old 6-digit random numbers (like 940120, 030242) to allow starting from 1000.
-      // We only ignore them if they are exactly 6 digits and higher than 10000.
-      if (lastPart.length === 6 && num > 10000) return 0;
+      // Ignore old numbers higher than 135 to allow starting from 136.
+      if (num > 135) return 0;
       return isNaN(num) ? 0 : num;
     })
-    .filter(n => n >= 1000);
+     .filter(n => n >= 136);
 
-  const max = nums.length > 0 ? Math.max(...nums) : 999;
+  const max = nums.length > 0 ? Math.max(...nums) : 135;
   return `${prefix}-${max + 1}`;
 };
 
