@@ -519,6 +519,89 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
     }
   };
 
+  const handlePrintPdf = async () => {
+    const docNo = activeInvoice?.invoiceNo || activeInvoice?.quotationNo || activeInvoice?.estimateNo || 'Doc';
+    const custName = (activeInvoice?.customerName || 'Customer').replace(/\s+/g, '_');
+
+    setIsDownloading(true);
+
+    try {
+      const element = paperSize === "thermal"
+        ? printRef.current?.querySelector('.thermal-format')
+        : printRef.current?.querySelector('.invoice-page');
+
+      if (!element) return;
+
+      const clone = element.cloneNode(true) as HTMLElement;
+
+      // Convert blob image src to data URLs
+      const imgs = clone.querySelectorAll('img');
+      for (const img of Array.from(imgs)) {
+        const src = img.getAttribute('src');
+        if (src && src.startsWith('blob:')) {
+          try {
+            const response = await fetch(src);
+            const blob = await response.blob();
+            const dataUrl = await new Promise<string>(resolve => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            img.setAttribute('src', dataUrl);
+          } catch { }
+        } else if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+          img.setAttribute('src', `${window.location.origin}${src}`);
+        }
+      }
+
+      const styleSheets = Array.from(document.styleSheets);
+      let cssStyles = '';
+      for (const sheet of styleSheets) {
+        try {
+          cssStyles += Array.from(sheet.cssRules).map(r => r.cssText).join('\n');
+        } catch { }
+      }
+
+      const htmlString = `
+        <style>${cssStyles}</style>
+        <style>${printStyles}</style>
+        ${clone.outerHTML}
+      `;
+
+      const res = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: htmlString,
+          paperSize,
+          docTitle: `${docNo}_${custName}`,
+          thermalWidth: settingsData?.settings?.thermalWidth || settings.thermalWidth || "72.1"
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to generate PDF' }));
+        throw new Error(errorData.error);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      // Open in new tab so the user prints from the PDF viewer
+      // (correct thermal dimensions, no A4 blank-space issue)
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err: any) {
+      console.error("Failed to generate print PDF:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const handleDownloadJpg = async () => {
     const root = printRef.current;
     if (!root) return;
@@ -940,8 +1023,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
             </Button>
 
             {docType === 'estimates' && (
-              <Button onClick={handlePrint} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
-                <Printer className="h-3.5 w-3.5" /> Print Document
+              <Button onClick={handlePrintPdf} disabled={isDownloading} className="gap-1.5 bg-green-600 hover:bg-green-700 h-8 text-[11px] px-3">
+                {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                {isDownloading ? 'Generating...' : 'Print Document'}
               </Button>
             )}
 
