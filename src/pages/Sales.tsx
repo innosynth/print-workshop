@@ -49,6 +49,8 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 
 const generateNextNo = (list: any[], type: string) => {
   const prefix = type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV';
+  const startNum = type === 'estimates' ? 1000 : 136;
+  
   const nums = list
     .filter((i: any) => {
       const val = i.invoiceNo || i.quotationNo;
@@ -60,13 +62,13 @@ const generateNextNo = (list: any[], type: string) => {
       const parts = val.split('-');
       const lastPart = parts[parts.length - 1];
       const num = parseInt(lastPart);
-      // Ignore old numbers lower than 136 to allow starting from 136.
-      if (num < 136) return 0;
+      // Ignore old numbers lower than starting range to allow starting from startNum.
+      if (num < startNum) return 0;
       return isNaN(num) ? 0 : num;
     })
-     .filter(n => n >= 136);
+     .filter(n => n >= startNum);
 
-  const max = nums.length > 0 ? Math.max(...nums) : 135;
+  const max = nums.length > 0 ? Math.max(...nums) : (startNum - 1);
   return `${prefix}-${max + 1}`;
 };
 
