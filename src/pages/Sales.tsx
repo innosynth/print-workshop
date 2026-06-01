@@ -60,8 +60,8 @@ const generateNextNo = (list: any[], type: string) => {
       const parts = val.split('-');
       const lastPart = parts[parts.length - 1];
       const num = parseInt(lastPart);
-      // Ignore old numbers higher than 135 to allow starting from 136.
-      if (num > 135) return 0;
+      // Ignore old numbers lower than 136 to allow starting from 136.
+      if (num < 136) return 0;
       return isNaN(num) ? 0 : num;
     })
      .filter(n => n >= 136);
