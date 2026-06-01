@@ -72,7 +72,7 @@ const generateNextNo = (list: any[], type: string) => {
   return `${prefix}-${max + 1}`;
 };
 
-function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className, showListOnlyWhenTyping }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string, showListOnlyWhenTyping?: boolean }) {
+function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className, showListOnlyWhenTyping, hasError, errorMessage }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string, showListOnlyWhenTyping?: boolean, hasError?: boolean, errorMessage?: string }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
   const [search, setSearch] = useState("");
@@ -108,13 +108,14 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
   }, [open]);
 
   return (
+    <div className="relative">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           ref={triggerRef}
           variant="outline"
           role="combobox"
-          className={cn("w-full mt-1 h-7 justify-between font-normal text-[0.75rem] px-2", className)}
+          className={cn("w-full mt-1 h-7 justify-between font-normal text-[0.75rem] px-2", hasError && "border-red-500 ring-1 ring-red-400 bg-red-50 animate-[shake_0.3s_ease]", className)}
           title={value || `Select ${label.toLowerCase()}`}
           onFocus={(e) => {
             if (openOnFocus && !open && !justClosed.current) {
@@ -247,6 +248,10 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
         </Command>
       </PopoverContent>
     </Popover>
+    {hasError && errorMessage && (
+      <p className="text-[0.6rem] text-red-500 font-semibold mt-0.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">{errorMessage}</p>
+    )}
+    </div>
   );
 }
 
@@ -1473,6 +1478,15 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const [focusNextItemTrigger, setFocusNextItemTrigger] = useState(0);
   const [productTrigger, setProductTrigger] = useState(0);
   const [subCategoryTrigger, setSubCategoryTrigger] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<{ category?: string; product?: string; subCategory?: string }>({});
+  // Ref that always holds the latest pendingItem — prevents stale closure issues in onKeyDown timeouts
+  const pendingItemRef = useRef(pendingItem);
+  useEffect(() => { pendingItemRef.current = pendingItem; }, [pendingItem]);
+
+  const showFieldError = (field: 'category' | 'product' | 'subCategory', msg: string) => {
+    setFieldErrors(prev => ({ ...prev, [field]: msg }));
+    setTimeout(() => setFieldErrors(prev => ({ ...prev, [field]: undefined })), 2500);
+  };
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [fileName, setFileName] = useState("");
@@ -2031,10 +2045,19 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                     <FormCombobox
                       triggerRef={pendingCategoryRef}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !pendingItem.category && items.length > 0) {
-                          saveBtnRef.current?.focus();
-                        } else {
-                          handleEnter(e, pendingProductRef.current, customerRef.current);
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!pendingItemRef.current.category) {
+                            // No category selected: show error, open dropdown so cursor is in search input
+                            showFieldError('category', 'Please enter or select a value.');
+                            setTimeout(() => pendingCategoryRef.current?.click(), 50);
+                            return;
+                          }
+                          // Category selected: move to product
+                          setTimeout(() => pendingProductRef.current?.focus(), 50);
+                        } else if (e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
+                          e.preventDefault();
+                          setTimeout(() => customerRef.current?.focus(), 50);
                         }
                       }}
                       openOnFocus
@@ -2044,6 +2067,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       value={pendingItem.category}
                       options={Array.from(new Set(products.map((p: any) => (p.category || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
+                        setFieldErrors(prev => ({ ...prev, category: undefined }));
                         updatePendingItem({ category: v, name: "", subCategory: "" });
                         if (v) {
                           setProductTrigger(prev => prev + 1);
@@ -2051,31 +2075,66 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         }
                       }}
                       className="h-6 text-xs mt-0.5"
+                      hasError={!!fieldErrors.category}
+                      errorMessage={fieldErrors.category}
                     />
                   </div>
                   <div className="col-span-3 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Product</Label>
                     <FormCombobox
                       triggerRef={pendingProductRef}
-                      onKeyDown={(e) => handleEnter(e, pendingSubCategoryRef.current, pendingCategoryRef.current)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!pendingItemRef.current.name) {
+                            // No product selected: show error, open dropdown so cursor is in search input
+                            showFieldError('product', 'Please enter or select a value.');
+                            setTimeout(() => pendingProductRef.current?.click(), 50);
+                            return;
+                          }
+                          // Product selected: move to subcategory
+                          setTimeout(() => pendingSubCategoryRef.current?.focus(), 50);
+                        } else if (e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
+                          e.preventDefault();
+                          setTimeout(() => pendingCategoryRef.current?.focus(), 50);
+                        }
+                      }}
                       openOnFocus
                       label="Product"
                       value={pendingItem.name}
                       autoOpenTrigger={productTrigger}
                       options={Array.from(new Set(products.filter((p: any) => !pendingItem.category || p.category === pendingItem.category).map((p: any) => (p.name || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
+                        setFieldErrors(prev => ({ ...prev, product: undefined }));
                         updatePendingItem({ name: v, subCategory: "" });
-                        setSubCategoryTrigger(prev => prev + 1);
-                        setTimeout(() => pendingSubCategoryRef.current?.focus(), 250);
+                        if (v) {
+                          setSubCategoryTrigger(prev => prev + 1);
+                          setTimeout(() => pendingSubCategoryRef.current?.focus(), 250);
+                        }
                       }}
                       className="h-6 text-xs mt-0.5"
+                      hasError={!!fieldErrors.product}
+                      errorMessage={fieldErrors.product}
                     />
                   </div>
                   <div className="col-span-2 space-y-0.5">
                     <Label className="text-[0.5625rem] uppercase font-black text-muted-foreground ml-1">Sub Category</Label>
                     <FormCombobox
                       triggerRef={pendingSubCategoryRef}
-                      onKeyDown={(e) => handleEnter(e, pendingQtyRef.current, pendingProductRef.current)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!pendingItemRef.current.subCategory) {
+                            showFieldError('subCategory', 'Please enter or select a value.');
+                            setTimeout(() => pendingSubCategoryRef.current?.click(), 50);
+                            return;
+                          }
+                          setTimeout(() => pendingQtyRef.current?.focus(), 50);
+                        } else if (e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
+                          e.preventDefault();
+                          setTimeout(() => pendingProductRef.current?.focus(), 50);
+                        }
+                      }}
                       openOnFocus
                       label="Sub Category"
                       value={pendingItem.subCategory}
@@ -2085,6 +2144,8 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         (!pendingItem.name || p.name === pendingItem.name)
                       ).map((p: any) => (p.subCategory || "").trim()))).filter(Boolean) as string[]}
                       onSelect={(v) => {
+                        setFieldErrors(prev => ({ ...prev, subCategory: undefined }));
+                        if (!v) return;
                         const exactProd = products.find((p: any) =>
                           p.name === pendingItem.name && p.subCategory === v &&
                           (!pendingItem.category || p.category === pendingItem.category)
@@ -2104,6 +2165,8 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         setTimeout(() => pendingQtyRef.current?.focus(), 250);
                       }}
                       className="h-6 text-xs mt-0.5"
+                      hasError={!!fieldErrors.subCategory}
+                      errorMessage={fieldErrors.subCategory}
                     />
                   </div>
                   <div className="col-span-1 space-y-0.5">
