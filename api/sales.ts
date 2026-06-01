@@ -36,7 +36,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
           isIgst: invoices.isIgst,
           customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
           productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`,
-          totalQty: sql<number>`SUM(CAST(${invoiceItems.qty} AS NUMERIC))`
+          totalQty: sql<number>`SUM(CAST(${invoiceItems.qty} AS NUMERIC))`,
+          potentialTax: sql<number>`COALESCE(SUM(CAST(${invoiceItems.amount} AS NUMERIC) * CAST(COALESCE(${invoiceItems.gstRate}, '18') AS NUMERIC) / 100), 0)`
         })
         .from(invoices)
         .leftJoin(contacts, eq(invoices.customerId, contacts.id))

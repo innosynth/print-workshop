@@ -3184,12 +3184,12 @@ export default function Sales() {
     {
       key: "amount",
       label: "E-Amount",
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
+      render: (r: any) => <span className="font-bold text-green-600 dark:text-green-400 tabular-nums">₹{parseFloat(r.amount || 0).toLocaleString("en-IN")}</span>
     },
     {
       key: "total",
-      label: "Total",
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
+      label: "Grand Total",
+      render: (r: any) => <span className="font-semibold tabular-nums">₹{Math.round(parseFloat(r.amount || 0) + parseFloat(r.potentialTax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",
@@ -3220,7 +3220,7 @@ export default function Sales() {
     {
       key: "total",
       label: "Total",
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
+      render: (r: any) => <span className="font-bold text-green-600 dark:text-green-400 tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",
@@ -3250,7 +3250,7 @@ export default function Sales() {
     {
       key: "total",
       label: "Total",
-      render: (r: any) => <span className="font-semibold tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
+      render: (r: any) => <span className="font-bold text-green-600 dark:text-green-400 tabular-nums">₹{(parseFloat(r.amount || 0) + parseFloat(r.tax || 0)).toLocaleString("en-IN")}</span>
     },
     {
       key: "status",
