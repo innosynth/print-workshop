@@ -100,8 +100,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (paperSize === 'thermal') {
       const heightInPx = await page.evaluate(() => {
         const body = document.body;
-        const html = document.documentElement;
-        return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
+        // Only use body dimensions — html.clientHeight/scrollHeight are clamped
+        // to the viewport (800px) and cause massive blank space at the bottom.
+        return Math.max(body.scrollHeight, body.offsetHeight);
       });
       // Convert px to mm (standard Puppeteer conversion is roughly 96dpi)
       // Adding a small buffer to prevent clipping
