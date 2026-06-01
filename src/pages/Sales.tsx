@@ -49,7 +49,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 
 const generateNextNo = (list: any[], type: string) => {
   const prefix = type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV';
-  const startNum = type === 'estimates' ? 1000 : 136;
+  const startNum = type === 'estimates' ? 1000 : type === 'quotations' ? 1 : 136;
   
   const nums = list
     .filter((i: any) => {
