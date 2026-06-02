@@ -413,7 +413,8 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     const cgst = isIgst ? 0 : totalTax / 2;
     const sgst = isIgst ? 0 : totalTax / 2;
     const igst = isIgst ? totalTax : 0;
-    return { subTotal, totalTax, total, cgst, sgst, igst };
+    const totalQty = items.filter(item => item.name && item.name.trim() !== "").reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    return { subTotal, totalTax, total, cgst, sgst, igst, totalQty };
   };
 
   const hasChanges = () => {
@@ -465,7 +466,7 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
     }
   };
 
-  const { subTotal, totalTax, total, cgst, sgst, igst } = calculateTotals();
+  const { subTotal, totalTax, total, cgst, sgst, igst, totalQty } = calculateTotals();
 
   const handleSave = async (stayOpen: boolean = false) => {
     if (!supplierId && !supplierName) {
@@ -848,6 +849,10 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
                       <span className="font-bold tabular-nums text-orange-600">₹{igst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Total Qty</span>
+                    <span className="font-bold tabular-nums">{totalQty}</span>
+                  </div>
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>

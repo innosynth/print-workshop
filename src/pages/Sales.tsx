@@ -1895,6 +1895,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const validItems = items.filter(i => i.name && i.name.trim() !== "");
   const subtotal = validItems.reduce((sum, item) => sum + item.amount, 0);
   const potentialTax = validItems.reduce((sum, item) => sum + (item.amount * (parseFloat(item.gstRate || "18") / 100)), 0);
+  const displayTotalQty = validItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
 
   // UI Display logic - Always show potential tax values by default
   const displayTotalTax = potentialTax;
@@ -2425,6 +2426,10 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground font-medium uppercase tracking-tighter">Round Off</span>
                     <span className="font-bold tabular-nums">₹{displayRoundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Total Qty</span>
+                    <span className="font-bold tabular-nums">{displayTotalQty}</span>
                   </div>
                   <Separator className="bg-muted-foreground/20" />
                   <div className="flex justify-between items-center text-sm">
