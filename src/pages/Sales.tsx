@@ -3157,11 +3157,16 @@ export default function Sales() {
       const subtotal = convertedItems.reduce((acc, item) => acc + parseFloat(item.amount), 0);
 
       const isTargetInvoicesTable = targetType === 'invoices' || targetType === 'estimates';
+      const docNo = generateNextNo(
+        queryClient.getQueryData([isTargetInvoicesTable ? 'invoices' : 'quotations']) || [],
+        targetType
+      );
+
       const newBody: any = {
         customerId: detail.customerId,
         customerName: detail.customerName,
         fileName: detail.fileName,
-        [isTargetInvoicesTable ? 'invoiceNo' : 'quotationNo']: `${prefix}-${sourceNo.split('-').pop()}`,
+        [isTargetInvoicesTable ? 'invoiceNo' : 'quotationNo']: docNo,
         date: new Date().toISOString().split('T')[0],
         amount: subtotal.toFixed(2),
         status: targetType === 'estimates' ? "Draft" : (targetType === 'invoices' ? "Paid" : "Pending"),
