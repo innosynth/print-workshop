@@ -1539,6 +1539,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     items: any[];
     customerId: string;
     customerName: string;
+    customerMobile: string;
     fileName: string;
     date: string;
     gstEnabled: boolean;
@@ -1574,6 +1575,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   };
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerMobile, setCustomerMobile] = useState("");
   const [fileName, setFileName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
@@ -1659,6 +1661,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       setProductTrigger(0);
       setSubCategoryTrigger(0);
       initialValuesRef.current = null;
+      setCustomerMobile("");
     }
   }, [open]);
 
@@ -1692,8 +1695,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         });
 
         setItems(mappedItems);
-        setCustomerId(source.customerId?.toString() || "");
-        setCustomerName(source.customerName || "");
+        const sourceCustomerId = source.customerId?.toString() || "";
+        const sourceCustomerName = source.customerName || "";
+        const foundContact = contacts.find((c: any) => c.id.toString() === sourceCustomerId);
+        const contactMobile = foundContact?.mobile || "";
+
+        setCustomerId(sourceCustomerId);
+        setCustomerName(sourceCustomerName);
+        setCustomerMobile(contactMobile);
         setFileName(source.fileName || "");
         setDate(source.date || new Date().toISOString().split('T')[0]);
         setGstEnabled(source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates');
@@ -1701,8 +1710,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         
         initialValuesRef.current = {
           items: mappedItems,
-          customerId: source.customerId?.toString() || "",
-          customerName: source.customerName || "",
+          customerId: sourceCustomerId,
+          customerName: sourceCustomerName,
+          customerMobile: contactMobile,
           fileName: source.fileName || "",
           date: source.date || new Date().toISOString().split('T')[0],
           gstEnabled: source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates',
@@ -1715,6 +1725,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setItems([]);
         setCustomerId("");
         setCustomerName("");
+        setCustomerMobile("");
         setFileName("");
         setDate(new Date().toISOString().split('T')[0]);
         setGstEnabled(type !== 'estimates');
@@ -1724,6 +1735,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           items: [],
           customerId: "",
           customerName: "",
+          customerMobile: "",
           fileName: "",
           date: new Date().toISOString().split('T')[0],
           gstEnabled: type !== 'estimates',
@@ -1733,7 +1745,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         formInitialized.current = true;
       }
     }
-  }, [open, type, initialData, fullDetails, products]);
+  }, [open, type, initialData, fullDetails, products, contacts]);
 
   const hasChanges = () => {
     if (!initialValuesRef.current) return false;
@@ -1745,6 +1757,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     // Compare basic fields
     if (customerId !== init.customerId) return true;
     if (customerName !== init.customerName) return true;
+    if (customerMobile !== init.customerMobile) return true;
     if (fileName !== init.fileName) return true;
     if (date !== init.date) return true;
     if (isIgst !== init.isIgst) return true;
@@ -1917,6 +1930,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     }]);
     setCustomerId("");
     setCustomerName("");
+    setCustomerMobile("");
     setFileName("");
     setGstEnabled(type !== 'estimates');
     setIsIgst(false);
@@ -1939,14 +1953,75 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 
     setLoading(true);
     try {
+      let finalCustomerId = customerId ? parseInt(customerId) : null;
+      let finalCustomerName = customerName || null;
+
+      // Database updates/inserts for customer contacts
+      if (finalCustomerId) {
+        // Case 1: Existing registered customer
+        const contact = contacts.find((c: any) => c.id === finalCustomerId);
+        if (contact && contact.mobile !== customerMobile) {
+          const updateContactRes = await fetch(`/api/core?resource=contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...contact,
+              mobile: customerMobile
+            })
+          });
+          if (!updateContactRes.ok) {
+            throw new Error("Failed to update customer mobile number");
+          }
+          queryClient.invalidateQueries({ queryKey: ["contacts"] });
+        }
+      } else if (customerName && customerMobile.trim() !== "") {
+        // Case 2: Walk-in customer with mobile number -> store in contacts table
+        const existingContact = contacts.find(
+          (c: any) => c.name.toLowerCase() === customerName.toLowerCase() && (c.type === "B2B" || c.type === "B2C")
+        );
+        if (existingContact) {
+          const updateContactRes = await fetch(`/api/core?resource=contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...existingContact,
+              mobile: customerMobile
+            })
+          });
+          if (!updateContactRes.ok) {
+            throw new Error("Failed to update customer mobile number");
+          }
+          finalCustomerId = existingContact.id;
+          finalCustomerName = null;
+        } else {
+          const createContactRes = await fetch(`/api/core?resource=contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: customerName,
+              type: "B2C",
+              mobile: customerMobile,
+              status: "Active"
+            })
+          });
+          if (!createContactRes.ok) {
+            throw new Error("Failed to store customer mobile number");
+          }
+          const newContact = await createContactRes.json();
+          finalCustomerId = newContact.id;
+          finalCustomerName = null;
+        }
+        queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      }
+
       const docNo = initialData ? (initialData.invoiceNo || initialData.quotationNo) : generateNextNo(queryClient.getQueryData([type === 'quotations' ? 'quotations' : 'invoices']) || [], type === 'estimates' ? 'estimates' : type === 'quotations' ? 'quotations' : 'invoices');
       const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}${initialData ? `&id=${initialData.id}` : ''}`;
       const res = await fetch(endpoint, {
         method: initialData ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: customerId ? parseInt(customerId) : null,
-          customerName: customerName || null,
+          customerId: finalCustomerId,
+          customerName: finalCustomerName,
           fileName: fileName || null,
           [type === 'quotations' ? 'quotationNo' : 'invoiceNo']: docNo,
           date: date,
@@ -1990,7 +2065,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           invoiceNo: savedRecord.invoiceNo || docNo,
           quotationNo: savedRecord.quotationNo || docNo,
           estimateNo: savedRecord.invoiceNo || docNo,
-          customerName: customerName || savedRecord.customerName,
+          customerName: finalCustomerName || customerName || savedRecord.customerName,
         };
         // Small delay to ensure modal closes and queries invalidate
         setTimeout(() => onSaveAndDownload(downloadData, type), 300);
@@ -2057,7 +2132,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
             {/* Static Top Section */}
             <div className="p-3 md:p-4 pb-2 space-y-2 shrink-0">
               {/* Header info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                 <div className="space-y-0.5">
                   <Label className="text-[0.6875rem] font-bold text-muted-foreground">Select Customer {type === 'estimates' && "(Optional)"}</Label>
                   <FormCombobox
@@ -2074,9 +2149,11 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       if (contact) {
                         setCustomerId(contact.id.toString());
                         setCustomerName("");
+                        setCustomerMobile(contact.mobile || "");
                       } else {
                         setCustomerId("");
                         setCustomerName(v);
+                        setCustomerMobile("");
                       }
                     }}
                     action={
@@ -2091,8 +2168,23 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   />
                 </div>
                 <div className="space-y-0.5">
+                  <Label className="text-[0.6875rem] font-bold text-muted-foreground">Mobile Number</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter mobile number"
+                    value={customerMobile}
+                    onChange={(e) => setCustomerMobile(e.target.value)}
+                    className="h-7 text-xs px-2 mt-1"
+                  />
+                </div>
+                <div className="space-y-0.5">
                   <Label className="text-[0.6875rem] font-bold text-muted-foreground">Date</Label>
-                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-7 text-xs px-2 mt-1" />
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="h-7 text-xs px-2 mt-1"
+                  />
                 </div>
               </div>
               <Separator />
