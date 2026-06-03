@@ -2338,9 +2338,15 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           if (!pendingItemRef.current.category) {
-                            // No category selected: show error, open dropdown so cursor is in search input
-                            showFieldError('category', 'Please enter or select a value.');
-                            setTimeout(() => pendingCategoryRef.current?.click(), 50);
+                            if (validItems.length === 0) {
+                              toast({
+                                variant: "destructive",
+                                title: "Invalid Bill Value",
+                                description: "0 bill value is not allowed to store. Add any items and try again."
+                              });
+                            } else {
+                              saveBtnRef.current?.focus();
+                            }
                             return;
                           }
                           // Category selected: move to product
