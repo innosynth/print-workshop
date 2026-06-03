@@ -121,11 +121,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
       if (method === 'POST') {
         const data = request.body;
+        const { createdAt, ...saveData } = data;
         if (data.id) {
-          const updated = await db.update(contacts).set(data).where(eq(contacts.id, data.id)).returning();
+          const updated = await db.update(contacts).set(saveData).where(eq(contacts.id, data.id)).returning();
           return response.status(200).json(updated[0]);
         } else {
-          const newContact = await db.insert(contacts).values(data).returning();
+          const newContact = await db.insert(contacts).values(saveData).returning();
           return response.status(200).json(newContact[0]);
         }
       }
