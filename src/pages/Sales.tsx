@@ -2388,51 +2388,62 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
               <Separator />
 
               {/* Footer Summary Section */}
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="flex-1 w-full sm:max-w-xs space-y-1">
-                  <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
-                  <div className="relative group">
-                    <Input
-                      placeholder="Enter filename or job ID..."
-                      value={fileName}
-                      onChange={(e) => setFileName(e.target.value)}
-                      className="pl-9 bg-white border-primary/10 focus:border-primary/30 transition-all text-xs font-bold h-8"
-                    />
-                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <div className="flex flex-col sm:flex-row justify-between items-end gap-4">
+                <div className="flex flex-wrap items-end gap-6 flex-1 min-w-0">
+                  <div className="w-full sm:max-w-xs space-y-1 shrink-0">
+                    <Label className="text-[0.625rem] uppercase font-black text-muted-foreground tracking-widest">File Reference</Label>
+                    <div className="relative group">
+                      <Input
+                        placeholder="Enter filename or job ID..."
+                        value={fileName}
+                        onChange={(e) => setFileName(e.target.value)}
+                        className="pl-9 bg-white border-primary/10 focus:border-primary/30 transition-all text-xs font-bold h-8"
+                      />
+                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="hidden md:block h-8 w-px bg-border self-end mb-1" />
+
+                  {/* Secondary Totals Breakdown */}
+                  <div className="flex flex-wrap items-center gap-6 mb-1">
+                    {isIgst ? (
+                      <div className="space-y-0.5">
+                        <span className="block text-[0.5625rem] font-black uppercase tracking-wider text-muted-foreground">IGST</span>
+                        <span className="block text-xs font-bold text-orange-600 tabular-nums">₹{potentialTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-0.5">
+                          <span className="block text-[0.5625rem] font-black uppercase tracking-wider text-muted-foreground">CGST</span>
+                          <span className="block text-xs font-bold text-orange-600 tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="block text-[0.5625rem] font-black uppercase tracking-wider text-muted-foreground">SGST</span>
+                          <span className="block text-xs font-bold text-orange-600 tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="space-y-0.5">
+                      <span className="block text-[0.5625rem] font-black uppercase tracking-wider text-muted-foreground">Total Qty</span>
+                      <span className="block text-xs font-bold text-zinc-600 tabular-nums">{displayTotalQty}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="w-full sm:w-[320px] bg-muted/20 p-2.5 rounded-lg space-y-1 border shadow-inner">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Subtotal</span>
-                    <span className="font-black text-lg text-green-600 tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+
+                <div className="w-full sm:w-[240px] bg-muted/20 p-2.5 rounded-lg space-y-1.5 border shadow-inner shrink-0">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-[0.5625rem] uppercase tracking-wider text-muted-foreground">Subtotal</span>
+                    <span className="font-bold text-zinc-700 tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  {isIgst ? (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground font-medium uppercase tracking-tighter">IGST Amount</span>
-                      <span className="font-bold tabular-nums">₹{potentialTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">CGST Amount</span>
-                        <span className="font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground font-medium uppercase tracking-tighter">SGST Amount</span>
-                        <span className="font-bold tabular-nums">₹{(potentialTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Round Off</span>
-                    <span className="font-bold tabular-nums">₹{displayRoundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-[0.5625rem] uppercase tracking-wider text-muted-foreground">Round Off</span>
+                    <span className="font-bold text-zinc-700 tabular-nums">₹{displayRoundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-tighter">Total Qty</span>
-                    <span className="font-bold tabular-nums">{displayTotalQty}</span>
-                  </div>
-                  <Separator className="bg-muted-foreground/20" />
-                  <div className="flex justify-between items-center text-sm">
+                  <Separator className="bg-muted-foreground/10" />
+                  <div className="flex justify-between items-center">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
                     <span className="font-black text-lg text-green-600 tabular-nums">₹{displayGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
