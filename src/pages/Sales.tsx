@@ -2434,9 +2434,9 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                 </div>
 
                 <div className="w-full sm:w-[240px] bg-muted/20 p-2.5 rounded-lg space-y-1.5 border shadow-inner shrink-0">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-[0.5625rem] uppercase tracking-wider text-muted-foreground">Subtotal</span>
-                    <span className="font-bold text-zinc-700 tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Subtotal</span>
+                    <span className="font-black text-sm text-green-600 tabular-nums">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-[0.5625rem] uppercase tracking-wider text-muted-foreground">Round Off</span>
@@ -2445,7 +2445,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                   <Separator className="bg-muted-foreground/10" />
                   <div className="flex justify-between items-center">
                     <span className="font-black text-[0.625rem] uppercase tracking-widest text-muted-foreground">Grand Total</span>
-                    <span className="font-black text-lg text-green-600 tabular-nums">₹{displayGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-black text-sm text-green-600 tabular-nums">₹{displayGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
