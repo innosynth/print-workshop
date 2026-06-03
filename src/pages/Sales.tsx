@@ -950,6 +950,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
           .a5-format .text-xl { font-size: 1rem !important; }
           .a5-format .text-lg { font-size: 0.85rem !important; }
           .a5-format .text-base { font-size: 0.75rem !important; }
+          .a5-format .text-\\[11\\.7px\\] { font-size: 9.6px !important; }
           .a5-format .text-\\[0\\.7rem\\] { font-size: 0.57rem !important; }
           .a5-format .text-\\[0\\.6rem\\] { font-size: 0.57rem !important; }
           .a5-format .text-\\[0\\.62rem\\] { font-size: 0.52rem !important; }
@@ -1111,8 +1112,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                 <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1 text-[0.65rem]")}>
                   <div className="col-span-7 space-y-0.5">
                     <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-base mt-0 leading-tight")}>TO :</p>
-                    <p className={cn("text-base font-black uppercase", paperSize === "A5" && "text-xl mt-0 leading-tight")}>{activeInvoice.customerName || invoice.customerName || ""}</p>
-                    <div className={cn("text-gray-600 font-bold whitespace-pre-line uppercase leading-tight text-[0.65rem]", paperSize === "A5" && "mt-0 text-[0.55rem]")}>
+                    <p className="text-[11.7px] font-bold uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || ""}</p>
+                    <div className="text-gray-600 font-bold whitespace-pre-line uppercase leading-tight text-[11.7px]">
                       {getCustomerAddressDisplay()}
                     </div>
                     <p className={cn("mt-2 font-bold uppercase", paperSize === "A5" && "mt-1 leading-tight")}>GSTIN : {activeInvoice.customerGst || "N/A"}</p>
