@@ -1576,6 +1576,118 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    contactPerson: "",
+    mobile: "",
+    whatsapp: "",
+    email: "",
+    gst: "",
+    pan: "",
+    receivableOpeningBalance: "0",
+    city: "",
+    address: "",
+    status: "Active"
+  });
+  const [quickSameAsMobile, setQuickSameAsMobile] = useState(true);
+  const [quickNoGst, setQuickNoGst] = useState(false);
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
+
+  const handleSaveQuickCustomer = async () => {
+    if (!newCustomer.name) {
+      toast({ variant: "destructive", title: "Required Field", description: "Company Name is mandatory." });
+      return;
+    }
+    const gstMissing = !newCustomer.gst && !quickNoGst && newCustomer.gst !== "-";
+    if (gstMissing) {
+      toast({ variant: "destructive", title: "Required Field", description: "GST Number is mandatory (or check 'No GST')." });
+      return;
+    }
+    if (newCustomer.mobile && !/^\d{10}$/.test(newCustomer.mobile)) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "Mobile number must be exactly 10 digits." });
+      return;
+    }
+    if (newCustomer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomer.email)) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a valid email address." });
+      return;
+    }
+    if (newCustomer.pan && newCustomer.pan !== "-" && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(newCustomer.pan.toUpperCase())) {
+      toast({ variant: "destructive", title: "Invalid Input", description: "PAN card number must be a valid 10-character alphanumeric code." });
+      return;
+    }
+
+    const existing = contacts.find((c: any) => 
+      c.name.trim().toLowerCase() === newCustomer.name?.trim().toLowerCase() && 
+      c.type === "B2B"
+    );
+    if (existing) {
+      toast({ 
+        title: "Duplicate Record Found", 
+        description: `Contact "${existing.name}" already exists. Setting this customer.` 
+      });
+      setCustomerId(existing.id.toString());
+      setCustomerName("");
+      setCustomerMobile(existing.mobile || "");
+      setQuickAddOpen(false);
+      return;
+    }
+
+    setQuickAddLoading(true);
+    try {
+      const payload = {
+        ...newCustomer,
+        type: "B2B",
+        balance: newCustomer.receivableOpeningBalance || "0",
+        pan: newCustomer.pan || null,
+        gst: quickNoGst ? "-" : newCustomer.gst || null,
+        whatsapp: quickSameAsMobile ? newCustomer.mobile : newCustomer.whatsapp
+      };
+
+      const { createdAt, ...saveData } = payload as any;
+
+      const res = await fetch("/api/core?resource=contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(saveData)
+      });
+      if (!res.ok) throw new Error("Failed to save contact");
+      const createdContact = await res.json();
+      
+      toast({ 
+        title: "Success", 
+        description: `Customer "${createdContact.name}" added successfully` 
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      setCustomerId(createdContact.id.toString());
+      setCustomerName("");
+      setCustomerMobile(createdContact.mobile || "");
+      setQuickAddOpen(false);
+      
+      // Reset new customer form
+      setNewCustomer({
+        name: "",
+        contactPerson: "",
+        mobile: "",
+        whatsapp: "",
+        email: "",
+        gst: "",
+        pan: "",
+        receivableOpeningBalance: "0",
+        city: "",
+        address: "",
+        status: "Active"
+      });
+      setQuickSameAsMobile(true);
+      setQuickNoGst(false);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally {
+      setQuickAddLoading(false);
+    }
+  };
+
   const [fileName, setFileName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
@@ -2160,7 +2272,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-primary h-8 px-2 text-xs gap-2 hover:bg-primary/5"
-                        onClick={() => navigate("/contacts?tab=b2b&action=add")}
+                        onClick={() => setQuickAddOpen(true)}
                       >
                         <Plus className="h-3 w-3" /> Add New Customer
                       </Button>
@@ -2611,6 +2723,183 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={quickAddOpen} onOpenChange={(v) => { setQuickAddOpen(v); if(!v) {
+        setNewCustomer({
+          name: "", contactPerson: "", mobile: "", whatsapp: "", email: "", gst: "", pan: "",
+          receivableOpeningBalance: "0", city: "", address: "", status: "Active"
+        });
+        setQuickSameAsMobile(true);
+        setQuickNoGst(false);
+      }}}>
+        <DialogContent className="max-w-lg overflow-y-auto max-h-[45rem] z-[150]">
+          <DialogHeader>
+            <DialogTitle>Add New B2B Customer</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">
+                Company Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter company name"
+                value={newCustomer.name}
+                onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Contact Person</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter contact person name"
+                value={newCustomer.contactPerson}
+                onChange={e => setNewCustomer({ ...newCustomer, contactPerson: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Mobile</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter mobile number"
+                value={newCustomer.mobile}
+                onChange={e => {
+                  const val = e.target.value;
+                  const updates: any = { mobile: val };
+                  if (quickSameAsMobile) updates.whatsapp = val;
+                  setNewCustomer({ ...newCustomer, ...updates });
+                }}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">WhatsApp</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter WhatsApp number"
+                disabled={quickSameAsMobile}
+                value={quickSameAsMobile ? newCustomer.mobile : newCustomer.whatsapp}
+                onChange={e => setNewCustomer({ ...newCustomer, whatsapp: e.target.value })}
+              />
+              <div className="flex items-center gap-1.5 mt-1 ml-1">
+                <input
+                  type="checkbox"
+                  id="same-as-mobile-quick"
+                  checked={quickSameAsMobile}
+                  onChange={(e) => {
+                    setQuickSameAsMobile(e.target.checked);
+                    if (e.target.checked) {
+                      setNewCustomer({ ...newCustomer, whatsapp: newCustomer.mobile || "" });
+                    }
+                  }}
+                  className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="same-as-mobile-quick" className="text-[0.5625rem] font-bold uppercase text-muted-foreground cursor-pointer">
+                  Same as Mobile Number
+                </label>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Email</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter email address"
+                value={newCustomer.email}
+                onChange={e => setNewCustomer({ ...newCustomer, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">
+                GST Number {!quickNoGst && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter GST number"
+                disabled={quickNoGst}
+                value={quickNoGst ? "-" : newCustomer.gst}
+                onChange={e => setNewCustomer({ ...newCustomer, gst: e.target.value })}
+              />
+              <div className="flex items-center gap-1.5 mt-1 ml-1">
+                <input
+                  type="checkbox"
+                  id="no-gst-quick"
+                  checked={quickNoGst}
+                  onChange={(e) => {
+                    setQuickNoGst(e.target.checked);
+                    if (e.target.checked) {
+                      setNewCustomer({ ...newCustomer, gst: "-" });
+                    } else if (newCustomer.gst === "-") {
+                      setNewCustomer({ ...newCustomer, gst: "" });
+                    }
+                  }}
+                  className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="no-gst-quick" className="text-[0.5625rem] font-bold uppercase text-muted-foreground cursor-pointer">
+                  No GST (Use '-')
+                </label>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">PAN Card</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter PAN card number"
+                value={newCustomer.pan}
+                onChange={e => setNewCustomer({ ...newCustomer, pan: e.target.value.toUpperCase() })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Receivable Opening Balance</Label>
+              <Input
+                className="mt-1 h-9"
+                type="number"
+                placeholder="Enter receivable opening balance"
+                value={newCustomer.receivableOpeningBalance}
+                onChange={e => setNewCustomer({ ...newCustomer, receivableOpeningBalance: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">City</Label>
+              <Input
+                className="mt-1 h-9"
+                placeholder="Enter city"
+                value={newCustomer.city}
+                onChange={e => setNewCustomer({ ...newCustomer, city: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+              <Select
+                value={newCustomer.status}
+                onValueChange={v => setNewCustomer({ ...newCustomer, status: v })}
+              >
+                <SelectTrigger className="mt-1 h-9">
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent className="z-[160]">
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">Billing Address</Label>
+              <Textarea
+                className="mt-1 h-20"
+                placeholder="Enter billing address"
+                value={newCustomer.address}
+                onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
+              />
+            </div>
+            <div className="col-span-2 flex justify-end gap-2 pt-2 mt-2">
+              <Button variant="outline" size="sm" onClick={() => setQuickAddOpen(false)} disabled={quickAddLoading}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveQuickCustomer} disabled={quickAddLoading} className="gap-1">
+                {quickAddLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save B2B Customer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
