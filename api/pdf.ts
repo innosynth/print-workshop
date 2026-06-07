@@ -23,10 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isMac || isDev) {
       executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     } else {
-      // Select the correct pack based on architecture
+      // Select the correct pack based on architecture (using a proxy to prevent 504 from GitHub on Vercel)
       const packUrl = isArm 
-        ? "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.arm64.tar"
-        : "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar";
+        ? "https://gh-proxy.com/https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.arm64.tar"
+        : "https://gh-proxy.com/https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar";
         
       executablePath = await chromium.executablePath(process.env.CHROMIUM_PACK_URL || packUrl);
     }
