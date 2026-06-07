@@ -1252,7 +1252,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
 
               {/* Footer Layout - on page 1: pushed to bottom; on multi-page: immediately after items */}
               {paperSize === "A5" ? (
-                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee' }}>
+                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee', paddingTop: '12px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: "Arial" }}>
                     <tbody>
                       <tr>
@@ -1269,19 +1269,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                             <p className="text-[0.6rem] font-medium text-black uppercase text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
-                        <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
+                        <td style={{ width: '30%', verticalAlign: 'middle', textAlign: 'center' }}>
                           {activeQr && total > 0 && (
                             <div style={{ display: 'inline-block' }}>
                               {activeQr.isDynamic ? (
                                 qrBlobUrl ? (
-                                  <img src={qrBlobUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                  <img src={qrBlobUrl} style={{ height: '130px', width: '130px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
                                 ) : (
-                                  <div style={{ height: '110px', width: '110px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                  <div style={{ height: '130px', width: '130px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
                                 )
                               ) : (
-                                <img src={activeQr.imageUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                                <img src={activeQr.imageUrl} style={{ height: '130px', width: '130px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
                               )}
-                              <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
+                              <p className="text-[9px] font-black uppercase text-gray-700 mt-0">SCAN and PAY</p>
                             </div>
                           )}
                         </td>
@@ -1321,7 +1321,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                               </tr>
                             </tbody>
                           </table>
-                          <div className="w-full text-right" style={{ marginTop: '22px' }}>
+                          <div className="w-full text-right" style={{ marginTop: '12px' }}>
                             <p className="text-[9px] text-gray-500 font-medium leading-tight computer-generated-text">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                             {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
                           </div>
@@ -1331,7 +1331,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   </table>
                 </div>
               ) : (
-                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee' }}>
+                <div className="invoice-footer-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid', width: '100%', marginTop: fitsOnOnePage ? 'auto' : '10px', borderTop: '1px solid #eee', paddingTop: '12px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: "Arial" }}>
                     <tbody>
                       <tr>
@@ -1348,19 +1348,19 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                             <p className="text-[0.6rem] font-bold text-black uppercase text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
-                        <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
+                        <td style={{ width: '30%', verticalAlign: 'middle', textAlign: 'center' }}>
                           {activeQr && total > 0 && (
                             <div style={{ display: 'inline-block' }}>
                               {activeQr.isDynamic ? (
                                 qrBlobUrl ? (
-                                  <img src={qrBlobUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                  <img src={qrBlobUrl} style={{ height: '150px', width: '150px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
                                 ) : (
-                                  <div style={{ height: '135px', width: '135px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                  <div style={{ height: '150px', width: '150px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
                                 )
                               ) : (
-                                <img src={activeQr.imageUrl} style={{ height: '135px', width: '135px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                                <img src={activeQr.imageUrl} style={{ height: '150px', width: '150px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
                               )}
-                              <p className="text-[10px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
+                              <p className="text-[10px] font-black uppercase text-gray-700 mt-0">SCAN and PAY</p>
                             </div>
                           )}
                         </td>
@@ -1400,7 +1400,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                               </tr>
                             </tbody>
                           </table>
-                          <div className="w-full text-right" style={{ marginTop: '22px' }}>
+                          <div className="w-full text-right" style={{ marginTop: '12px' }}>
                             <p className="text-[9px] text-gray-500 font-medium leading-tight computer-generated-text">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                             {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
                           </div>
