@@ -52,6 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 <head>
   <meta charset="utf-8">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; background: white; margin: 0; padding: 0; }
     body { 
@@ -76,6 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await page.setContent(fullHtml, {
       waitUntil: ['load', 'networkidle0'],
     });
+
+    await page.emulateMediaType('print');
 
     await page.evaluate(() => {
       return Promise.all(

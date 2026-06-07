@@ -743,6 +743,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
   const a5Height = '130mm';
 
   const printStyles = `
+    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
     .print-container {
       width: 100%;
       display: flex;
@@ -753,7 +755,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
 
     .invoice-page *, .invoice-page,
     .thermal-format *, .thermal-format {
-      font-family: Arial !important;
+      font-family: 'Open Sans', Arial, sans-serif !important;
     }
 
      .invoice-page {
@@ -769,7 +771,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
      flex-grow: 1 !important;
      position: relative;
      color: black;
-     font-family: Arial, sans-serif;
+     font-family: 'Open Sans', Arial, sans-serif;
      page-break-after: always;
      overflow: visible;
      }
@@ -943,23 +945,67 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
           <DialogTitle>Print Preview - {docTitle}</DialogTitle>
         </DialogHeader>
         <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700;800&display=swap');
           ${printStyles}
-          .a5-format {
-            font-size: 10px !important;
+          
+          /* Force size 8pt (MS Word / PDF size 8) for all text elements under print wrapper, except exceptions */
+          .invoice-page * {
+            font-size: 8pt !important;
           }
-          .a5-format .text-xl { font-size: 1rem !important; }
-          .a5-format .text-lg { font-size: 0.85rem !important; }
-          .a5-format .text-base { font-size: 0.75rem !important; }
-          .a5-format .text-\\[11\\.7px\\] { font-size: 9.6px !important; }
-          .a5-format .text-\\[0\\.7rem\\] { font-size: 0.57rem !important; }
-          .a5-format .text-\\[0\\.6rem\\] { font-size: 0.57rem !important; }
-          .a5-format .text-\\[0\\.62rem\\] { font-size: 0.52rem !important; }
-          .a5-format .text-\\[0\\.65rem\\] { font-size: 0.62rem !important; }
-          .a5-format .text-\\[0\\.68rem\\] { font-size: 0.64rem !important; }
-          .a5-format .text-\\[0\\.75rem\\] { font-size: 0.56rem !important; }
-          .a5-format .text-\\[0\\.55rem\\] { font-size: 0.4rem !important; }
-          .a5-format .text-\\[0\\.5rem\\] { font-size: 0.36rem !important; }
-          .a5-format .text-sm { font-size: 0.61rem !important; }
+          
+          .invoice-page .header-brand-name {
+            font-size: 16pt !important;
+          }
+          
+          .invoice-page .header-slogan {
+            font-size: 9.5pt !important;
+          }
+          
+          .invoice-page .doc-title-header {
+            font-size: 14pt !important;
+          }
+          
+          .invoice-page .computer-generated-text {
+            font-size: 7.5pt !important;
+          }
+          
+          .invoice-page .grand-total-text {
+            font-size: 9.5pt !important;
+          }
+          
+          .invoice-page .header-contact-text {
+            font-weight: 600 !important;
+            color: #000000 !important;
+          }
+          
+          /* Font weight overrides to match the clean semibold typography of the PDF */
+          .invoice-page .font-black {
+            font-weight: 700 !important;
+          }
+          .invoice-page .font-bold {
+            font-weight: 600 !important;
+          }
+
+          /* A5 specific overrides (based on Sample.pdf analysis) */
+          .a5-format * {
+            font-size: 7.5pt !important;
+          }
+          .a5-format .header-brand-name {
+            font-size: 14.4pt !important;
+          }
+          .a5-format .header-slogan {
+            font-size: 10.22pt !important;
+            font-family: Georgia, 'Times New Roman', serif !important;
+          }
+          .a5-format .doc-title-header {
+            font-size: 11pt !important;
+          }
+          .a5-format .computer-generated-text {
+            font-size: 6.75pt !important;
+          }
+          .a5-format .grand-total-text {
+            font-size: 9pt !important;
+          }
           
           /* Reduce padding and spacing for A5 */
           .a5-format .space-y-4 > :not([hidden]) ~ :not([hidden]) {
@@ -975,17 +1021,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
           .a5-format .grid { gap: 0.1rem !important; }
           
           /* Shrink Header for A5 */
-          .a5-format .header-brand-name { font-size: 1rem !important; }
           .a5-format .w-16.h-16 { width: 3rem !important; height: 3rem !important; }
           
           /* Shrink Table for A5 */
           .a5-format .invoice-items-table thead th { height: auto !important; line-height: 1.2 !important; padding: 10px 2px !important; font-size: 8.8px !important; vertical-align: middle !important; }
-
-          /* Header Text Scaling for A5 */
-          .a5-format .header-brand-name { font-size: 1.2rem !important; }
-          .a5-format .header-slogan { font-size: 0.48rem !important; }
-          .a5-format .header-sub-brand { font-size: 0.54rem !important; }
-          .a5-format .header-contact-text { font-size: 0.675rem !important; }
 
           /* Prevent A5 Row Breaks */
           .a5-format .invoice-items-table tbody tr {
@@ -1055,8 +1094,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                     )}
                     <div>
                       <h1 className="text-xl font-black tracking-tighter uppercase leading-none whitespace-nowrap header-brand-name">{profile.name || "PRINT WORKSHOP"}</h1>
-                      <p className="text-[0.6rem] font-medium text-black uppercase mt-0.5 header-slogan">{profile.slogan}</p>
-                      <p className="text-[0.6rem] font-medium text-black uppercase header-sub-brand">DIGITAL PRINTING</p>
+                      <p className="text-[0.8rem] italic text-black mt-1 header-slogan" style={{ fontFamily: 'Georgia, serif' }}>{profile.slogan || "Innovation In Impression"}</p>
                     </div>
                   </div>
 
@@ -1111,26 +1149,31 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                     </p>
                   </div>
                   <div className="absolute left-0 right-0 top-0 flex justify-center pointer-events-none">
-                    <h2 className="text-lg font-bold tracking-widest uppercase">{docTitle}</h2>
+                    <h2 className="text-lg font-bold uppercase doc-title-header">{docTitle}</h2>
                   </div>
-                  <div className="col-span-7">
-                    <p className="text-[0.7rem] font-bold text-right mb-1">GSTIN :<span className="font-black">{profile.gst}</span></p>
-                    <table className="text-[0.7rem] font-bold" style={{ marginLeft: 'auto', tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
-                      <tbody>
-                        <tr>
-                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</td>
-                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: {activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</td>
-                        </tr>
-                        <tr>
-                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation Date" : docType === "estimates" ? "Estimate Date" : "Invoice Date"}</td>
-                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: {formatDate(activeInvoice.date || invoice.date)}</td>
-                        </tr>
-                        <tr>
-                          <td className="pr-0 text-right" style={{ whiteSpace: 'nowrap' }}>PO No</td>
-                          <td className="pl-0 font-black text-left" style={{ whiteSpace: 'nowrap' }}>: -</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div className="col-span-7 flex flex-col items-end">
+                    <div className="w-fit text-left">
+                      <p className="text-[0.7rem] font-bold mb-2">GSTIN :<span className="font-black">{profile.gst}</span></p>
+                      <table className="text-[0.7rem] font-bold" style={{ tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
+                        <tbody>
+                          <tr>
+                            <td className="text-left pr-2" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation No" : docType === "estimates" ? "Estimate No" : "Invoice No"}</td>
+                            <td className="pl-1 pr-0 text-center font-bold">:</td>
+                            <td className="pl-1 font-black text-left" style={{ whiteSpace: 'nowrap' }}>{activeInvoice.invoiceNo || activeInvoice.quotationNo || activeInvoice.estimateNo || invoice.invoiceNo || invoice.quotationNo || invoice.estimateNo || "DRAFT"}</td>
+                          </tr>
+                          <tr>
+                            <td className="text-left pr-2" style={{ whiteSpace: 'nowrap' }}>{docType === "quotations" ? "Quotation Date" : docType === "estimates" ? "Estimate Date" : "Invoice Date"}</td>
+                            <td className="pl-1 pr-0 text-center font-bold">:</td>
+                            <td className="pl-1 font-black text-left" style={{ whiteSpace: 'nowrap' }}>{formatDate(activeInvoice.date || invoice.date)}</td>
+                          </tr>
+                          <tr>
+                            <td className="text-left pr-2" style={{ whiteSpace: 'nowrap' }}>PO No</td>
+                            <td className="pl-1 pr-0 text-center font-bold">:</td>
+                            <td className="pl-1 font-black text-left" style={{ whiteSpace: 'nowrap' }}>-</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -1160,7 +1203,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                           </>
                         )
                       )}
-                      <th className="px-2 text-right align-middle" style={{ width: '12%' }}>AMOUNT</th>
+                      <th className="px-2 text-center align-middle" style={{ width: '12%' }}>AMOUNT</th>
                     </tr>
                   </thead>
                   <tbody className={cn("font-medium text-[0.65rem]", paperSize === "A5" && "text-[0.6rem]")}>
@@ -1171,12 +1214,10 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                       return (
                         <tr key={i} className="">
                           <td className={cn("px-0.5 py-2 text-center", paperSize === "A5" && "py-1")}>{i + 1}</td>
-                          <td className="px-2 py-2 text-center">
-                            <div className="inline-block text-left align-middle">
-                              <span className="font-black uppercase text-[0.7rem] break-words">
-                                {item.category || item.name}
-                              </span>
-                            </div>
+                          <td className="px-2 py-2 text-left align-middle">
+                            <span className="font-black uppercase text-[0.7rem] break-words">
+                              {item.category || item.name}
+                            </span>
                           </td>
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
                           <td className="px-0.5 py-2 text-center">{parseFloat(item.qty || 0).toFixed(2)}</td>
@@ -1194,7 +1235,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                               <td className="px-0.5 py-2 text-center">{(itemTax / 2).toFixed(2)}</td>
                             </>
                           )}
-                          <td className={cn("px-2 py-2 text-right font-black", paperSize === "A5" && "py-1")}>{itemAmount.toFixed(2)}</td>
+                          <td className={cn("px-2 py-2 text-center font-black", paperSize === "A5" && "py-1")}>{itemAmount.toFixed(2)}</td>
                         </tr>
                       );
                     })}
@@ -1218,14 +1259,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                         <td style={{ width: '35%', verticalAlign: 'top' }}>
                           <p className="font-black mb-1 uppercase text-[9px]">Bank Details</p>
                           <div className="text-[10px] space-y-0.5">
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
-                            <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
+                            <div className="flex"><span style={{ width: '92px', minWidth: '92px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[8px]">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span></div>
+                            <div className="flex"><span style={{ width: '92px', minWidth: '92px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[8px]">Bank</span><span className="font-bold">: {profile.bankName || "ICICI Bank"}</span></div>
+                            <div className="flex"><span style={{ width: '92px', minWidth: '92px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[8px]">Branch</span><span className="font-bold">: {profile.bankBranch || "Gandhipuram"}</span></div>
+                            <div className="flex"><span style={{ width: '92px', minWidth: '92px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[8px]">A/C No</span><span className="font-bold">: {profile.accountNumber || "730705000264"}</span></div>
+                            <div className="flex"><span style={{ width: '92px', minWidth: '92px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[8px]">IFSC Code</span><span className="font-bold">: {profile.ifscCode || "ICIC0007307"}</span></div>
                           </div>
                           <div className="mt-4">
-                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
+                            <p className="text-[0.6rem] font-medium text-black uppercase text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
                         <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
@@ -1275,13 +1316,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                                 <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
                               </tr>
                               <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                                <td className="px-2 py-0.5 text-black text-[10px] font-black uppercase">Grand Total</td>
-                                <td className="px-2 py-0.5 text-right text-black text-[10px] font-black">{total.toFixed(2)}</td>
+                                <td className="px-2 py-0.5 text-black text-[10px] font-black uppercase grand-total-text">Grand Total</td>
+                                <td className="px-2 py-0.5 text-right text-black text-[10px] font-black grand-total-text">{total.toFixed(2)}</td>
                               </tr>
                             </tbody>
                           </table>
-                          <div className="mt-2 w-full text-right">
-                            <p className="text-[9px] text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
+                          <div className="w-full text-right" style={{ marginTop: '22px' }}>
+                            <p className="text-[9px] text-gray-500 font-medium leading-tight computer-generated-text">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                             {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
                           </div>
                         </td>
@@ -1297,14 +1338,14 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                         <td style={{ width: '35%', verticalAlign: 'top' }}>
                           <p className="font-black mb-1 uppercase text-[11.5px]">Bank Details</p>
                           <div className="text-[11.5px] space-y-0.5">
-                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Account Name</span><span className="font-black">: {profile.accountName || profile.name}</span></div>
-                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Bank</span><span className="font-black">: {profile.bankName || "ICICI Bank"}</span></div>
-                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">Branch</span><span className="font-black">: {profile.bankBranch || "Gandhipuram"}</span></div>
-                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">A/C No</span><span className="font-black">: {profile.accountNumber || "730705000264"}</span></div>
-                            <div className="flex"><span style={{ width: '90px' }} className="text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
+                            <div className="flex"><span style={{ width: '100px', minWidth: '100px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[10px]">Account Name</span><span className="font-bold">: {profile.accountName || profile.name}</span></div>
+                            <div className="flex"><span style={{ width: '100px', minWidth: '100px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[10px]">Bank</span><span className="font-bold">: {profile.bankName || "ICICI Bank"}</span></div>
+                            <div className="flex"><span style={{ width: '100px', minWidth: '100px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[10px]">Branch</span><span className="font-bold">: {profile.bankBranch || "Gandhipuram"}</span></div>
+                            <div className="flex"><span style={{ width: '100px', minWidth: '100px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[10px]">A/C No</span><span className="font-bold">: {profile.accountNumber || "730705000264"}</span></div>
+                            <div className="flex"><span style={{ width: '100px', minWidth: '100px', flexShrink: 0 }} className="text-gray-500 font-bold uppercase text-[10px]">IFSC Code</span><span className="font-bold">: {profile.ifscCode || "ICIC0007307"}</span></div>
                           </div>
                           <div className="mt-4">
-                            <p className="text-[0.6rem] font-bold text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
+                            <p className="text-[0.6rem] font-bold text-black uppercase text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
                         <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
@@ -1354,13 +1395,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                                 <td className="px-2 py-1 text-right font-black">{roundOff.toFixed(2)}</td>
                               </tr>
                               <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                                <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase">Grand Total</td>
-                                <td className="px-2 py-1 text-right text-black text-[13.5px] font-black">{total.toFixed(2)}</td>
+                                <td className="px-2 py-1 text-black text-[13.5px] font-black uppercase grand-total-text">Grand Total</td>
+                                <td className="px-2 py-1 text-right text-black text-[13.5px] font-black grand-total-text">{total.toFixed(2)}</td>
                               </tr>
                             </tbody>
                           </table>
-                          <div className="mt-2 w-full text-right">
-                            <p className="text-[9px] text-gray-500 font-medium leading-tight">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
+                          <div className="w-full text-right" style={{ marginTop: '22px' }}>
+                            <p className="text-[9px] text-gray-500 font-medium leading-tight computer-generated-text">This is computer generated {docType === "quotations" ? "quotation" : docType === "estimates" ? "estimate" : "invoice"} signature not required</p>
                             {activeInvoice.fileName && <p className="text-[10px] font-bold uppercase text-primary mt-1">File: {activeInvoice.fileName}</p>}
                           </div>
                         </td>
