@@ -2913,26 +2913,34 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   const [open, setOpen] = useState(false);
   const currentFilter = filters[column] || "";
+  const isFiltered = column === "date" 
+    ? (!!filters.dateFrom || !!filters.dateTo)
+    : !!currentFilter;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className={cn("h-5 w-5 ml-auto p-0 hover:bg-muted-foreground/10", currentFilter && "text-primary bg-primary/5")}>
-          <Filter className={cn("h-2.5 w-2.5", currentFilter && "fill-current")} />
+        <Button variant="ghost" size="icon" className={cn("h-5 w-5 ml-auto p-0 hover:bg-muted-foreground/10", isFiltered && "text-primary bg-primary/5")}>
+          <Filter className={cn("h-2.5 w-2.5", isFiltered && "fill-current")} />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-3 shadow-xl border-primary/10 z-[110]" align="end">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-[0.625rem] font-black uppercase tracking-widest text-muted-foreground">Filter {label}</p>
-            {currentFilter && (
+            {isFiltered && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-5 px-1.5 text-[0.5625rem] font-bold text-destructive hover:text-destructive hover:bg-destructive/5"
                 onClick={() => {
                   const newFilters = { ...filters };
-                  delete newFilters[column];
+                  if (column === "date") {
+                    delete newFilters.dateFrom;
+                    delete newFilters.dateTo;
+                  } else {
+                    delete newFilters[column];
+                  }
                   setFilters(newFilters);
                   setOpen(false);
                 }}
@@ -2941,7 +2949,28 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
               </Button>
             )}
           </div>
-          {options ? (
+          {column === "date" ? (
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-muted-foreground uppercase">From Date</label>
+                <Input
+                  type="date"
+                  value={filters.dateFrom || ""}
+                  onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                  className="h-8 text-xs font-medium focus-visible:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-muted-foreground uppercase">To Date</label>
+                <Input
+                  type="date"
+                  value={filters.dateTo || ""}
+                  onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                  className="h-8 text-xs font-medium focus-visible:ring-primary/20"
+                />
+              </div>
+            </div>
+          ) : options ? (
             <Select value={currentFilter} onValueChange={(v) => {
               if (v === "all") {
                 const newFilters = { ...filters };
@@ -3007,6 +3036,14 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
     // Column specific filters
     const matchesColumnFilters = Object.entries(columnFilters).every(([col, val]) => {
       if (!val) return true;
+      if (col === "dateFrom") {
+        const rowDate = row.date;
+        return !rowDate || rowDate >= val;
+      }
+      if (col === "dateTo") {
+        const rowDate = row.date;
+        return !rowDate || rowDate <= val;
+      }
       const rowValue = row[col];
       if (col.toLowerCase() === "status") {
         return String(rowValue).toLowerCase() === val.toLowerCase();
@@ -3233,7 +3270,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                                 Convert
                               </Button>
                             )}
-                            {onToggleStatus && (
+                            {onToggleStatus && (!isInvoiced || selectionLabel !== "estimate") && (
                               <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Pending" : "Mark as Paid"}>
                                 {row.status === "Paid" ? <Clock className="h-4 w-4 text-orange-500" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
                               </Button>
@@ -3714,14 +3751,16 @@ export default function Sales() {
 
   const handleToggleStatus = async (invoice: any) => {
     try {
+      const isEstimate = invoice.invoiceNo?.startsWith('EST-');
       const newStatus = invoice.status === "Paid" ? "Pending" : "Paid";
+      
       const res = await fetch(`/api/sales?resource=invoices&id=${invoice.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus })
       });
       if (!res.ok) throw new Error("Failed to update status");
-      toast({ title: "Status Updated", description: `Invoice marked as ${newStatus}` });
+      toast({ title: "Status Updated", description: `${isEstimate ? 'Estimate' : 'Invoice'} marked as ${newStatus}` });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
@@ -3754,7 +3793,9 @@ export default function Sales() {
       filterOptions: [
         { label: "Draft", value: "Draft" },
         { label: "Quoted", value: "Quoted" },
-        { label: "Invoiced", value: "Invoiced" }
+        { label: "Invoiced", value: "Invoiced" },
+        { label: "Pending", value: "Pending" },
+        { label: "Paid", value: "Paid" }
       ]
     },
   ];
@@ -3876,6 +3917,7 @@ export default function Sales() {
             isLoading={invLoading}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: false })}
             onDownload={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: true })}
+            onToggleStatus={handleToggleStatus}
             onWhatsApp={handleWhatsApp}
             onEdit={canEdit ? (r) => setEditingRecord({ data: r, type: "estimates" }) : undefined}
             onConvert={(r) => setConvertDialog({ open: true, data: r, type: "estimates" })}
