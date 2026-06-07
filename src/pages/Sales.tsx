@@ -823,8 +823,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
       box-sizing: border-box !important;
     }
     .invoice-items-table thead tr {
-      border-top: 2px solid black !important;
-      border-bottom: 2px solid black !important;
+      border-top: 1px solid black !important;
+      border-bottom: 1px solid black !important;
     }
     .invoice-items-table tbody {
       display: table-row-group;
@@ -1046,7 +1046,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
 
               <div className={cn("space-y-2", paperSize === "A5" && "space-y-1")}>
                 {/* Header Layout */}
-                <div className={cn("flex justify-between items-start w-full border-b-2 border-black/20 pb-2", paperSize === "A5" && "pb-1")}>
+                <div className={cn("flex justify-between items-start w-full border-b border-black/20 pb-2", paperSize === "A5" && "pb-1")}>
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -1242,12 +1242,12 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                             <div style={{ display: 'inline-block' }}>
                               {activeQr.isDynamic ? (
                                 qrBlobUrl ? (
-                                <img src={qrBlobUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                <img src={qrBlobUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
                               ) : (
-                                <div style={{ height: '80px', width: '80px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                <div style={{ height: '110px', width: '110px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
                               )
                             ) : (
-                              <img src={activeQr.imageUrl} style={{ height: '80px', width: '80px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                              <img src={activeQr.imageUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
                             )}
                               <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                             </div>
