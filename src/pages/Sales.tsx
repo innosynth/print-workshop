@@ -1138,7 +1138,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   <thead className="bg-white font-bold uppercase">
                     <tr className="text-[10px] align-middle">
                       <th className="px-0.5 text-center align-middle" style={{ width: '5%' }}>S.No</th>
-                      <th className="px-2 text-left align-middle" style={{ width: '25%' }}>Description</th>
+                      <th className="px-2 text-center align-middle" style={{ width: '25%' }}>Description</th>
                       <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>HSN</th>
                       <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>QTY</th>
                       <th className="px-0.5 text-center align-middle" style={{ width: '8%' }}>RATE (RS.)</th>
@@ -1171,13 +1171,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                       return (
                         <tr key={i} className="">
                           <td className={cn("px-0.5 py-2 text-center", paperSize === "A5" && "py-1")}>{i + 1}</td>
-                          <td className="px-2 py-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {paperSize === "A4" ? (
-                                <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
-                              ) : (
-                                <span className="font-black uppercase text-[0.7rem]">{item.category || item.name}</span>
-                              )}
+                          <td className="px-2 py-2 text-center">
+                            <div className="inline-block text-left align-middle">
+                              <span className="font-black uppercase text-[0.7rem] break-words">
+                                {item.category || item.name}
+                              </span>
                             </div>
                           </td>
                           <td className="px-0.5 py-2 text-center">{item.hsnCode || "4909"}</td>
