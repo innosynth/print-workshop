@@ -50,7 +50,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 const generateNextNo = (list: any[], type: string) => {
   const prefix = type === 'quotations' ? 'QT' : type === 'estimates' ? 'EST' : 'INV';
   const startNum = type === 'estimates' ? 1000 : type === 'quotations' ? 1 : 136;
-  
+
   const nums = list
     .filter((i: any) => {
       const val = i.invoiceNo || i.quotationNo;
@@ -66,7 +66,7 @@ const generateNextNo = (list: any[], type: string) => {
       if (num < startNum) return 0;
       return isNaN(num) ? 0 : num;
     })
-     .filter(n => n >= startNum);
+    .filter(n => n >= startNum);
 
   const max = nums.length > 0 ? Math.max(...nums) : (startNum - 1);
   return `${prefix}-${max + 1}`;
@@ -109,156 +109,156 @@ function FormCombobox({ label, value, options, onSelect, action, triggerRef, onK
 
   return (
     <div className="relative">
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          ref={triggerRef}
-          variant="outline"
-          role="combobox"
-          className={cn("w-full mt-1 h-7 justify-between font-normal text-[0.75rem] px-2", hasError && "border-red-500 ring-1 ring-red-400 bg-red-50 animate-[shake_0.3s_ease]", className)}
-          title={value || `Select ${label.toLowerCase()}`}
-          onFocus={(e) => {
-            if (openOnFocus && !open && !justClosed.current) {
-              // Increase delay to ensure DOM and focus state are stable
-              setTimeout(() => setOpen(true), 100);
-            }
-            justClosed.current = false;
-          }}
-          onKeyDown={onKeyDown}
-        >
-          <span className="truncate" title={value || `Select ${label.toLowerCase()}`}>{value || `Select ${label.toLowerCase()}`}</span>
-          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
-        <Command
-          value={highlighted}
-          onValueChange={setHighlighted}
-          filter={(value, search) => {
-            if (value.startsWith("___custom_value___:")) return 1;
-            const normalizedValue = value.toLowerCase();
-            const normalizedSearch = search.toLowerCase();
-            if (normalizedValue.includes(normalizedSearch)) return 1;
-            return 0;
-          }}
-        >
-          <CommandInput
-            ref={inputRef}
-            placeholder={`Search ${label.toLowerCase()}...`}
-            className="h-7 text-xs"
-            onValueChange={setSearch}
-            onKeyDown={(e) => {
-              if (onKeyDown && e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
-                setOpen(false);
-                // Increase delay to ensure Popover handles closing before we move focus
-                setTimeout(() => onKeyDown(e), 100);
-                return;
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            ref={triggerRef}
+            variant="outline"
+            role="combobox"
+            className={cn("w-full mt-1 h-7 justify-between font-normal text-[0.75rem] px-2", hasError && "border-red-500 ring-1 ring-red-400 bg-red-50 animate-[shake_0.3s_ease]", className)}
+            title={value || `Select ${label.toLowerCase()}`}
+            onFocus={(e) => {
+              if (openOnFocus && !open && !justClosed.current) {
+                // Increase delay to ensure DOM and focus state are stable
+                setTimeout(() => setOpen(true), 100);
               }
-              if (e.key === 'Enter') {
-                const hasMatches = options.some(opt => opt.toLowerCase().includes(search.toLowerCase()));
-                if (!hasMatches && allowCustom && search) {
-                  justClosed.current = true;
-                  onSelect(search);
+              justClosed.current = false;
+            }}
+            onKeyDown={onKeyDown}
+          >
+            <span className="truncate" title={value || `Select ${label.toLowerCase()}`}>{value || `Select ${label.toLowerCase()}`}</span>
+            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
+          <Command
+            value={highlighted}
+            onValueChange={setHighlighted}
+            filter={(value, search) => {
+              if (value.startsWith("___custom_value___:")) return 1;
+              const normalizedValue = value.toLowerCase();
+              const normalizedSearch = search.toLowerCase();
+              if (normalizedValue.includes(normalizedSearch)) return 1;
+              return 0;
+            }}
+          >
+            <CommandInput
+              ref={inputRef}
+              placeholder={`Search ${label.toLowerCase()}...`}
+              className="h-7 text-xs"
+              onValueChange={setSearch}
+              onKeyDown={(e) => {
+                if (onKeyDown && e.shiftKey && (e.key === 'Tab' || e.key === 'Enter')) {
                   setOpen(false);
-                  if (onKeyDown) setTimeout(() => onKeyDown(e), 100);
+                  // Increase delay to ensure Popover handles closing before we move focus
+                  setTimeout(() => onKeyDown(e), 100);
                   return;
                 }
-                if (onKeyDown && (search || highlighted)) {
-                  // Short timeout to allow the Command onSelect to complete first
-                  setTimeout(() => onKeyDown(e), 100);
-                }
-              }
-            }}
-          />
-          {/* When showListOnlyWhenTyping is true, hide the list until the user types something — matching the B2B Customer screen behavior */}
-          {(!showListOnlyWhenTyping || search) ? (
-          <CommandList>
-            <CommandEmpty className="p-0">
-              <div className="p-6 text-center text-sm">No {label.toLowerCase()} found.</div>
-            </CommandEmpty>
-            <CommandGroup className="p-0 h-0 overflow-hidden">
-              <CommandItem
-                value="___hidden_default___"
-                onSelect={() => {
-                  justClosed.current = true;
-                  setOpen(false);
-                  onSelect("");
-                }}
-              />
-            </CommandGroup>
-
-            <CommandGroup>
-              {allowCustom && search && !options.some(opt => opt.trim().toLowerCase() === search.trim().toLowerCase()) && (
-                <CommandItem
-                  value={`___custom_value___:${search}`}
-                  onSelect={() => {
+                if (e.key === 'Enter') {
+                  const hasMatches = options.some(opt => opt.toLowerCase().includes(search.toLowerCase()));
+                  if (!hasMatches && allowCustom && search) {
                     justClosed.current = true;
                     onSelect(search);
                     setOpen(false);
-                  }}
-                  className="text-xs font-bold text-primary py-1 px-2 cursor-default flex items-center gap-1.5"
-                >
-                  <Plus className="h-3 w-3 mr-1" /> Use "{search}" as Walk-in
-                </CommandItem>
-              )}
-              {includeBlank && (
-                <CommandItem
-                  value="none_selected"
-                  onSelect={() => {
-                    justClosed.current = true;
-                    onSelect("");
-                    setOpen(false);
-                  }}
-                >
-                  <span className="text-muted-foreground italic">-- Skip / None --</span>
-                </CommandItem>
-              )}
-              {Array.from(new Set(options.map(o => String(o || "").trim()))).sort().map((opt: string) => (
-                <CommandItem
-                  key={opt}
-                  value={opt}
-                  title={opt}
-                  onSelect={() => {
-                    justClosed.current = true;
-                    onSelect(opt);
-                    setOpen(false);
-                  }}
-                  className="text-xs whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2 cursor-default"
-                >
-                  <Check className={cn("mr-1.5 h-3.5 w-3.5", value === opt ? "opacity-100" : "opacity-0")} />
-                  <span className="truncate">{String(opt)}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            {action && (
-              <>
-                <Separator />
-                <div className="p-1">
-                  {action}
-                </div>
-              </>
+                    if (onKeyDown) setTimeout(() => onKeyDown(e), 100);
+                    return;
+                  }
+                  if (onKeyDown && (search || highlighted)) {
+                    // Short timeout to allow the Command onSelect to complete first
+                    setTimeout(() => onKeyDown(e), 100);
+                  }
+                }
+              }}
+            />
+            {/* When showListOnlyWhenTyping is true, hide the list until the user types something — matching the B2B Customer screen behavior */}
+            {(!showListOnlyWhenTyping || search) ? (
+              <CommandList>
+                <CommandEmpty className="p-0">
+                  <div className="p-6 text-center text-sm">No {label.toLowerCase()} found.</div>
+                </CommandEmpty>
+                <CommandGroup className="p-0 h-0 overflow-hidden">
+                  <CommandItem
+                    value="___hidden_default___"
+                    onSelect={() => {
+                      justClosed.current = true;
+                      setOpen(false);
+                      onSelect("");
+                    }}
+                  />
+                </CommandGroup>
+
+                <CommandGroup>
+                  {allowCustom && search && !options.some(opt => opt.trim().toLowerCase() === search.trim().toLowerCase()) && (
+                    <CommandItem
+                      value={`___custom_value___:${search}`}
+                      onSelect={() => {
+                        justClosed.current = true;
+                        onSelect(search);
+                        setOpen(false);
+                      }}
+                      className="text-xs font-bold text-primary py-1 px-2 cursor-default flex items-center gap-1.5"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Use "{search}" as Walk-in
+                    </CommandItem>
+                  )}
+                  {includeBlank && (
+                    <CommandItem
+                      value="none_selected"
+                      onSelect={() => {
+                        justClosed.current = true;
+                        onSelect("");
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="text-muted-foreground italic">-- Skip / None --</span>
+                    </CommandItem>
+                  )}
+                  {Array.from(new Set(options.map(o => String(o || "").trim()))).sort().map((opt: string) => (
+                    <CommandItem
+                      key={opt}
+                      value={opt}
+                      title={opt}
+                      onSelect={() => {
+                        justClosed.current = true;
+                        onSelect(opt);
+                        setOpen(false);
+                      }}
+                      className="text-xs whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2 cursor-default"
+                    >
+                      <Check className={cn("mr-1.5 h-3.5 w-3.5", value === opt ? "opacity-100" : "opacity-0")} />
+                      <span className="truncate">{String(opt)}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                {action && (
+                  <>
+                    <Separator />
+                    <div className="p-1">
+                      {action}
+                    </div>
+                  </>
+                )}
+              </CommandList>
+            ) : (
+              /* Empty state — show a hint so user knows to start typing */
+              <div className="px-3 py-2.5 text-xs text-muted-foreground italic text-center">
+                Type to search {label.toLowerCase()}...
+              </div>
             )}
-          </CommandList>
-          ) : (
-            /* Empty state — show a hint so user knows to start typing */
-            <div className="px-3 py-2.5 text-xs text-muted-foreground italic text-center">
-              Type to search {label.toLowerCase()}...
-            </div>
-          )}
-        </Command>
-      </PopoverContent>
-    </Popover>
-    {hasError && errorMessage && (
-      <p className="text-[0.6rem] text-red-500 font-semibold mt-0.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">{errorMessage}</p>
-    )}
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {hasError && errorMessage && (
+        <p className="text-[0.6rem] text-red-500 font-semibold mt-0.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">{errorMessage}</p>
+      )}
     </div>
   );
 }
 
-function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownloadComplete, forcedPaperSize }: { 
-  invoice: any, 
-  onClose: () => void, 
-  docType?: string, 
+function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownloadComplete, forcedPaperSize }: {
+  invoice: any,
+  onClose: () => void,
+  docType?: string,
   autoDownload?: boolean,
   onDownloadComplete?: (blob: Blob, filename: string) => void,
   forcedPaperSize?: "A4" | "A5" | "thermal"
@@ -823,8 +823,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
       box-sizing: border-box !important;
     }
     .invoice-items-table thead tr {
-      border-top: 1px solid black !important;
-      border-bottom: 1px solid black !important;
+      border-top: 0.5px solid black !important;
+      border-bottom: 0.5px solid black !important;
     }
     .invoice-items-table tbody {
       display: table-row-group;
@@ -1044,9 +1044,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
           {paperSize === "A4" || paperSize === "A5" ? (
             <div className={`invoice-page ${paperSize === "A5" ? "a5-format" : ""}`} style={{ fontSize: `${(settingsData?.settings?.a4FontSize || settings.a4FontSize) * 0.9}px`, fontFamily: "Arial" }}>
 
-              <div className={cn("space-y-2", paperSize === "A5" && "space-y-1")}>
+              <div className={cn("space-y-2", paperSize === "A5" && "space-y-0")}>
                 {/* Header Layout */}
-                <div className={cn("flex justify-between items-start w-full border-b border-black/20 pb-2", paperSize === "A5" && "pb-1")}>
+                <div className={cn("flex justify-between items-start w-full pb-2", paperSize === "A5" && "pb-1")} style={{ borderBottom: '0.5px solid black' }}>
                   <div className="flex items-center">
                     {profile.logoUrl ? (
                       <img src={profile.logoUrl} className="w-16 h-16 object-contain mr-3 shrink-0" alt="Logo" />
@@ -1061,7 +1061,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   </div>
 
                   <div className={cn("pt-1", paperSize === "A5" && "pt-1")}>
-                    <table className={`${paperSize === "A4" && !isEstimate ? "text-[0.7rem]" : "text-[0.6rem]"} font-bold border-separate border-spacing-x-3 header-contact-text`} style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
+                    <table className={`${paperSize === "A4" && !isEstimate ? "text-[0.7rem]" : "text-[0.6rem]"} font-medium border-separate border-spacing-x-3 header-contact-text`} style={{ width: 'auto', marginLeft: 'auto', tableLayout: 'auto' }}>
                       <tbody>
                         <tr className="align-top">
                           <td className="text-right pr-3 shrink-0 header-contact-text">
@@ -1097,20 +1097,9 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   </div>
                 </div>
 
-                {/* Title & Shop GST Area */}
-                <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-3"></div>
-                  <div className="col-span-6 text-center">
-                    <h2 className="text-lg font-black tracking-widest uppercase">{docTitle}</h2>
-                  </div>
-                  <div className="col-span-3 text-right">
-                    <p className="text-[0.7rem] font-bold">GSTIN : <span className="font-black">{profile.gst}</span></p>
-                  </div>
-                </div>
-
-                {/* Billing & Meta Info */}
-                <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem]", paperSize === "A5" && "gap-1 text-[0.65rem]")}>
-                  <div className="col-span-7 space-y-0.5">
+                {/* Combined Title + Billing & Meta Info */}
+                <div className={cn("grid grid-cols-12 gap-4 text-[0.7rem] relative", paperSize === "A5" && "gap-1 text-[0.65rem]")} style={{ marginTop: paperSize === "A5" ? '4px' : undefined }}>
+                  <div className="col-span-5 space-y-0.5">
                     <p className={cn("font-bold text-gray-500 uppercase tracking-widest text-[0.6rem]", paperSize === "A5" && "text-base mt-0 leading-tight")}>TO :</p>
                     <p className="text-[11.7px] font-bold uppercase leading-tight">{activeInvoice.customerName || invoice.customerName || ""}</p>
                     <div className="text-gray-600 font-bold whitespace-pre-line uppercase leading-tight text-[11.7px]">
@@ -1121,7 +1110,11 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                       State & Code: {(activeInvoice.customerState || "TAMIL NADU").toUpperCase()}{getStateCode() ? ` - ${getStateCode()}` : " - 33"}
                     </p>
                   </div>
-                  <div className="col-span-5">
+                  <div className="absolute left-0 right-0 top-0 flex justify-center pointer-events-none">
+                    <h2 className="text-lg font-bold tracking-widest uppercase">{docTitle}</h2>
+                  </div>
+                  <div className="col-span-7">
+                    <p className="text-[0.7rem] font-bold text-right mb-1">GSTIN :<span className="font-black">{profile.gst}</span></p>
                     <table className="text-[0.7rem] font-bold" style={{ marginLeft: 'auto', tableLayout: 'auto', borderCollapse: 'collapse', fontFamily: 'Arial' }}>
                       <tbody>
                         <tr>
@@ -1141,7 +1134,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                   </div>
                 </div>
 
-                <table className="w-full border-collapse text-[0.6rem] invoice-items-table">
+                <table className="w-full border-collapse text-[0.6rem] invoice-items-table" style={{ marginTop: '6px' }}>
                   <thead className="bg-white font-bold uppercase">
                     <tr className="text-[10px] align-middle">
                       <th className="px-0.5 text-center align-middle" style={{ width: '5%' }}>S.No</th>
@@ -1234,7 +1227,7 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                             <div className="flex"><span style={{ width: '80px' }} className="text-gray-500 font-bold uppercase text-[8px]">IFSC Code</span><span className="font-black">: {profile.ifscCode || "ICIC0007307"}</span></div>
                           </div>
                           <div className="mt-4">
-                            <p className="text-[0.6rem] font-bold text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
+                            <p className="text-[0.6rem] font-medium text-black uppercase tracking-tight text-left">THANK YOU FOR YOUR BUSINESS</p>
                           </div>
                         </td>
                         <td style={{ width: '30%', verticalAlign: 'top', textAlign: 'center' }}>
@@ -1242,13 +1235,13 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                             <div style={{ display: 'inline-block' }}>
                               {activeQr.isDynamic ? (
                                 qrBlobUrl ? (
-                                <img src={qrBlobUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                  <img src={qrBlobUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Dynamic UPI QR" />
+                                ) : (
+                                  <div style={{ height: '110px', width: '110px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
+                                )
                               ) : (
-                                <div style={{ height: '110px', width: '110px' }} className="flex items-center justify-center mx-auto"><Loader2 className="h-6 w-6 animate-spin text-primary/30" /></div>
-                              )
-                            ) : (
-                              <img src={activeQr.imageUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
-                            )}
+                                <img src={activeQr.imageUrl} style={{ height: '110px', width: '110px', objectFit: 'contain' }} className="p-1 mx-auto" alt="Payment QR" />
+                              )}
                               <p className="text-[9px] font-black uppercase text-gray-700 mt-1">SCAN and PAY</p>
                             </div>
                           )}
@@ -1284,8 +1277,8 @@ function InvoicePrintPreview({ invoice, onClose, docType, autoDownload, onDownlo
                                 <td className="px-2 py-0.5 text-right font-black">{roundOff.toFixed(2)}</td>
                               </tr>
                               <tr className="bg-gray-100 border-t border-gray-300 shadow-sm">
-                                <td className="px-2 py-0.5 text-black text-[12px] font-black uppercase">Grand Total</td>
-                                <td className="px-2 py-0.5 text-right text-black text-[12px] font-black">{total.toFixed(2)}</td>
+                                <td className="px-2 py-0.5 text-black text-[10px] font-black uppercase">Grand Total</td>
+                                <td className="px-2 py-0.5 text-right text-black text-[10px] font-black">{total.toFixed(2)}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -1617,14 +1610,14 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       return;
     }
 
-    const existing = contacts.find((c: any) => 
-      c.name.trim().toLowerCase() === newCustomer.name?.trim().toLowerCase() && 
+    const existing = contacts.find((c: any) =>
+      c.name.trim().toLowerCase() === newCustomer.name?.trim().toLowerCase() &&
       c.type === "B2B"
     );
     if (existing) {
-      toast({ 
-        title: "Duplicate Record Found", 
-        description: `Contact "${existing.name}" already exists. Setting this customer.` 
+      toast({
+        title: "Duplicate Record Found",
+        description: `Contact "${existing.name}" already exists. Setting this customer.`
       });
       setCustomerId(existing.id.toString());
       setCustomerName("");
@@ -1653,18 +1646,18 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       });
       if (!res.ok) throw new Error("Failed to save contact");
       const createdContact = await res.json();
-      
-      toast({ 
-        title: "Success", 
-        description: `Customer "${createdContact.name}" added successfully` 
+
+      toast({
+        title: "Success",
+        description: `Customer "${createdContact.name}" added successfully`
       });
-      
+
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       setCustomerId(createdContact.id.toString());
       setCustomerName("");
       setCustomerMobile(createdContact.mobile || "");
       setQuickAddOpen(false);
-      
+
       // Reset new customer form
       setNewCustomer({
         name: "",
@@ -1819,7 +1812,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(source.date || new Date().toISOString().split('T')[0]);
         setGstEnabled(source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates');
         setIsIgst(source.isIgst === true);
-        
+
         initialValuesRef.current = {
           items: mappedItems,
           customerId: sourceCustomerId,
@@ -1830,7 +1823,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           gstEnabled: source.tax ? parseFloat(source.tax) > 0 : type !== 'estimates',
           isIgst: source.isIgst === true
         };
-        
+
         formInitialized.current = true;
       } else {
         // Create new mode
@@ -1842,7 +1835,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         setDate(new Date().toISOString().split('T')[0]);
         setGstEnabled(type !== 'estimates');
         setIsIgst(false);
-        
+
         initialValuesRef.current = {
           items: [],
           customerId: "",
@@ -1853,7 +1846,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
           gstEnabled: type !== 'estimates',
           isIgst: false
         };
-        
+
         formInitialized.current = true;
       }
     }
@@ -1862,10 +1855,10 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const hasChanges = () => {
     if (!initialValuesRef.current) return false;
     const init = initialValuesRef.current;
-    
+
     // Check if pending items have any input
     if (pendingItem.category || pendingItem.name || pendingItem.qty || pendingItem.rate) return true;
-    
+
     // Compare basic fields
     if (customerId !== init.customerId) return true;
     if (customerName !== init.customerName) return true;
@@ -1874,7 +1867,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
     if (date !== init.date) return true;
     if (isIgst !== init.isIgst) return true;
     if (gstEnabled !== init.gstEnabled) return true;
-    
+
     // Compare items list
     if (items.length !== init.items.length) return true;
     for (let i = 0; i < items.length; i++) {
@@ -1890,7 +1883,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       if (item.subCategory !== initItem.subCategory) return true;
       if (item.sku !== initItem.sku) return true;
     }
-    
+
     return false;
   };
 
@@ -2192,7 +2185,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent 
+      <DialogContent
         className="max-w-[88.3rem] w-[98vw] h-[58rem] max-h-[92vh] p-0 flex flex-col overflow-hidden transition-all duration-300"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
@@ -2730,14 +2723,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={quickAddOpen} onOpenChange={(v) => { setQuickAddOpen(v); if(!v) {
-        setNewCustomer({
-          name: "", contactPerson: "", mobile: "", whatsapp: "", email: "", gst: "", pan: "",
-          receivableOpeningBalance: "0", city: "", address: "", status: "Active"
-        });
-        setQuickSameAsMobile(true);
-        setQuickNoGst(false);
-      }}}>
+      <Dialog open={quickAddOpen} onOpenChange={(v) => {
+        setQuickAddOpen(v); if (!v) {
+          setNewCustomer({
+            name: "", contactPerson: "", mobile: "", whatsapp: "", email: "", gst: "", pan: "",
+            receivableOpeningBalance: "0", city: "", address: "", status: "Active"
+          });
+          setQuickSameAsMobile(true);
+          setQuickNoGst(false);
+        }
+      }}>
         <DialogContent className="max-w-lg overflow-y-auto max-h-[45rem] z-[150]">
           <DialogHeader>
             <DialogTitle>Add New B2B Customer</DialogTitle>
@@ -2913,7 +2908,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   const [open, setOpen] = useState(false);
   const currentFilter = filters[column] || "";
-  const isFiltered = column === "date" 
+  const isFiltered = column === "date"
     ? (!!filters.dateFrom || !!filters.dateTo)
     : !!currentFilter;
 
@@ -3216,99 +3211,99 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                     const isSelected = selectedIds.has(row.id);
                     const isInvoiced = row.status === 'Invoiced';
                     return (
-                    <tr key={i} className={cn(
-                      "border-b last:border-0 hover:bg-muted/30 transition-colors",
-                      isSelected && "bg-primary/5 hover:bg-primary/10"
-                    )}>
-                      {enableMultiSelect && (
-                        <td className="px-3 py-2.5">
-                          {isInvoiced ? (
-                            <div className="h-4 w-4 flex items-center justify-center" title="Already converted to invoice">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 opacity-50" />
+                      <tr key={i} className={cn(
+                        "border-b last:border-0 hover:bg-muted/30 transition-colors",
+                        isSelected && "bg-primary/5 hover:bg-primary/10"
+                      )}>
+                        {enableMultiSelect && (
+                          <td className="px-3 py-2.5">
+                            {isInvoiced ? (
+                              <div className="h-4 w-4 flex items-center justify-center" title="Already converted to invoice">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 opacity-50" />
+                              </div>
+                            ) : (
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSelect(row.id)}
+                                className="h-4 w-4"
+                              />
+                            )}
+                          </td>
+                        )}
+                        {cols.map(c => (
+                          <td key={c.key} className="px-4 py-2.5">
+                            {c.render ? c.render(row) : row[c.key]}
+                          </td>
+                        ))}
+                        {(onPrint || onConvert || onEdit) && (
+                          <td className="px-4 py-2.5">
+                            <div className="flex gap-1">
+                              {onPrint && (
+                                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onPrint(row)}>
+                                  <Printer className="h-3.5 w-3.5" />Print
+                                </Button>
+                              )}
+                              {onDownload && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onDownload(row)} title="Download">
+                                  <Download className="h-4 w-4 text-green-600" />
+                                </Button>
+                              )}
+                              {onEdit && (
+                                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
+                                  <Edit className="h-3.5 w-3.5" />Edit
+                                </Button>
+                              )}
+                              {onConvert && !isInvoiced && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="h-7 gap-1 text-xs"
+                                  onClick={() => onConvert(row)}
+                                  disabled={loadingId === row.id}
+                                >
+                                  {loadingId === row.id && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                  Convert
+                                </Button>
+                              )}
+                              {onToggleStatus && (!isInvoiced || selectionLabel !== "estimate") && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Pending" : "Mark as Paid"}>
+                                  {row.status === "Paid" ? <Clock className="h-4 w-4 text-orange-500" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                                </Button>
+                              )}
+                              {onWhatsApp && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 p-0 hover:bg-green-50" onClick={() => onWhatsApp(row)} title="Send via WhatsApp">
+                                  <WhatsAppIcon className="h-4 w-4 text-[#25D366]" />
+                                </Button>
+                              )}
+                              {onDelete && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete">
+                                      <Trash2 className="h-3.5 w-3.5" />Delete
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the
+                                        {row.quotationNo || row.invoiceNo} and all its associated items.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
-                          ) : (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleSelect(row.id)}
-                              className="h-4 w-4"
-                            />
-                          )}
-                        </td>
-                      )}
-                      {cols.map(c => (
-                        <td key={c.key} className="px-4 py-2.5">
-                          {c.render ? c.render(row) : row[c.key]}
-                        </td>
-                      ))}
-                      {(onPrint || onConvert || onEdit) && (
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            {onPrint && (
-                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onPrint(row)}>
-                                <Printer className="h-3.5 w-3.5" />Print
-                              </Button>
-                            )}
-                            {onDownload && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onDownload(row)} title="Download">
-                                <Download className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
-                            {onEdit && (
-                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
-                                <Edit className="h-3.5 w-3.5" />Edit
-                              </Button>
-                            )}
-                            {onConvert && !isInvoiced && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="h-7 gap-1 text-xs"
-                                onClick={() => onConvert(row)}
-                                disabled={loadingId === row.id}
-                              >
-                                {loadingId === row.id && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                                Convert
-                              </Button>
-                            )}
-                            {onToggleStatus && (!isInvoiced || selectionLabel !== "estimate") && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Pending" : "Mark as Paid"}>
-                                {row.status === "Paid" ? <Clock className="h-4 w-4 text-orange-500" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                              </Button>
-                            )}
-                            {onWhatsApp && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 p-0 hover:bg-green-50" onClick={() => onWhatsApp(row)} title="Send via WhatsApp">
-                                <WhatsAppIcon className="h-4 w-4 text-[#25D366]" />
-                              </Button>
-                            )}
-                            {onDelete && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete">
-                                    <Trash2 className="h-3.5 w-3.5" />Delete
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the 
-                                      {row.quotationNo || row.invoiceNo} and all its associated items.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
+                          </td>
+                        )}
+                      </tr>
+                    );
                   })}
                   {filtered.length === 0 && (
                     <tr><td colSpan={cols.length + (enableMultiSelect ? 2 : 1)} className="px-4 py-8 text-center text-muted-foreground">No records found</td></tr>
@@ -3388,9 +3383,9 @@ export default function Sales() {
 
     if (bulkIndex >= 0 && bulkIndex < bulkQueue.length) {
       const item = bulkQueue[bulkIndex];
-      setSelectedInvoice({ 
-        data: item, 
-        type: item.resourceType || "estimates", 
+      setSelectedInvoice({
+        data: item,
+        type: item.resourceType || "estimates",
         autoDownload: true,
         forcedPaperSize: bulkDownloadDialog.forcedPaperSize
       });
@@ -3753,7 +3748,7 @@ export default function Sales() {
     try {
       const isEstimate = invoice.invoiceNo?.startsWith('EST-');
       const newStatus = invoice.status === "Paid" ? "Pending" : "Paid";
-      
+
       const res = await fetch(`/api/sales?resource=invoices&id=${invoice.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -3967,10 +3962,10 @@ export default function Sales() {
           />
         </TabsContent>
         <TabsContent value="returns" className="mt-4">
-          <TxTable 
-            data={returns} 
-            cols={srCols} 
-            isLoading={srLoading} 
+          <TxTable
+            data={returns}
+            cols={srCols}
+            isLoading={srLoading}
             enableMultiSelect
             onBulkDownload={(selected) => handleBulkDownload(selected, "returns")}
             bulkDownloadLoading={bulkDownloadLoading}
