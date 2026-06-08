@@ -906,8 +906,63 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   );
 }
 
-function TxTable({ data, cols, isLoading, onEdit, onDelete }: { data: any[]; cols: any[]; isLoading?: boolean, onEdit?: (r: any) => void, onDelete?: (r: any) => void }) {
+function TxTable({ data, cols, isLoading, onEdit, onDelete, tableName }: {
+  data: any[];
+  cols: any[];
+  isLoading?: boolean;
+  onEdit?: (r: any) => void;
+  onDelete?: (r: any) => void;
+  tableName?: string;
+}) {
   const [search, setSearch] = useState("");
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(`tx-table-widths-${tableName || 'purchase-default'}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const startResize = (e: React.MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const thEl = (e.target as HTMLElement).closest('th');
+    if (!thEl) return;
+    
+    const startWidth = thEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    let currentWidth = startWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      currentWidth = Math.max(60, startWidth + deltaX);
+      setColWidths(prev => ({
+        ...prev,
+        [colKey]: currentWidth
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      setColWidths(prev => {
+        const next = { ...prev, [colKey]: currentWidth };
+        try {
+          localStorage.setItem(`tx-table-widths-${tableName || 'purchase-default'}`, JSON.stringify(next));
+        } catch (err) {
+          console.error("Failed to save column widths to localStorage", err);
+        }
+        return next;
+      });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const filtered = (data || []).filter(row =>
     Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
   );
@@ -928,7 +983,21 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete }: { data: any[]; col
                 <thead>
                   <tr className="border-b bg-muted/40">
                     {cols.map((c: any) => (
-                      <th key={c.key} className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">{c.label}</th>
+                      <th
+                        key={c.key}
+                        style={{
+                          width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                          minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
+                        }}
+                        className="relative group text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        {c.label}
+                        <div
+                          onMouseDown={(e) => startResize(e, c.key)}
+                          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/50 border-r border-transparent hover:border-primary/30 transition-colors z-20"
+                          title="Drag to resize column"
+                        />
+                      </th>
                     ))}
                     {(onEdit || onDelete) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
                   </tr>
@@ -937,7 +1006,15 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete }: { data: any[]; col
                   {filtered.map((row, i) => (
                     <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
                       {cols.map((c: any) => (
-                        <td key={c.key} className="px-4 py-2.5">
+                        <td
+                          key={c.key}
+                          style={{
+                            width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                            minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                            maxWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
+                          }}
+                          className="px-4 py-2.5 truncate"
+                        >
                           {c.render ? c.render(row) : row[c.key]}
                         </td>
                       ))}
@@ -1093,8 +1170,8 @@ export default function Purchase() {
           />
         </div>
 
-        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'entries') : undefined} /></TabsContent>
-        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'orders') : undefined} /></TabsContent>
+        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'entries') : undefined} tableName="entries" /></TabsContent>
+        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'orders') : undefined} tableName="orders" /></TabsContent>
         <TabsContent value="returns" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No purchase returns recorded today</div>
         </TabsContent>
@@ -1107,7 +1184,7 @@ export default function Purchase() {
         <TabsContent value="estimations" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Purchase estimations and pre-order costs</div>
         </TabsContent>
-        <TabsContent value="expenses" className="mt-4"><TxTable data={expenses} cols={expCols} isLoading={expensesLoading} /></TabsContent>
+        <TabsContent value="expenses" className="mt-4"><TxTable data={expenses} cols={expCols} isLoading={expensesLoading} tableName="expenses" /></TabsContent>
       </Tabs>
     </div>
   );

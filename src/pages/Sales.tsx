@@ -3063,6 +3063,54 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(`tx-table-widths-${selectionLabel || 'default'}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const startResize = (e: React.MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const thEl = (e.target as HTMLElement).closest('th');
+    if (!thEl) return;
+    
+    const startWidth = thEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    let currentWidth = startWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      currentWidth = Math.max(60, startWidth + deltaX);
+      setColWidths(prev => ({
+        ...prev,
+        [colKey]: currentWidth
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      setColWidths(prev => {
+        const next = { ...prev, [colKey]: currentWidth };
+        try {
+          localStorage.setItem(`tx-table-widths-${selectionLabel || 'default'}`, JSON.stringify(next));
+        } catch (err) {
+          console.error("Failed to save column widths to localStorage", err);
+        }
+        return next;
+      });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const filtered = (data || []).filter(row => {
     // Global search
     const matchesSearch = Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()));
@@ -3229,8 +3277,15 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                       </th>
                     )}
                     {cols.map(c => (
-                      <th key={c.key} className="px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                        <div className="flex items-center group">
+                      <th
+                        key={c.key}
+                        style={{
+                          width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                          minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
+                        }}
+                        className="relative group px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        <div className="flex items-center">
                           <span className="uppercase tracking-widest font-black text-[0.5625rem]">{c.label}</span>
                           <ColumnFilter
                             label={c.label}
@@ -3240,6 +3295,11 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                             options={c.filterOptions}
                           />
                         </div>
+                        <div
+                          onMouseDown={(e) => startResize(e, c.key)}
+                          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/50 border-r border-transparent hover:border-primary/30 transition-colors z-20"
+                          title="Drag to resize column"
+                        />
                       </th>
                     ))}
                     {(onPrint || onConvert || onEdit || onDelete) && <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>}
@@ -3270,7 +3330,15 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                           </td>
                         )}
                         {cols.map(c => (
-                          <td key={c.key} className="px-4 py-2.5">
+                          <td
+                            key={c.key}
+                            style={{
+                              width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                              minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                              maxWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
+                            }}
+                            className="px-4 py-2.5 truncate"
+                          >
                             {c.render ? c.render(row) : row[c.key]}
                           </td>
                         ))}
@@ -3802,7 +3870,7 @@ export default function Sales() {
   };
 
   const estCols = [
-    { key: "invoiceNo", label: "Estimate No", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
+    { key: "invoiceNo", label: "E.No", render: (r: any) => <span className="font-mono text-xs font-semibold text-primary cursor-pointer hover:underline" onClick={() => setSelectedInvoice({ data: r, type: "estimates" })}>{r.invoiceNo}</span> },
     { key: "date", label: "Date" },
     { key: "customerName", label: "Company Name", render: (r: any) => <span className="font-medium">{r.customerName}</span> },
     {
@@ -3817,7 +3885,7 @@ export default function Sales() {
     },
     {
       key: "total",
-      label: "Grand Total",
+      label: "G. Total",
       render: (r: any) => <span className="font-semibold tabular-nums">₹{Math.round(parseFloat(r.amount || 0) + parseFloat(r.potentialTax || 0)).toLocaleString("en-IN")}</span>
     },
     {
