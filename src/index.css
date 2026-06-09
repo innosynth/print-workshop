@@ -193,8 +193,15 @@
   [role="navigation"], 
   aside, 
   header, 
-  .print\:hidden {
+  .print\:hidden,
+  .peer,
+  [data-sidebar="sidebar"],
+  [data-sidebar="rail"],
+  [data-sidebar="trigger"] {
     display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   .print-only {
@@ -205,6 +212,17 @@
     background: white !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+  
+  /* Reset layout containers to full-width block elements */
+  .group\/sidebar-wrapper,
+  .group\/sidebar-wrapper > div,
+  .flex-1 {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   .p-8 {

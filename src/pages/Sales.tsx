@@ -3141,6 +3141,16 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   const selectedRows = filtered.filter(r => selectedIds.has(r.id));
   const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
 
+  // Calculate selected sums
+  const selectedEAmount = selectedRows.reduce((acc, r) => acc + parseFloat(r.amount || 0), 0);
+  const selectedGTotal = selectedRows.reduce((acc, r) => {
+    const amount = parseFloat(r.amount || 0);
+    const rowTotal = r.potentialTax !== undefined
+      ? Math.round(amount + parseFloat(r.potentialTax || 0))
+      : (amount + parseFloat(r.tax || 0));
+    return acc + rowTotal;
+  }, 0);
+
   // Validate: all selected must be same customer
   const selectedCustomerIds = [...new Set(selectedRows.map(r => r.customerId || r.customerName || '__none__'))];
   const isMixedCustomer = selectedCustomerIds.length > 1;
@@ -3181,24 +3191,32 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
         )}
         {/* Bulk Actions Button */}
         {enableMultiSelect && (onBulkConvert || onBulkDownload) && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap">
             {hasSelection && (
-              <span className="text-xs font-bold text-muted-foreground animate-in fade-in slide-in-from-left-2 duration-200">
-                {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
-              </span>
+              <div className="flex items-center gap-2 mr-2 text-[11px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-2 border-border whitespace-nowrap">
+                <span className="text-muted-foreground">
+                  {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
+                </span>
+                <span className="text-green-600 dark:text-green-400">
+                  E-Amount: <span className="font-extrabold font-mono">₹{Math.round(selectedEAmount).toLocaleString("en-IN")}</span>
+                </span>
+                <span className="text-foreground">
+                  G. Total: <span className="font-extrabold font-mono">₹{Math.round(selectedGTotal).toLocaleString("en-IN")}</span>
+                </span>
+              </div>
             )}
             {onBulkConvert && (
               <div className="relative group/convert">
                 <Button
                   size="sm"
-                  className="h-9 gap-2 shadow-lg shadow-primary/20 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                  className="h-7 gap-1 shadow-lg shadow-primary/20 font-black uppercase tracking-tight text-[9px] px-2.5"
                   disabled={!hasSelection || isMixedCustomer || bulkConvertLoading}
                   onClick={() => onBulkConvert(selectedRows)}
                 >
                   {bulkConvertLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    <ArrowRightLeft className="h-3 w-3" />
                   )}
                   Convert to Invoice
                 </Button>
@@ -3220,14 +3238,14 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-2 border-green-600 text-green-600 hover:bg-green-50 font-black uppercase tracking-tight text-[0.6875rem] px-4"
+                  className="h-7 gap-1 border-green-600 text-green-600 hover:bg-green-50 font-black uppercase tracking-tight text-[9px] px-2.5"
                   disabled={!hasSelection || isMixedCustomer || bulkDownloadLoading}
                   onClick={() => onBulkDownload && onBulkDownload(selectedRows)}
                 >
                   {bulkDownloadLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Download className="h-3.5 w-3.5" />
+                    <Download className="h-3 w-3" />
                   )}
                   Bulk Download
                 </Button>
@@ -3248,7 +3266,7 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs font-bold text-muted-foreground hover:text-primary"
+                className="h-7 text-[10px] font-bold text-muted-foreground hover:text-primary px-2"
                 onClick={() => setSelectedIds(new Set())}
               >
                 Clear Selection

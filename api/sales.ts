@@ -230,6 +230,114 @@ export default async function handler(request: VercelRequest, response: VercelRe
       return response.status(200).json(lines);
     }
 
+    if (resource === 'daily_sales_report') {
+      const { type = 'invoice', mode = 'itemized' } = request.query;
+
+      let lines;
+      if (type === 'quotation') {
+        if (mode === 'itemized') {
+          lines = await db.select({
+            date: quotations.date,
+            docNo: quotations.quotationNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
+            itemName: quotationItems.name,
+            qty: quotationItems.qty,
+            rate: quotationItems.rate,
+            amount: quotationItems.amount,
+          })
+          .from(quotationItems)
+          .leftJoin(quotations, eq(quotations.id, quotationItems.quotationId))
+          .leftJoin(contacts, eq(quotations.customerId, contacts.id))
+          .orderBy(desc(quotations.date), desc(quotations.quotationNo));
+        } else {
+          lines = await db.select({
+            date: quotations.date,
+            docNo: quotations.quotationNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
+            qty: sql<number>`COALESCE(SUM(CAST(${quotationItems.qty} AS NUMERIC)), 0)`,
+            amount: quotations.amount,
+            tax: quotations.tax,
+            total: quotations.total
+          })
+          .from(quotations)
+          .leftJoin(contacts, eq(quotations.customerId, contacts.id))
+          .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
+          .groupBy(quotations.id, contacts.id)
+          .orderBy(desc(quotations.date), desc(quotations.quotationNo));
+        }
+      } else if (type === 'estimate') {
+        const estCondition = like(invoices.invoiceNo, 'EST%');
+        if (mode === 'itemized') {
+          lines = await db.select({
+            date: invoices.date,
+            docNo: invoices.invoiceNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+            itemName: invoiceItems.name,
+            qty: invoiceItems.qty,
+            rate: invoiceItems.rate,
+            amount: invoiceItems.amount,
+          })
+          .from(invoiceItems)
+          .leftJoin(invoices, eq(invoices.id, invoiceItems.invoiceId))
+          .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+          .where(estCondition)
+          .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+        } else {
+          lines = await db.select({
+            date: invoices.date,
+            docNo: invoices.invoiceNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+            qty: sql<number>`COALESCE(SUM(CAST(${invoiceItems.qty} AS NUMERIC)), 0)`,
+            amount: invoices.amount,
+            tax: invoices.tax,
+            total: invoices.total
+          })
+          .from(invoices)
+          .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+          .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+          .where(estCondition)
+          .groupBy(invoices.id, contacts.id)
+          .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+        }
+      } else {
+        const invCondition = notLike(invoices.invoiceNo, 'EST%');
+        if (mode === 'itemized') {
+          lines = await db.select({
+            date: invoices.date,
+            docNo: invoices.invoiceNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+            itemName: invoiceItems.name,
+            qty: invoiceItems.qty,
+            rate: invoiceItems.rate,
+            amount: invoiceItems.amount,
+          })
+          .from(invoiceItems)
+          .leftJoin(invoices, eq(invoices.id, invoiceItems.invoiceId))
+          .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+          .where(invCondition)
+          .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+        } else {
+          lines = await db.select({
+            date: invoices.date,
+            docNo: invoices.invoiceNo,
+            companyName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
+            qty: sql<number>`COALESCE(SUM(CAST(${invoiceItems.qty} AS NUMERIC)), 0)`,
+            amount: invoices.amount,
+            tax: invoices.tax,
+            total: invoices.total
+          })
+          .from(invoices)
+          .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+          .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+          .where(invCondition)
+          .groupBy(invoices.id, contacts.id)
+          .orderBy(desc(invoices.date), desc(invoices.invoiceNo));
+        }
+      }
+
+      return response.status(200).json(lines);
+    }
+
     if (resource === 'purchases') {
       if (method === 'GET') {
         const { id } = request.query;

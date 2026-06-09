@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
@@ -378,71 +378,211 @@ function GSTReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) =>
 }
 
 function DailySalesReport({ onRegisterExport }: { onRegisterExport: (fn: () => void) => void }) {
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0]);
+  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: lines = [], isLoading } = useQuery({ queryKey: ["gst_report"], queryFn: () => fetch("/api/sales?resource=gst_report").then(res => res.json()) });
-  
+  const [docType, setDocType] = useState<"invoice" | "estimate" | "quotation">("invoice");
+  const [reportMode, setReportMode] = useState<"product" | "itemized" | "summary">("product");
+
+  const apiMode = reportMode === "summary" ? "summary" : "itemized";
+  const { data: lines = [], isLoading } = useQuery({
+    queryKey: ["daily_sales_report", docType, apiMode],
+    queryFn: () => fetch(`/api/sales?resource=daily_sales_report&type=${docType}&mode=${apiMode}`).then(res => res.json())
+  });
+
   const filteredLines = lines.filter((l: any) => {
-    const isWithinDate = startDate ? l.date === startDate : true;
+    const isWithinDate = (!fromDate || l.date >= fromDate) && (!toDate || l.date <= toDate);
     const isMatchSearch = !searchTerm || 
       (l.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (l.lineName || "").toLowerCase().includes(searchTerm.toLowerCase());
+      (l.itemName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.docNo || "").toLowerCase().includes(searchTerm.toLowerCase());
     return isWithinDate && isMatchSearch;
   });
 
+  // Calculate grouped product summary
+  const productWiseData = useMemo(() => {
+    if (reportMode !== "product") return [];
+
+    const groups: Record<string, { itemName: string, salesCount: number, totalQty: number, totalAmount: number }> = {};
+
+    filteredLines.forEach((l: any) => {
+      const name = l.itemName || "Unknown Item";
+      if (!groups[name]) {
+        groups[name] = {
+          itemName: name,
+          salesCount: 0,
+          totalQty: 0,
+          totalAmount: 0
+        };
+      }
+      groups[name].salesCount += 1;
+      groups[name].totalQty += parseFloat(l.qty || 0);
+      groups[name].totalAmount += parseFloat(l.amount || 0);
+    });
+
+    return Object.values(groups).sort((a, b) => b.totalQty - a.totalQty);
+  }, [filteredLines, reportMode]);
+
   useEffect(() => {
-    onRegisterExport(() => exportToCSV(filteredLines, `Daily_Sales_${startDate}`));
-  }, [filteredLines, startDate]);
+    const dataToExport = reportMode === "product" ? productWiseData : filteredLines;
+    onRegisterExport(() => exportToCSV(dataToExport, `Daily_${docType}_${reportMode}_${fromDate}_to_${toDate}`));
+  }, [filteredLines, productWiseData, docType, reportMode, fromDate, toDate]);
 
   const handleClear = () => {
-    setStartDate(new Date().toISOString().split('T')[0]);
+    setFromDate(new Date().toISOString().split('T')[0]);
+    setToDate(new Date().toISOString().split('T')[0]);
     setSearchTerm("");
+    setDocType("invoice");
+    setReportMode("product");
   };
 
-  const isFiltered = startDate !== new Date().toISOString().split('T')[0] || searchTerm !== "";
+  const isFiltered = 
+    fromDate !== new Date().toISOString().split('T')[0] || 
+    toDate !== new Date().toISOString().split('T')[0] || 
+    searchTerm !== "" || 
+    docType !== "invoice" || 
+    reportMode !== "product";
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-3 bg-white p-3 border rounded-lg shadow-sm items-end print:hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-white p-3 border rounded-lg shadow-sm items-end print:hidden">
         <div className="space-y-1">
-          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Select Date</Label>
-          <Input type="date" className="h-9 w-40 font-bold" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Report Type</Label>
+          <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+            <SelectTrigger className="h-9 font-bold text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="invoice">Invoices (Sales)</SelectItem>
+              <SelectItem value="estimate">Estimates</SelectItem>
+              <SelectItem value="quotation">Quotations</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="space-y-1 flex-1">
+        <div className="space-y-1">
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">Report Mode</Label>
+          <Select value={reportMode} onValueChange={(v: any) => setReportMode(v)}>
+            <SelectTrigger className="h-9 font-bold text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="product">Product Wise Summary</SelectItem>
+              <SelectItem value="itemized">Itemized Transaction List</SelectItem>
+              <SelectItem value="summary">Document Summary</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">From Date</Label>
+          <Input type="date" className="h-9 font-bold text-xs w-full" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[0.625rem] font-black uppercase text-gray-400">To Date</Label>
+          <Input type="date" className="h-9 font-bold text-xs w-full" value={toDate} onChange={e => setToDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
           <Label className="text-[0.625rem] font-black uppercase text-gray-400">Search Customer / Product</Label>
-          <Input placeholder="Search..." className="h-9 font-bold" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-        </div>
-        <div className="flex gap-2">
-          {isFiltered && <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest"><RotateCcw className="h-3 w-3 mr-1" /> Reset</Button>}
+          <div className="flex gap-2 items-center">
+            <Input placeholder="Search..." className="h-9 font-bold text-xs flex-1" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            {isFiltered && (
+              <Button variant="ghost" size="sm" onClick={handleClear} className="h-9 text-destructive hover:bg-destructive/10 font-bold uppercase text-[0.625rem] tracking-widest shrink-0">
+                <RotateCcw className="h-3 w-3 mr-1" /> Reset
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-      <Card className="border-gray-200 shadow-xl overflow-hidden">
+      <Card className="border-gray-200 shadow-xl overflow-hidden print:shadow-none print:border-none">
         <CardContent className="p-0">
           <table className="w-full text-[0.6875rem] border-collapse">
             <thead>
-              <tr className="bg-gray-900 text-white font-black uppercase tracking-widest">
-                <th className="px-4 py-3 text-left w-32">Date</th>
-                <th className="px-4 py-3 text-left">Customer / Party</th>
-                <th className="px-4 py-3 text-left">Description</th>
-                <th className="px-4 py-3 text-center w-16">Qty</th>
-                <th className="px-4 py-3 text-right w-24">Rate</th>
-                <th className="px-4 py-3 text-right w-32 bg-blue-700">Net Amount</th>
-              </tr>
+              {reportMode === "product" ? (
+                <tr className="bg-gray-900 text-white font-black uppercase tracking-widest print:bg-gray-100 print:text-black">
+                  <th className="px-4 py-3 text-left">Product / Item Description</th>
+                  <th className="px-4 py-3 text-center w-32">Sales Count</th>
+                  <th className="px-4 py-3 text-center w-32">Total Qty Sold</th>
+                  <th className="px-4 py-3 text-right w-40 bg-blue-700 print:bg-gray-200">Total Net Amount</th>
+                </tr>
+              ) : reportMode === "itemized" ? (
+                <tr className="bg-gray-900 text-white font-black uppercase tracking-widest print:bg-gray-100 print:text-black">
+                  <th className="px-4 py-3 text-left w-28">Date</th>
+                  <th className="px-4 py-3 text-left w-32">Doc No</th>
+                  <th className="px-4 py-3 text-left">Customer / Party</th>
+                  <th className="px-4 py-3 text-left">Product / Item Description</th>
+                  <th className="px-4 py-3 text-center w-16">Qty</th>
+                  <th className="px-4 py-3 text-right w-24">Rate</th>
+                  <th className="px-4 py-3 text-right w-32 bg-blue-700 print:bg-gray-200">Net Amount</th>
+                </tr>
+              ) : (
+                <tr className="bg-gray-900 text-white font-black uppercase tracking-widest print:bg-gray-100 print:text-black">
+                  <th className="px-4 py-3 text-left w-28">Date</th>
+                  <th className="px-4 py-3 text-left w-32">Doc No</th>
+                  <th className="px-4 py-3 text-left">Customer / Party</th>
+                  <th className="px-4 py-3 text-center w-24">Total Qty</th>
+                  <th className="px-4 py-3 text-right w-28">Subtotal</th>
+                  <th className="px-4 py-3 text-right w-28">Tax Amount</th>
+                  <th className="px-4 py-3 text-right w-32 bg-blue-700 print:bg-gray-200">Grand Total</th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y font-medium text-gray-700">
               {isLoading ? (
-                <tr><td colSpan={6} className="p-20 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
-              ) : filteredLines.map((l: any, i: number) => (
-                <tr key={i} className="hover:bg-primary/5 transition-colors">
-                  <td className="px-4 py-3 text-gray-500 font-bold italic">{l.date}</td>
-                  <td className="px-4 py-3 font-black uppercase text-gray-800">{l.companyName}</td>
-                  <td className="px-4 py-3 font-semibold text-gray-600 truncate max-w-[300px]">{l.lineName}</td>
-                  <td className="px-4 py-3 text-center tabular-nums font-bold">{l.qty}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-500">₹{parseFloat(l.rate).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right font-black tabular-nums bg-gray-50 text-gray-900">₹{parseFloat(l.taxableValue).toLocaleString()}</td>
+                <tr>
+                  <td 
+                    colSpan={reportMode === "product" ? 4 : 7} 
+                    className="p-20 text-center"
+                  >
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                  </td>
                 </tr>
-              ))}
-              {filteredLines.length === 0 && !isLoading && <tr><td colSpan={6} className="p-20 text-center text-gray-400 font-bold italic uppercase">No sales recorded for the selected criteria.</td></tr>}
+              ) : reportMode === "product" ? (
+                productWiseData.map((l: any, i: number) => (
+                  <tr key={i} className="hover:bg-primary/5 transition-colors">
+                    <td className="px-4 py-3 font-black uppercase text-gray-800">{l.itemName}</td>
+                    <td className="px-4 py-3 text-center tabular-nums font-bold text-gray-600">{l.salesCount}</td>
+                    <td className="px-4 py-3 text-center tabular-nums font-bold text-gray-700">{l.totalQty}</td>
+                    <td className="px-4 py-3 text-right font-black tabular-nums bg-gray-50 text-gray-900">
+                      ₹{l.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : filteredLines.map((l: any, i: number) => {
+                if (reportMode === "itemized") {
+                  return (
+                    <tr key={i} className="hover:bg-primary/5 transition-colors">
+                      <td className="px-4 py-3 text-gray-500 font-bold italic">{l.date}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-primary">{l.docNo}</td>
+                      <td className="px-4 py-3 font-black uppercase text-gray-800">{l.companyName}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-600 truncate max-w-[300px]">{l.itemName || "—"}</td>
+                      <td className="px-4 py-3 text-center tabular-nums font-bold">{parseFloat(l.qty || 0)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-500">₹{parseFloat(l.rate || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right font-black tabular-nums bg-gray-50 text-gray-900">₹{parseFloat(l.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                } else {
+                  return (
+                    <tr key={i} className="hover:bg-primary/5 transition-colors">
+                      <td className="px-4 py-3 text-gray-500 font-bold italic">{l.date}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-primary">{l.docNo}</td>
+                      <td className="px-4 py-3 font-black uppercase text-gray-800">{l.companyName}</td>
+                      <td className="px-4 py-3 text-center tabular-nums font-bold">{parseFloat(l.qty || 0)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-500">₹{parseFloat(l.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-500">₹{parseFloat(l.tax || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right font-black tabular-nums bg-gray-50 text-gray-900 font-black text-blue-700">₹{parseFloat(l.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                }
+              })}
+              {((reportMode === "product" && productWiseData.length === 0) || (reportMode !== "product" && filteredLines.length === 0)) && !isLoading && (
+                <tr>
+                  <td 
+                    colSpan={reportMode === "product" ? 4 : 7} 
+                    className="p-20 text-center text-gray-400 font-bold italic uppercase"
+                  >
+                    No records found for the selected criteria.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </CardContent>
