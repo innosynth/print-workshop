@@ -3697,6 +3697,8 @@ export default function Sales() {
 
       const convertedItems = (detail.items || []).map((item: any) => ({
         name: item.name,
+        category: item.category || "",
+        subCategory: item.subCategory || "",
         qty: parseInt(item.qty || 0),
         rate: parseFloat(item.rate || 0).toFixed(2),
         amount: parseFloat(item.amount || 0).toFixed(2),
