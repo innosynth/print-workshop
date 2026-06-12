@@ -1726,6 +1726,16 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
   const [gstEnabled, setGstEnabled] = useState(type !== 'estimates');
   const [isIgst, setIsIgst] = useState(false);
   const queryClient = useQueryClient();
+  const getCachedList = (key: string) => {
+    const queries = queryClient.getQueriesData({ queryKey: [key] });
+    for (const [, queryData] of queries) {
+      if (queryData) {
+        const list = Array.isArray(queryData) ? queryData : (queryData as any).data;
+        if (Array.isArray(list)) return list;
+      }
+    }
+    return [];
+  };
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -2158,7 +2168,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
         queryClient.invalidateQueries({ queryKey: ["contacts"] });
       }
 
-      const docNo = initialData ? (initialData.invoiceNo || initialData.quotationNo) : generateNextNo(queryClient.getQueryData([type === 'quotations' ? 'quotations' : 'invoices']) || [], type === 'estimates' ? 'estimates' : type === 'quotations' ? 'quotations' : 'invoices');
+      const docNo = initialData ? (initialData.invoiceNo || initialData.quotationNo) : generateNextNo(getCachedList(type === 'quotations' ? 'quotations' : 'invoices'), type === 'estimates' ? 'estimates' : type === 'quotations' ? 'quotations' : 'invoices');
       const endpoint = `/api/sales?resource=${type === 'quotations' ? 'quotations' : 'invoices'}${initialData ? `&id=${initialData.id}` : ''}`;
       const res = await fetch(endpoint, {
         method: initialData ? "PUT" : "POST",
@@ -3040,7 +3050,10 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   );
 }
 
-function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading, selectionLabel }: {
+function TxTable({
+  data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading, selectionLabel,
+  totalCount, page, pageSize, onPageChange, serverSearch, onServerSearchChange, serverFilters, onServerFiltersChange
+}: {
   data: any[];
   cols: any[];
   isLoading?: boolean,
@@ -3057,11 +3070,39 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   bulkConvertLoading?: boolean,
   onBulkDownload?: (selected: any[]) => void,
   bulkDownloadLoading?: boolean,
-  selectionLabel?: string
+  selectionLabel?: string,
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  serverSearch?: string;
+  onServerSearchChange?: (s: string) => void;
+  serverFilters?: Record<string, string>;
+  onServerFiltersChange?: (filters: Record<string, string>) => void;
 }) {
   const [search, setSearch] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const searchVal = serverSearch !== undefined ? serverSearch : search;
+  const filterVal = serverFilters !== undefined ? serverFilters : columnFilters;
+
+  const handleSearchChange = (val: string) => {
+    if (onServerSearchChange) {
+      onServerSearchChange(val);
+    } else {
+      setSearch(val);
+    }
+  };
+
+  const setFiltersWrapped = (newFilters: any) => {
+    const nextFilters = typeof newFilters === 'function' ? newFilters(filterVal) : newFilters;
+    if (onServerFiltersChange) {
+      onServerFiltersChange(nextFilters);
+    } else {
+      setColumnFilters(nextFilters);
+    }
+  };
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
@@ -3111,12 +3152,12 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const filtered = (data || []).filter(row => {
+  const filtered = onPageChange ? (data || []) : (data || []).filter(row => {
     // Global search
-    const matchesSearch = Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()));
+    const matchesSearch = Object.values(row).some(v => String(v).toLowerCase().includes(searchVal.toLowerCase()));
 
     // Column specific filters
-    const matchesColumnFilters = Object.entries(columnFilters).every(([col, val]) => {
+    const matchesColumnFilters = Object.entries(filterVal).every(([col, val]) => {
       if (!val) return true;
       if (col === "dateFrom") {
         const rowDate = row.date;
@@ -3173,6 +3214,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
   };
 
   const clearFilters = () => {
+    if (onServerSearchChange) onServerSearchChange("");
+    if (onServerFiltersChange) onServerFiltersChange({});
     setSearch("");
     setColumnFilters({});
   };
@@ -3182,9 +3225,9 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search records..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="Search records..." className="pl-9 h-9" value={searchVal} onChange={e => handleSearchChange(e.target.value)} />
         </div>
-        {(search || Object.keys(columnFilters).length > 0) && (
+        {(searchVal || Object.keys(filterVal).length > 0) && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-bold text-muted-foreground hover:text-primary">
             Clear Filters
           </Button>
@@ -3308,8 +3351,8 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
                           <ColumnFilter
                             label={c.label}
                             column={c.key}
-                            filters={columnFilters}
-                            setFilters={setColumnFilters}
+                            filters={filterVal}
+                            setFilters={setFiltersWrapped}
                             options={c.filterOptions}
                           />
                         </div>
@@ -3439,7 +3482,36 @@ function TxTable({ data, cols, isLoading, onPrint, onConvert, onToggleStatus, lo
           </div>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">{filtered.length} records</p>
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-xs text-muted-foreground">
+          {onPageChange && totalCount !== undefined ? `${totalCount} records` : `${filtered.length} records`}
+        </p>
+        {onPageChange && page && pageSize && totalCount !== undefined && Math.ceil(totalCount / pageSize) > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-bold"
+              disabled={page <= 1 || isLoading}
+              onClick={() => onPageChange(page - 1)}
+            >
+              Previous
+            </Button>
+            <span className="text-xs font-bold text-muted-foreground px-2">
+              Page {page} of {Math.ceil(totalCount / pageSize)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-bold"
+              disabled={page >= Math.ceil(totalCount / pageSize) || isLoading}
+              onClick={() => onPageChange(page + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -3468,10 +3540,116 @@ export default function Sales() {
   };
 
   const { data: contacts = [] } = useQuery({ queryKey: ["contacts"], queryFn: () => fetch("/api/core?resource=contacts").then(res => res.json()) });
-  const { data: invoices = [], isLoading: invLoading } = useQuery({ queryKey: ["invoices"], queryFn: () => fetch("/api/sales?resource=invoices").then(res => res.json()) });
-  const { data: quotations = [], isLoading: qtLoading } = useQuery({ queryKey: ["quotations"], queryFn: () => fetch("/api/sales?resource=quotations").then(res => res.json()) });
+
+  // Estimates State
+  const [estPage, setEstPage] = useState(1);
+  const [estSearch, setEstSearch] = useState("");
+  const [debouncedEstSearch, setDebouncedEstSearch] = useState("");
+  const [estFilters, setEstFilters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedEstSearch(estSearch);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [estSearch]);
+
+  // Invoices State
+  const [invPage, setInvPage] = useState(1);
+  const [invSearch, setInvSearch] = useState("");
+  const [debouncedInvSearch, setDebouncedInvSearch] = useState("");
+  const [invFilters, setInvFilters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedInvSearch(invSearch);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [invSearch]);
+
+  // Quotations State
+  const [qtPage, setQtPage] = useState(1);
+  const [qtSearch, setQtSearch] = useState("");
+  const [debouncedQtSearch, setDebouncedQtSearch] = useState("");
+  const [qtFilters, setQtFilters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQtSearch(qtSearch);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [qtSearch]);
+
+  const { data: estimatesData, isLoading: estLoading } = useQuery({
+    queryKey: ["estimates", estPage, debouncedEstSearch, estFilters],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        resource: 'estimates',
+        page: estPage.toString(),
+        pageSize: '25',
+      });
+      if (debouncedEstSearch) params.append('search', debouncedEstSearch);
+      if (estFilters.status) params.append('status', estFilters.status);
+      if (estFilters.customerId) params.append('customerId', estFilters.customerId);
+      if (estFilters.dateFrom) params.append('dateFrom', estFilters.dateFrom);
+      if (estFilters.dateTo) params.append('dateTo', estFilters.dateTo);
+      return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
+    }
+  });
+  const estimatesList = estimatesData?.data || [];
+  const estimatesTotal = estimatesData?.pagination?.total || 0;
+
+  const { data: invoicesData, isLoading: invLoading } = useQuery({
+    queryKey: ["invoices", invPage, debouncedInvSearch, invFilters],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        resource: 'invoices',
+        page: invPage.toString(),
+        pageSize: '25',
+      });
+      if (debouncedInvSearch) params.append('search', debouncedInvSearch);
+      if (invFilters.status) params.append('status', invFilters.status);
+      if (invFilters.customerId) params.append('customerId', invFilters.customerId);
+      if (invFilters.dateFrom) params.append('dateFrom', invFilters.dateFrom);
+      if (invFilters.dateTo) params.append('dateTo', invFilters.dateTo);
+      return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
+    }
+  });
+  const invoicesList = invoicesData?.data || [];
+  const invoicesTotal = invoicesData?.pagination?.total || 0;
+
+  const { data: quotationsData, isLoading: qtLoading } = useQuery({
+    queryKey: ["quotations", qtPage, debouncedQtSearch, qtFilters],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        resource: 'quotations',
+        page: qtPage.toString(),
+        pageSize: '25',
+      });
+      if (debouncedQtSearch) params.append('search', debouncedQtSearch);
+      if (qtFilters.status) params.append('status', qtFilters.status);
+      if (qtFilters.customerId) params.append('customerId', qtFilters.customerId);
+      if (qtFilters.dateFrom) params.append('dateFrom', qtFilters.dateFrom);
+      if (qtFilters.dateTo) params.append('dateTo', qtFilters.dateTo);
+      return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
+    }
+  });
+  const quotationsList = quotationsData?.data || [];
+  const quotationsTotal = quotationsData?.pagination?.total || 0;
+
   const { data: returns = [], isLoading: srLoading } = useQuery({ queryKey: ["returns"], queryFn: () => fetch("/api/sales?resource=returns").then(res => res.json()) });
   const queryClient = useQueryClient();
+
+  const getCachedList = (key: string) => {
+    const queries = queryClient.getQueriesData({ queryKey: [key] });
+    for (const [, queryData] of queries) {
+      if (queryData) {
+        const list = Array.isArray(queryData) ? queryData : (queryData as any).data;
+        if (Array.isArray(list)) return list;
+      }
+    }
+    return [];
+  };
   const { toast } = useToast();
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [convertDialog, setConvertDialog] = useState<{ open: boolean, data: any, type: string }>({ open: false, data: null, type: "" });
@@ -3577,7 +3755,7 @@ export default function Sales() {
       const grandTotal = Math.round(subtotal + calculatedTax);
 
       // 4. Generate invoice number
-      const invoiceNo = generateNextNo(queryClient.getQueryData(["invoices"]) || [], 'invoices');
+      const invoiceNo = generateNextNo(getCachedList('invoices'), 'invoices');
 
       // 5. Use the first estimate's customer info
       const firstDetail = details[0];
@@ -3716,7 +3894,7 @@ export default function Sales() {
 
       const isTargetInvoicesTable = targetType === 'invoices' || targetType === 'estimates';
       const docNo = generateNextNo(
-        queryClient.getQueryData([isTargetInvoicesTable ? 'invoices' : 'quotations']) || [],
+        getCachedList(isTargetInvoicesTable ? 'invoices' : 'quotations'),
         targetType
       );
 
@@ -4034,9 +4212,17 @@ export default function Sales() {
 
         <TabsContent value="estimates" className="mt-4">
           <TxTable
-            data={Array.isArray(invoices) ? invoices.filter((i: any) => i.invoiceNo?.startsWith('EST-')) : []}
+            data={estimatesList}
             cols={estCols}
-            isLoading={invLoading}
+            isLoading={estLoading}
+            totalCount={estimatesTotal}
+            page={estPage}
+            pageSize={25}
+            onPageChange={setEstPage}
+            serverSearch={estSearch}
+            onServerSearchChange={(s) => { setEstSearch(s); setEstPage(1); }}
+            serverFilters={estFilters}
+            onServerFiltersChange={(f) => { setEstFilters(f); setEstPage(1); }}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: false })}
             onDownload={(r) => setSelectedInvoice({ data: r, type: "estimates", autoDownload: true })}
             onToggleStatus={handleToggleStatus}
@@ -4055,9 +4241,17 @@ export default function Sales() {
         </TabsContent>
         <TabsContent value="quotations" className="mt-4">
           <TxTable
-            data={quotations}
+            data={quotationsList}
             cols={qtCols}
             isLoading={qtLoading}
+            totalCount={quotationsTotal}
+            page={qtPage}
+            pageSize={25}
+            onPageChange={setQtPage}
+            serverSearch={qtSearch}
+            onServerSearchChange={(s) => { setQtSearch(s); setQtPage(1); }}
+            serverFilters={qtFilters}
+            onServerFiltersChange={(f) => { setQtFilters(f); setQtPage(1); }}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "quotations", autoDownload: false })}
             onDownload={(r) => setSelectedInvoice({ data: r, type: "quotations", autoDownload: true })}
             onConvert={(r) => handleConvert(r, "quotations", "invoices")}
@@ -4073,9 +4267,17 @@ export default function Sales() {
         </TabsContent>
         <TabsContent value="invoices" className="mt-4">
           <TxTable
-            data={Array.isArray(invoices) ? invoices.filter((i: any) => i.invoiceNo?.startsWith('INV-')) : []}
+            data={invoicesList}
             cols={invCols}
             isLoading={invLoading}
+            totalCount={invoicesTotal}
+            page={invPage}
+            pageSize={25}
+            onPageChange={setInvPage}
+            serverSearch={invSearch}
+            onServerSearchChange={(s) => { setInvSearch(s); setInvPage(1); }}
+            serverFilters={invFilters}
+            onServerFiltersChange={(f) => { setInvFilters(f); setInvPage(1); }}
             onPrint={(r) => setSelectedInvoice({ data: r, type: "invoices", autoDownload: false })}
             onDownload={(r) => setSelectedInvoice({ data: r, type: "invoices", autoDownload: true })}
             onToggleStatus={handleToggleStatus}

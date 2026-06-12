@@ -906,14 +906,20 @@ function CreatePurchaseModal({ trigger, title, type, open: controlledOpen, onOpe
   );
 }
 
-function TxTable({ data, cols, isLoading, onEdit, onDelete, tableName }: {
+function TxTable({
+  data, cols, isLoading, onEdit, onDelete, tableName,
+  enableMultiSelect = true, selectionLabel
+}: {
   data: any[];
   cols: any[];
   isLoading?: boolean;
   onEdit?: (r: any) => void;
   onDelete?: (r: any) => void;
   tableName?: string;
+  enableMultiSelect?: boolean;
+  selectionLabel?: string;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
@@ -966,12 +972,61 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete, tableName }: {
   const filtered = (data || []).filter(row =>
     Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
   );
+
+  const selectableRows = filtered;
+  const selectedRows = filtered.filter(r => selectedIds.has(r.id));
+  const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
+
+  const selectedEAmount = selectedRows.reduce((acc, r) => acc + parseFloat(r.amount || 0), 0);
+  const selectedGTotal = selectedRows.reduce((acc, r) => acc + parseFloat(r.total || r.amount || 0), 0);
+  const hasSelection = selectedRows.length > 0;
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelectableChecked) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableRows.map(r => r.id)));
+    }
+  };
   
   return (
     <div className="space-y-3">
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        {enableMultiSelect && hasSelection && (
+          <div className="ml-auto flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-3 text-[14px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-3 border-border whitespace-nowrap">
+              <span className="text-muted-foreground text-xs sm:text-sm">
+                {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
+              </span>
+              <span className="text-green-600 dark:text-green-400 text-xs sm:text-sm">
+                E-Amount: <span className="font-extrabold font-mono">₹{Math.round(selectedEAmount).toLocaleString("en-IN")}</span>
+              </span>
+              <span className="text-foreground text-xs sm:text-sm">
+                G. Total: <span className="font-extrabold font-mono">₹{Math.round(selectedGTotal).toLocaleString("en-IN")}</span>
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] font-black uppercase tracking-tight text-muted-foreground hover:text-primary px-2"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear Selection
+            </Button>
+          </div>
+        )}
       </div>
       <Card>
         <CardContent className="p-0">
@@ -982,6 +1037,16 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete, tableName }: {
               <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
+                    {enableMultiSelect && (
+                      <th className="px-3 py-2.5 w-10">
+                        <Checkbox
+                          checked={allSelectableChecked}
+                          onCheckedChange={toggleSelectAll}
+                          className="h-4 w-4"
+                          title={`Select all ${selectionLabel || 'items'}`}
+                        />
+                      </th>
+                    )}
                     {cols.map((c: any) => (
                       <th
                         key={c.key}
@@ -1003,59 +1068,74 @@ function TxTable({ data, cols, isLoading, onEdit, onDelete, tableName }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
-                      {cols.map((c: any) => (
-                        <td
-                          key={c.key}
-                          style={{
-                            width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
-                            minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
-                            maxWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
-                          }}
-                          className="px-4 py-2.5 truncate"
-                        >
-                          {c.render ? c.render(row) : row[c.key]}
-                        </td>
-                      ))}
-                      {(onEdit || onDelete) && (
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            {onEdit && (
-                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
-                                <Edit className="h-3.5 w-3.5" />Edit
-                              </Button>
-                            )}
-                            {onDelete && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
-                                    <Trash2 className="h-3.5 w-3.5" />Delete
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the purchase record and all its associated items.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
+                  {filtered.map((row, i) => {
+                    const isSelected = selectedIds.has(row.id);
+                    return (
+                      <tr key={i} className={cn(
+                        "border-b last:border-0 hover:bg-muted/30 transition-colors",
+                        isSelected && "bg-primary/5 hover:bg-primary/10"
+                      )}>
+                        {enableMultiSelect && (
+                          <td className="px-3 py-2.5">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(row.id)}
+                              className="h-4 w-4"
+                            />
+                          </td>
+                        )}
+                        {cols.map((c: any) => (
+                          <td
+                            key={c.key}
+                            style={{
+                              width: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                              minWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined,
+                              maxWidth: colWidths[c.key] ? `${colWidths[c.key]}px` : undefined
+                            }}
+                            className="px-4 py-2.5 truncate"
+                          >
+                            {c.render ? c.render(row) : row[c.key]}
+                          </td>
+                        ))}
+                        {(onEdit || onDelete) && (
+                          <td className="px-4 py-2.5">
+                            <div className="flex gap-1">
+                              {onEdit && (
+                                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
+                                  <Edit className="h-3.5 w-3.5" />Edit
+                                </Button>
+                              )}
+                              {onDelete && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                                      <Trash2 className="h-3.5 w-3.5" />Delete
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the purchase record and all its associated items.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => onDelete(row)} className="bg-red-600 hover:bg-red-700">
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={cols.length} className="px-4 py-8 text-center text-muted-foreground">No records found</td></tr>
+                    <tr><td colSpan={cols.length + (enableMultiSelect ? 1 : 0) + ((onEdit || onDelete) ? 1 : 0)} className="px-4 py-8 text-center text-muted-foreground">No records found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1170,8 +1250,8 @@ export default function Purchase() {
           />
         </div>
 
-        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'entries') : undefined} tableName="entries" /></TabsContent>
-        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'orders') : undefined} tableName="orders" /></TabsContent>
+        <TabsContent value="entries" className="mt-4"><TxTable data={entries} cols={purCols} isLoading={entriesLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'entries') : undefined} tableName="entries" selectionLabel="purchase" /></TabsContent>
+        <TabsContent value="orders" className="mt-4"><TxTable data={orders} cols={poCols} isLoading={ordersLoading} onEdit={canEdit ? (r) => { setEditData(r); setShowCreateModal(true); } : undefined} onDelete={canDelete ? (r) => handleDelete(r, 'orders') : undefined} tableName="orders" selectionLabel="order" /></TabsContent>
         <TabsContent value="returns" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">No purchase returns recorded today</div>
         </TabsContent>
@@ -1184,7 +1264,7 @@ export default function Purchase() {
         <TabsContent value="estimations" className="mt-4">
           <div className="p-20 text-center text-muted-foreground border-2 border-dashed border-zinc-800 rounded-xl">Purchase estimations and pre-order costs</div>
         </TabsContent>
-        <TabsContent value="expenses" className="mt-4"><TxTable data={expenses} cols={expCols} isLoading={expensesLoading} tableName="expenses" /></TabsContent>
+        <TabsContent value="expenses" className="mt-4"><TxTable data={expenses} cols={expCols} isLoading={expensesLoading} tableName="expenses" selectionLabel="expense" /></TabsContent>
       </Tabs>
     </div>
   );

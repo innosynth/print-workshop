@@ -21,6 +21,61 @@ export default async function handler(request: VercelRequest, response: VercelRe
     
     if (resource === 'meter_readings') {
       if (method === 'GET') {
+        const { page, pageSize, dateFrom, dateTo } = request.query;
+
+        const conditions = [];
+        if (dateFrom) {
+          conditions.push(sql`${meterReadings.date} >= ${dateFrom}`);
+        }
+        if (dateTo) {
+          conditions.push(sql`${meterReadings.date} <= ${dateTo}`);
+        }
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        if (page) {
+          const countQuery = await db.select({ count: sql<number>`count(*)` })
+            .from(meterReadings)
+            .where(whereClause);
+          const total = Number(countQuery[0]?.count || 0);
+
+          const pageNum = parseInt(page as string) || 1;
+          const limitVal = parseInt(pageSize as string) || 50;
+          const offsetVal = (pageNum - 1) * limitVal;
+
+          const data = await db.select({
+            id: meterReadings.id,
+            machineName: meterReadings.machineName,
+            date: meterReadings.date,
+            bwLarge: meterReadings.bwLarge,
+            bwSmall: meterReadings.bwSmall,
+            colorLarge: meterReadings.colorLarge,
+            colorSmall: meterReadings.colorSmall,
+            lsColor: meterReadings.lsColor,
+            lsMono: meterReadings.lsMono,
+            openingReading: meterReadings.openingReading,
+            closingReading: meterReadings.closingReading,
+            totalUsage: meterReadings.totalUsage,
+            userName: users.name,
+            createdAt: meterReadings.createdAt
+          })
+          .from(meterReadings)
+          .leftJoin(users, eq(meterReadings.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(meterReadings.date), desc(meterReadings.createdAt))
+          .limit(limitVal)
+          .offset(offsetVal);
+
+          return response.status(200).json({
+            data,
+            pagination: {
+              total,
+              page: pageNum,
+              pageSize: limitVal,
+              totalPages: Math.ceil(total / limitVal)
+            }
+          });
+        }
+
         const readingsData = await db.select({
           id: meterReadings.id,
           machineName: meterReadings.machineName,
@@ -39,6 +94,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         })
         .from(meterReadings)
         .leftJoin(users, eq(meterReadings.userId, users.id))
+        .where(whereClause)
         .orderBy(desc(meterReadings.date), desc(meterReadings.createdAt));
         return response.status(200).json(readingsData);
       }
@@ -108,7 +164,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     if (resource === 'dashboard') {
-      const todaySales = await db.select({ total: sql<number>`sum(${invoices.total}::numeric)` }).from(invoices).where(sql`date(${invoices.date}) = CURRENT_DATE`);
+      response.setHeader('Cache-Control', 'public, max-age=15, s-maxage=60, stale-while-revalidate=120');
+      const todaySales = await db.select({ total: sql<number>`sum(${invoices.total}::numeric)` }).from(invoices).where(eq(invoices.date, sql`CURRENT_DATE`));
       const totalSales = await db.select({ total: sql<number>`sum(${invoices.total}::numeric)` }).from(invoices);
       const activeCustomers = await db.select({ count: sql<number>`count(*)` }).from(contacts).where(sql`${contacts.type} IN ('B2B', 'B2C')`);
       const lowStock = await db.select({ count: sql<number>`count(*)` }).from(products).where(sql`${products.stock}::numeric < ${products.minStock}::numeric`);
@@ -133,7 +190,49 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     if (resource === 'expenses') {
       if (method === 'GET') {
-        const allExpenses = await db.select().from(expenses).orderBy(desc(expenses.createdAt));
+        const { page, pageSize, dateFrom, dateTo } = request.query;
+
+        const conditions = [];
+        if (dateFrom) {
+          conditions.push(sql`${expenses.date} >= ${dateFrom}`);
+        }
+        if (dateTo) {
+          conditions.push(sql`${expenses.date} <= ${dateTo}`);
+        }
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        if (page) {
+          const countQuery = await db.select({ count: sql<number>`count(*)` })
+            .from(expenses)
+            .where(whereClause);
+          const total = Number(countQuery[0]?.count || 0);
+
+          const pageNum = parseInt(page as string) || 1;
+          const limitVal = parseInt(pageSize as string) || 50;
+          const offsetVal = (pageNum - 1) * limitVal;
+
+          const data = await db.select()
+            .from(expenses)
+            .where(whereClause)
+            .orderBy(desc(expenses.createdAt))
+            .limit(limitVal)
+            .offset(offsetVal);
+
+          return response.status(200).json({
+            data,
+            pagination: {
+              total,
+              page: pageNum,
+              pageSize: limitVal,
+              totalPages: Math.ceil(total / limitVal)
+            }
+          });
+        }
+
+        const allExpenses = await db.select()
+          .from(expenses)
+          .where(whereClause)
+          .orderBy(desc(expenses.createdAt));
         return response.status(200).json(allExpenses);
       }
       if (method === 'POST') {
@@ -149,12 +248,58 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (resource === 'inventory') {
       const allProducts = await db.select().from(products);
       if (method === 'GET') {
+        const { page, pageSize, dateFrom, dateTo } = request.query;
+
         const summary = {
           totalProducts: allProducts.length,
           lowStock: allProducts.filter(p => (Number(p.stock || 0) > 0 && Number(p.stock || 0) < 10)).length,
           outOfStock: allProducts.filter(p => Number(p.stock || 0) <= 0).length,
         };
-        const movements = await db.select().from(stockMovements).orderBy(desc(stockMovements.date), desc(stockMovements.createdAt));
+
+        const conditions = [];
+        if (dateFrom) {
+          conditions.push(sql`${stockMovements.date} >= ${dateFrom}`);
+        }
+        if (dateTo) {
+          conditions.push(sql`${stockMovements.date} <= ${dateTo}`);
+        }
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        if (page) {
+          const countQuery = await db.select({ count: sql<number>`count(*)` })
+            .from(stockMovements)
+            .where(whereClause);
+          const total = Number(countQuery[0]?.count || 0);
+
+          const pageNum = parseInt(page as string) || 1;
+          const limitVal = parseInt(pageSize as string) || 50;
+          const offsetVal = (pageNum - 1) * limitVal;
+
+          const movements = await db.select()
+            .from(stockMovements)
+            .where(whereClause)
+            .orderBy(desc(stockMovements.date), desc(stockMovements.createdAt))
+            .limit(limitVal)
+            .offset(offsetVal);
+
+          return response.status(200).json({
+            summary,
+            products: allProducts,
+            movements,
+            pagination: {
+              total,
+              page: pageNum,
+              pageSize: limitVal,
+              totalPages: Math.ceil(total / limitVal)
+            }
+          });
+        }
+
+        const movements = await db.select()
+          .from(stockMovements)
+          .where(whereClause)
+          .orderBy(desc(stockMovements.date), desc(stockMovements.createdAt));
+
         return response.status(200).json({ summary, movements, products: allProducts });
       }
       if (method === 'POST') {

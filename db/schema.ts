@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, date, boolean, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, date, boolean, integer, numeric, index } from "drizzle-orm/pg-core";
 
 // ─── Contacts ────────────────────────────────────────────────────────────────
 export const contacts = pgTable("contacts", {
@@ -66,7 +66,11 @@ export const invoices = pgTable("invoices", {
   status: text("status").default("Paid"), // 'Paid', 'Pending', 'Cancelled', 'Draft', 'Partial'
   isIgst: boolean("isIgst").default(false),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_invoices_created_at").on(table.createdAt),
+  index("idx_invoices_customer_id").on(table.customerId),
+  index("idx_invoices_date").on(table.date),
+]);
 
 export const invoiceItems = pgTable("invoiceItems", {
   id: serial("id").primaryKey(),
@@ -79,7 +83,9 @@ export const invoiceItems = pgTable("invoiceItems", {
   amount: numeric("amount").notNull(),
   hsnCode: text("hsnCode"),
   gstRate: numeric("gstRate").default("18"),
-});
+}, (table) => [
+  index("idx_invoice_items_invoice_id").on(table.invoiceId),
+]);
 
 
 // ─── Quotations ───────────────────────────────────────────────────────────────
@@ -96,7 +102,11 @@ export const quotations = pgTable("quotations", {
   status: text("status").default("Pending"),
   isIgst: boolean("isIgst").default(false),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_quotations_created_at").on(table.createdAt),
+  index("idx_quotations_customer_id").on(table.customerId),
+  index("idx_quotations_date").on(table.date),
+]);
 
 export const quotationItems = pgTable("quotationItems", {
   id: serial("id").primaryKey(),
@@ -109,7 +119,9 @@ export const quotationItems = pgTable("quotationItems", {
   amount: numeric("amount"),
   hsnCode: text("hsnCode"),
   gstRate: numeric("gstRate").default("18"),
-});
+}, (table) => [
+  index("idx_quotation_items_quotation_id").on(table.quotationId),
+]);
 
 
 // ─── Sales Returns ────────────────────────────────────────────────────────────
@@ -122,7 +134,11 @@ export const salesReturns = pgTable("salesReturns", {
   amount: numeric("amount").notNull(),
   status: text("status").default("Paid"),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_sales_returns_created_at").on(table.createdAt),
+  index("idx_sales_returns_customer_id").on(table.customerId),
+  index("idx_sales_returns_date").on(table.date),
+]);
 
 // ─── Purchase Entries ─────────────────────────────────────────────────────────
 export const purchaseEntries = pgTable("purchaseEntries", {
@@ -143,7 +159,10 @@ export const purchaseEntries = pgTable("purchaseEntries", {
   status: text("status").default("Paid"),
   supplierName: text("supplierName"),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_purchase_entries_created_at").on(table.createdAt),
+  index("idx_purchase_entries_supplier_id").on(table.supplierId),
+]);
 
 // ─── Purchase Orders ──────────────────────────────────────────────────────────
 export const purchaseOrders = pgTable("purchaseOrders", {
@@ -162,7 +181,10 @@ export const purchaseOrders = pgTable("purchaseOrders", {
   status: text("status").default("Pending"),
   supplierName: text("supplierName"),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_purchase_orders_created_at").on(table.createdAt),
+  index("idx_purchase_orders_supplier_id").on(table.supplierId),
+]);
 
 export const purchaseItems = pgTable("purchaseItems", {
   id: serial("id").primaryKey(),
@@ -177,7 +199,10 @@ export const purchaseItems = pgTable("purchaseItems", {
   gstRate: numeric("gstRate").default("18"),
   packing: text("packing"),
   unit: text("unit").default("Nos"),
-});
+}, (table) => [
+  index("idx_purchase_items_purchase_id").on(table.purchaseId),
+  index("idx_purchase_items_purchase_order_id").on(table.purchaseOrderId),
+]);
 
 // ─── Accounting ──────────────────────────────────────────────────────────────
 export const accounts = pgTable("accounts", {
@@ -200,7 +225,10 @@ export const stockMovements = pgTable("stockMovements", {
   unit: text("unit"),
   ref: text("ref"), // Could be Invoice # or Purchase #
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_stock_movements_created_at").on(table.createdAt),
+  index("idx_stock_movements_date").on(table.date),
+]);
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 export const expenses = pgTable("expenses", {
@@ -213,7 +241,10 @@ export const expenses = pgTable("expenses", {
   payTo: text("payTo"),
   status: text("status").default("Paid"),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_expenses_created_at").on(table.createdAt),
+  index("idx_expenses_date").on(table.date),
+]);
 
 export const companyProfile = pgTable("companyProfile", {
   id: serial("id").primaryKey(),
@@ -314,7 +345,10 @@ export const meterReadings = pgTable("meterReadings", {
   totalUsage: numeric("totalUsage"),
   userId: integer("userId").references(() => users.id),
   createdAt: timestamp("createdAt").defaultNow(),
-});
+}, (table) => [
+  index("idx_meter_readings_created_at").on(table.createdAt),
+  index("idx_meter_readings_date").on(table.date),
+]);
 
 export const priceLists = pgTable("priceLists", {
   id: serial("id").primaryKey(),

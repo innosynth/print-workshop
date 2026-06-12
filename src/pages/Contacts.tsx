@@ -8,8 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Search, Plus, Loader2, Save, UserPlus, Edit2 } from "lucide-react";
+import { Search, Plus, Loader2, Save, UserPlus, Edit2, Download } from "lucide-react";
 import { StatusBadge } from "./Dashboard";
+import * as XLSX from 'xlsx';
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -332,6 +333,33 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
     setOpen(true);
   };
 
+  const handleExport = () => {
+    const exportData = filtered.map(c => {
+      const row: any = {
+        'ID': c.id,
+        'Name': c.name,
+        'Type': c.type,
+        'Mobile': c.mobile || '',
+        'WhatsApp': c.whatsapp || '',
+        'Email': c.email || '',
+        'GST Number': c.gst || '',
+        'PAN': c.pan || '',
+        'City': c.city || '',
+        'Status': c.status,
+      };
+      if (tabName === "B2B") {
+        row['Receivable Opening Balance'] = c.receivableOpeningBalance ? parseFloat(c.receivableOpeningBalance) : 0;
+      }
+      row['Balance'] = c.balance ? parseFloat(c.balance) : 0;
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `${tabName} Contacts`);
+    XLSX.writeFile(workbook, `${tabName}_Contacts_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -356,6 +384,15 @@ function ContactTable({ type, tabName }: { type: ContactType | ContactType[], ta
             Show Inactive
           </label>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-9 gap-1 border-primary/20 text-primary hover:bg-primary/5 font-semibold"
+          onClick={handleExport}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export Contacts
+        </Button>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if(!v) resetForm(); }}>
           {canCreate && (
             <DialogTrigger asChild>
