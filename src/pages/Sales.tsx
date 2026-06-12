@@ -2958,6 +2958,27 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
 function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   const [open, setOpen] = useState(false);
   const currentFilter = filters[column] || "";
+  const [inputValue, setInputValue] = useState(currentFilter);
+  const [localDateFrom, setLocalDateFrom] = useState(filters.dateFrom || "");
+  const [localDateTo, setLocalDateTo] = useState(filters.dateTo || "");
+
+  useEffect(() => {
+    if (open) {
+      setInputValue(currentFilter);
+      setLocalDateFrom(filters.dateFrom || "");
+      setLocalDateTo(filters.dateTo || "");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setInputValue(currentFilter);
+  }, [currentFilter]);
+
+  useEffect(() => {
+    setLocalDateFrom(filters.dateFrom || "");
+    setLocalDateTo(filters.dateTo || "");
+  }, [filters.dateFrom, filters.dateTo]);
+
   const isFiltered = column === "date"
     ? (!!filters.dateFrom || !!filters.dateTo)
     : !!currentFilter;
@@ -2983,6 +3004,8 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
                   if (column === "date") {
                     delete newFilters.dateFrom;
                     delete newFilters.dateTo;
+                    setLocalDateFrom("");
+                    setLocalDateTo("");
                   } else {
                     delete newFilters[column];
                   }
@@ -3000,8 +3023,14 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
                 <label className="text-[9px] font-bold text-muted-foreground uppercase">From Date</label>
                 <Input
                   type="date"
-                  value={filters.dateFrom || ""}
-                  onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                  value={localDateFrom}
+                  onChange={(e) => setLocalDateFrom(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setFilters({ ...filters, dateFrom: localDateFrom, dateTo: localDateTo });
+                      setOpen(false);
+                    }
+                  }}
                   className="h-8 text-xs font-medium focus-visible:ring-primary/20"
                 />
               </div>
@@ -3009,11 +3038,27 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
                 <label className="text-[9px] font-bold text-muted-foreground uppercase">To Date</label>
                 <Input
                   type="date"
-                  value={filters.dateTo || ""}
-                  onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                  value={localDateTo}
+                  onChange={(e) => setLocalDateTo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setFilters({ ...filters, dateFrom: localDateFrom, dateTo: localDateTo });
+                      setOpen(false);
+                    }
+                  }}
                   className="h-8 text-xs font-medium focus-visible:ring-primary/20"
                 />
               </div>
+              <Button
+                size="sm"
+                className="w-full h-8 text-[11px] font-bold mt-1 shadow-sm"
+                onClick={() => {
+                  setFilters({ ...filters, dateFrom: localDateFrom, dateTo: localDateTo });
+                  setOpen(false);
+                }}
+              >
+                Apply Date Filter
+              </Button>
             </div>
           ) : options ? (
             <Select value={currentFilter} onValueChange={(v) => {
@@ -3039,8 +3084,14 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
           ) : (
             <Input
               placeholder={`Search ${label}...`}
-              value={currentFilter}
-              onChange={(e) => setFilters({ ...filters, [column]: e.target.value })}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setFilters({ ...filters, [column]: inputValue });
+                  setOpen(false);
+                }
+              }}
               className="h-8 text-xs font-medium focus-visible:ring-primary/20"
               autoFocus
             />
@@ -3594,6 +3645,11 @@ export default function Sales() {
       if (estFilters.customerId) params.append('customerId', estFilters.customerId);
       if (estFilters.dateFrom) params.append('dateFrom', estFilters.dateFrom);
       if (estFilters.dateTo) params.append('dateTo', estFilters.dateTo);
+      if (estFilters.invoiceNo) params.append('invoiceNo', estFilters.invoiceNo);
+      if (estFilters.customerName) params.append('customerName', estFilters.customerName);
+      if (estFilters.amount) params.append('amount', estFilters.amount);
+      if (estFilters.total) params.append('total', estFilters.total);
+      if (estFilters.totalQty) params.append('totalQty', estFilters.totalQty);
       return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
     }
   });
@@ -3613,6 +3669,11 @@ export default function Sales() {
       if (invFilters.customerId) params.append('customerId', invFilters.customerId);
       if (invFilters.dateFrom) params.append('dateFrom', invFilters.dateFrom);
       if (invFilters.dateTo) params.append('dateTo', invFilters.dateTo);
+      if (invFilters.invoiceNo) params.append('invoiceNo', invFilters.invoiceNo);
+      if (invFilters.customerName) params.append('customerName', invFilters.customerName);
+      if (invFilters.amount) params.append('amount', invFilters.amount);
+      if (invFilters.total) params.append('total', invFilters.total);
+      if (invFilters.totalQty) params.append('totalQty', invFilters.totalQty);
       return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
     }
   });
@@ -3632,6 +3693,11 @@ export default function Sales() {
       if (qtFilters.customerId) params.append('customerId', qtFilters.customerId);
       if (qtFilters.dateFrom) params.append('dateFrom', qtFilters.dateFrom);
       if (qtFilters.dateTo) params.append('dateTo', qtFilters.dateTo);
+      if (qtFilters.quotationNo) params.append('quotationNo', qtFilters.quotationNo);
+      if (qtFilters.customerName) params.append('customerName', qtFilters.customerName);
+      if (qtFilters.amount) params.append('amount', qtFilters.amount);
+      if (qtFilters.total) params.append('total', qtFilters.total);
+      if (qtFilters.totalQty) params.append('totalQty', qtFilters.totalQty);
       return fetch(`/api/sales?${params.toString()}`).then(res => res.json());
     }
   });

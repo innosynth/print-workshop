@@ -47,6 +47,17 @@ interface Contact {
 function ColumnFilter({ label, column, filters, setFilters, options }: any) {
   const [open, setOpen] = useState(false);
   const currentFilter = filters[column] || "";
+  const [inputValue, setInputValue] = useState(currentFilter);
+
+  useEffect(() => {
+    if (open) {
+      setInputValue(currentFilter);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setInputValue(currentFilter);
+  }, [currentFilter]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -99,8 +110,14 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
           ) : (
              <Input 
                placeholder={`Search ${label}...`} 
-               value={currentFilter} 
-               onChange={(e) => setFilters({...filters, [column]: e.target.value})}
+               value={inputValue} 
+               onChange={(e) => setInputValue(e.target.value)}
+               onKeyDown={(e) => {
+                 if (e.key === "Enter") {
+                   setFilters({...filters, [column]: inputValue});
+                   setOpen(false);
+                 }
+               }}
                className="h-8 text-xs font-medium focus-visible:ring-primary/20"
                autoFocus
              />

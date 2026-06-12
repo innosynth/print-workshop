@@ -10,7 +10,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   try {
     if (resource === 'invoices' || resource === 'estimates') {
       if (method === 'GET') {
-        const { id, page, pageSize, search, status, customerId, dateFrom, dateTo } = request.query;
+        const { id, page, pageSize, search, status, customerId, dateFrom, dateTo, customerName, invoiceNo: invoiceNoFilter, amount: amountFilter, total: totalFilter, totalQty: totalQtyFilter } = request.query;
         if (id) {
           const rows = await db.select({
             id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
@@ -60,28 +60,68 @@ export default async function handler(request: VercelRequest, response: VercelRe
           return response.status(200).json({ ...invoiceData, items });
         }
 
+        const sq = db.select({
+          id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
+          amount: invoices.amount, tax: invoices.tax, total: invoices.total,
+          status: invoices.status, customerId: sql<number>`${contacts.id}`.as('customerId'),
+          isIgst: invoices.isIgst,
+          createdAt: invoices.createdAt,
+          customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`.as('customerName'),
+          productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`.as('productSummary'),
+          totalQty: sql<number>`COALESCE(SUM(CAST(${invoiceItems.qty} AS NUMERIC)), 0)`.as('totalQty'),
+          potentialTax: sql<number>`COALESCE(SUM(CAST(${invoiceItems.amount} AS NUMERIC) * CAST(COALESCE(${invoiceItems.gstRate}, '18') AS NUMERIC) / 100), 0)`.as('potentialTax')
+        })
+        .from(invoices)
+        .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+        .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
+        .groupBy(invoices.id, contacts.id, invoices.customerName, invoices.invoiceNo, invoices.date, invoices.amount, invoices.tax, invoices.total, invoices.status, invoices.isIgst, invoices.createdAt)
+        .as('sq');
+
         const conditions = [];
         if (resource === 'estimates') {
-          conditions.push(like(invoices.invoiceNo, 'EST%'));
+          conditions.push(like(sq.invoiceNo, 'EST%'));
         } else {
-          conditions.push(notLike(invoices.invoiceNo, 'EST%'));
+          conditions.push(notLike(sq.invoiceNo, 'EST%'));
         }
         if (status) {
-          conditions.push(eq(invoices.status, status as string));
+          conditions.push(eq(sq.status, status as string));
         }
         if (customerId) {
-          conditions.push(eq(invoices.customerId, parseInt(customerId as string)));
+          conditions.push(eq(sq.customerId, parseInt(customerId as string)));
         }
         if (dateFrom) {
-          conditions.push(sql`${invoices.date} >= ${dateFrom}`);
+          conditions.push(sql`${sq.date} >= ${dateFrom}`);
         }
         if (dateTo) {
-          conditions.push(sql`${invoices.date} <= ${dateTo}`);
+          conditions.push(sql`${sq.date} <= ${dateTo}`);
         }
         if (search) {
           conditions.push(
-            sql`(${invoices.invoiceNo} ILIKE ${'%' + search + '%'} OR ${contacts.name} ILIKE ${'%' + search + '%'} OR ${invoices.customerName} ILIKE ${'%' + search + '%'})`
+            sql`(${sq.invoiceNo} ILIKE ${'%' + search + '%'} OR ${sq.customerName} ILIKE ${'%' + search + '%'})`
           );
+        }
+        if (customerName) {
+          conditions.push(
+            sql`(${sq.customerName} ILIKE ${'%' + customerName + '%'})`
+          );
+        }
+        if (invoiceNoFilter) {
+          conditions.push(sql`${sq.invoiceNo} ILIKE ${'%' + invoiceNoFilter + '%'}`);
+        }
+        if (amountFilter) {
+          conditions.push(sql`${sq.amount}::text ILIKE ${'%' + amountFilter + '%'}`);
+        }
+        if (totalFilter) {
+          if (resource === 'estimates') {
+            conditions.push(
+              sql`(CAST(${sq.amount} AS NUMERIC) + CAST(${sq.potentialTax} AS NUMERIC))::text ILIKE ${'%' + totalFilter + '%'}`
+            );
+          } else {
+            conditions.push(sql`${sq.total}::text ILIKE ${'%' + totalFilter + '%'}`);
+          }
+        }
+        if (totalQtyFilter) {
+          conditions.push(sql`${sq.totalQty}::text ILIKE ${'%' + totalQtyFilter + '%'}`);
         }
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -93,27 +133,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
           const [countQueryResult, data] = await Promise.all([
             db.select({ count: sql<number>`count(*)` })
-              .from(invoices)
-              .leftJoin(contacts, eq(invoices.customerId, contacts.id))
+              .from(sq)
               .where(whereClause),
-            db.select({
-              id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
-              amount: invoices.amount, tax: invoices.tax, total: invoices.total,
-              status: invoices.status, customerId: contacts.id,
-              isIgst: invoices.isIgst,
-              customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
-              productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`,
-              totalQty: sql<number>`SUM(CAST(${invoiceItems.qty} AS NUMERIC))`,
-              potentialTax: sql<number>`COALESCE(SUM(CAST(${invoiceItems.amount} AS NUMERIC) * CAST(COALESCE(${invoiceItems.gstRate}, '18') AS NUMERIC) / 100), 0)`
-            })
-            .from(invoices)
-            .leftJoin(contacts, eq(invoices.customerId, contacts.id))
-            .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
-            .where(whereClause)
-            .groupBy(invoices.id, contacts.id, invoices.customerName, invoices.invoiceNo, invoices.date, invoices.amount, invoices.tax, invoices.total, invoices.status, invoices.isIgst)
-            .orderBy(desc(invoices.createdAt))
-            .limit(limitVal)
-            .offset(offsetVal)
+            db.select()
+              .from(sq)
+              .where(whereClause)
+              .orderBy(desc(sq.createdAt))
+              .limit(limitVal)
+              .offset(offsetVal)
           ]);
 
           const total = Number(countQueryResult[0]?.count || 0);
@@ -129,22 +156,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           });
         }
 
-        const data = await db.select({
-          id: invoices.id, invoiceNo: invoices.invoiceNo, date: invoices.date,
-          amount: invoices.amount, tax: invoices.tax, total: invoices.total,
-          status: invoices.status, customerId: contacts.id,
-          isIgst: invoices.isIgst,
-          customerName: sql<string>`COALESCE(${contacts.name}, ${invoices.customerName})`,
-          productSummary: sql<string>`string_agg(${invoiceItems.name}, ', ')`,
-          totalQty: sql<number>`SUM(CAST(${invoiceItems.qty} AS NUMERIC))`,
-          potentialTax: sql<number>`COALESCE(SUM(CAST(${invoiceItems.amount} AS NUMERIC) * CAST(COALESCE(${invoiceItems.gstRate}, '18') AS NUMERIC) / 100), 0)`
-        })
-        .from(invoices)
-        .leftJoin(contacts, eq(invoices.customerId, contacts.id))
-        .leftJoin(invoiceItems, eq(invoices.id, invoiceItems.invoiceId))
-        .where(whereClause)
-        .groupBy(invoices.id, contacts.id, invoices.customerName, invoices.invoiceNo, invoices.date, invoices.amount, invoices.tax, invoices.total, invoices.status, invoices.isIgst)
-        .orderBy(desc(invoices.createdAt));
+        const data = await db.select().from(sq).where(whereClause).orderBy(desc(sq.createdAt));
         return response.status(200).json(data);
       }
       if (method === 'POST') {
@@ -223,7 +235,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     if (resource === 'quotations') {
       if (method === 'GET') {
-        const { id, page, pageSize, search, status, customerId, dateFrom, dateTo } = request.query;
+        const { id, page, pageSize, search, status, customerId, dateFrom, dateTo, customerName, quotationNo: quotationNoFilter, amount: amountFilter, total: totalFilter, totalQty: totalQtyFilter } = request.query;
         if (id) {
           const rows = await db.select({
             id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
@@ -272,57 +284,80 @@ export default async function handler(request: VercelRequest, response: VercelRe
           return response.status(200).json({ ...quotationData, items });
         }
 
+        const sq = db.select({
+          id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
+          amount: quotations.amount,
+          createdAt: quotations.createdAt,
+          tax: sql<string>`CASE WHEN ${quotations.tax} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * CAST(${quotationItems.gstRate} AS NUMERIC) / 100), 0)::text ELSE ${quotations.tax}::text END`.as('tax'),
+          total: sql<string>`CASE WHEN ${quotations.total} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * (1 + CAST(${quotationItems.gstRate} AS NUMERIC) / 100)), ${quotations.amount})::text ELSE ${quotations.total}::text END`.as('total'),
+          status: quotations.status, customerId: sql<number>`${contacts.id}`.as('customerId'),
+          isIgst: quotations.isIgst,
+          customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`.as('customerName'),
+          productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`.as('productSummary'),
+          totalQty: sql<number>`COALESCE(SUM(CAST(${quotationItems.qty} AS NUMERIC)), 0)`.as('totalQty')
+        })
+        .from(quotations)
+        .leftJoin(contacts, eq(quotations.customerId, contacts.id))
+        .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
+        .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.tax, quotations.total, quotations.status, quotations.isIgst, quotations.createdAt)
+        .as('sq');
+
         const conditions = [];
         if (status) {
-          conditions.push(eq(quotations.status, status as string));
+          conditions.push(eq(sq.status, status as string));
         }
         if (customerId) {
-          conditions.push(eq(quotations.customerId, parseInt(customerId as string)));
+          conditions.push(eq(sq.customerId, parseInt(customerId as string)));
         }
         if (dateFrom) {
-          conditions.push(sql`${quotations.date} >= ${dateFrom}`);
+          conditions.push(sql`${sq.date} >= ${dateFrom}`);
         }
         if (dateTo) {
-          conditions.push(sql`${quotations.date} <= ${dateTo}`);
+          conditions.push(sql`${sq.date} <= ${dateTo}`);
         }
         if (search) {
           conditions.push(
-            sql`(${quotations.quotationNo} ILIKE ${'%' + search + '%'} OR ${contacts.name} ILIKE ${'%' + search + '%'} OR ${quotations.customerName} ILIKE ${'%' + search + '%'})`
+            sql`(${sq.quotationNo} ILIKE ${'%' + search + '%'} OR ${sq.customerName} ILIKE ${'%' + search + '%'})`
           );
+        }
+        if (customerName) {
+          conditions.push(
+            sql`(${sq.customerName} ILIKE ${'%' + customerName + '%'})`
+          );
+        }
+        if (quotationNoFilter) {
+          conditions.push(sql`${sq.quotationNo} ILIKE ${'%' + quotationNoFilter + '%'}`);
+        }
+        if (amountFilter) {
+          conditions.push(sql`${sq.amount}::text ILIKE ${'%' + amountFilter + '%'}`);
+        }
+        if (totalFilter) {
+          conditions.push(sql`${sq.total}::text ILIKE ${'%' + totalFilter + '%'}`);
+        }
+        if (totalQtyFilter) {
+          conditions.push(sql`${sq.totalQty}::text ILIKE ${'%' + totalQtyFilter + '%'}`);
         }
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
         if (page) {
-          const countQuery = await db.select({ count: sql<number>`count(*)` })
-            .from(quotations)
-            .leftJoin(contacts, eq(quotations.customerId, contacts.id))
-            .where(whereClause);
-          const total = Number(countQuery[0]?.count || 0);
-
           const pageNum = parseInt(page as string) || 1;
           const limitVal = parseInt(pageSize as string) || 50;
           const offsetVal = (pageNum - 1) * limitVal;
 
-          const data = await db.select({
-            id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
-            amount: quotations.amount,
-            tax: sql<string>`CASE WHEN ${quotations.tax} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * CAST(${quotationItems.gstRate} AS NUMERIC) / 100), 0)::text ELSE ${quotations.tax}::text END`,
-            total: sql<string>`CASE WHEN ${quotations.total} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * (1 + CAST(${quotationItems.gstRate} AS NUMERIC) / 100)), ${quotations.amount})::text ELSE ${quotations.total}::text END`,
-            status: quotations.status, customerId: contacts.id,
-            isIgst: quotations.isIgst,
-            customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
-            productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`,
-            totalQty: sql<number>`SUM(CAST(${quotationItems.qty} AS NUMERIC))`
-          })
-          .from(quotations)
-          .leftJoin(contacts, eq(quotations.customerId, contacts.id))
-          .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-          .where(whereClause)
-          .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.tax, quotations.total, quotations.status, quotations.isIgst)
-          .orderBy(desc(quotations.createdAt))
-          .limit(limitVal)
-          .offset(offsetVal);
+          const [countQueryResult, data] = await Promise.all([
+            db.select({ count: sql<number>`count(*)` })
+              .from(sq)
+              .where(whereClause),
+            db.select()
+              .from(sq)
+              .where(whereClause)
+              .orderBy(desc(sq.createdAt))
+              .limit(limitVal)
+              .offset(offsetVal)
+          ]);
+
+          const total = Number(countQueryResult[0]?.count || 0);
 
           return response.status(200).json({
             data,
@@ -335,23 +370,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           });
         }
 
-        const data = await db.select({
-          id: quotations.id, quotationNo: quotations.quotationNo, date: quotations.date,
-          amount: quotations.amount,
-          tax: sql<string>`CASE WHEN ${quotations.tax} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * CAST(${quotationItems.gstRate} AS NUMERIC) / 100), 0)::text ELSE ${quotations.tax}::text END`,
-          total: sql<string>`CASE WHEN ${quotations.total} IS NULL THEN COALESCE(SUM(CAST(${quotationItems.amount} AS NUMERIC) * (1 + CAST(${quotationItems.gstRate} AS NUMERIC) / 100)), ${quotations.amount})::text ELSE ${quotations.total}::text END`,
-          status: quotations.status, customerId: contacts.id,
-          isIgst: quotations.isIgst,
-          customerName: sql<string>`COALESCE(${contacts.name}, ${quotations.customerName})`,
-          productSummary: sql<string>`string_agg(${quotationItems.name}, ', ')`,
-          totalQty: sql<number>`SUM(CAST(${quotationItems.qty} AS NUMERIC))`
-        })
-        .from(quotations)
-        .leftJoin(contacts, eq(quotations.customerId, contacts.id))
-        .leftJoin(quotationItems, eq(quotations.id, quotationItems.quotationId))
-        .where(whereClause)
-        .groupBy(quotations.id, contacts.id, quotations.customerName, quotations.quotationNo, quotations.date, quotations.amount, quotations.tax, quotations.total, quotations.status, quotations.isIgst)
-        .orderBy(desc(quotations.createdAt));
+        const data = await db.select().from(sq).where(whereClause).orderBy(desc(sq.createdAt));
         return response.status(200).json(data);
       }
       if (method === 'POST') {
