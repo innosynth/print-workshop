@@ -3237,7 +3237,7 @@ function TxTable({
         {enableMultiSelect && (onBulkConvert || onBulkDownload) && (
           <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap">
             {hasSelection && (
-              <div className="flex items-center gap-2 mr-2 text-[11px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-2 border-border whitespace-nowrap">
+              <div className="flex items-center gap-2 mr-2 text-[15px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-2 border-border whitespace-nowrap">
                 <span className="text-muted-foreground">
                   {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
                 </span>
