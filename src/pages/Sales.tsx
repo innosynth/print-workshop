@@ -3117,10 +3117,10 @@ function TxTable({
   const startResize = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const thEl = (e.target as HTMLElement).closest('th');
     if (!thEl) return;
-    
+
     const startWidth = thEl.getBoundingClientRect().width;
     const startX = e.clientX;
     let currentWidth = startWidth;
@@ -3137,7 +3137,7 @@ function TxTable({
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      
+
       setColWidths(prev => {
         const next = { ...prev, [colKey]: currentWidth };
         try {
@@ -3237,7 +3237,7 @@ function TxTable({
         {enableMultiSelect && (onBulkConvert || onBulkDownload) && (
           <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap">
             {hasSelection && (
-              <div className="flex items-center gap-2 mr-2 text-[15px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-2 border-border whitespace-nowrap">
+              <div className="flex items-center gap-2 mr-2 text-[13px] font-bold animate-in fade-in slide-in-from-left-2 duration-200 border-r pr-2 border-border whitespace-nowrap">
                 <span className="text-muted-foreground">
                   {selectedRows.length} {selectionLabel || 'item'}{selectedRows.length > 1 ? 's' : ''} selected
                 </span>
