@@ -150,6 +150,37 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (method === 'POST') {
         const { items, ...invoiceData } = request.body;
         const result = await db.transaction(async (tx) => {
+          let currentNo = invoiceData.invoiceNo;
+          const isEstimate = typeof currentNo === 'string' && currentNo.startsWith('EST-');
+          const prefix = isEstimate ? 'EST' : 'INV';
+          const startNum = isEstimate ? 1000 : 136;
+
+          const exists = await tx.select({ id: invoices.id })
+            .from(invoices)
+            .where(eq(invoices.invoiceNo, currentNo))
+            .limit(1);
+
+          if (exists.length > 0 || currentNo === `${prefix}-${startNum}`) {
+            const allNo = await tx.select({ invoiceNo: invoices.invoiceNo })
+              .from(invoices)
+              .where(like(invoices.invoiceNo, `${prefix}-%`));
+
+            const existingNumbers = allNo.map(r => r.invoiceNo);
+            const nums = existingNumbers
+              .map(val => {
+                if (!val || typeof val !== 'string' || !val.startsWith(prefix + '-')) return 0;
+                const parts = val.split('-');
+                const lastPart = parts[parts.length - 1];
+                const num = parseInt(lastPart);
+                if (num < startNum) return 0;
+                return isNaN(num) ? 0 : num;
+              })
+              .filter(n => n >= startNum);
+
+            const max = nums.length > 0 ? Math.max(...nums) : (startNum - 1);
+            invoiceData.invoiceNo = `${prefix}-${max + 1}`;
+          }
+
           const newInvoice = await tx.insert(invoices).values(invoiceData).returning();
           if (items?.length > 0) {
             const itemsWithId = items.map((item: any) => ({ ...item, invoiceId: newInvoice[0].id }));
@@ -326,6 +357,36 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (method === 'POST') {
         const { items, ...quotationData } = request.body;
         const result = await db.transaction(async (tx) => {
+          let currentNo = quotationData.quotationNo;
+          const prefix = 'QT';
+          const startNum = 1;
+
+          const exists = await tx.select({ id: quotations.id })
+            .from(quotations)
+            .where(eq(quotations.quotationNo, currentNo))
+            .limit(1);
+
+          if (exists.length > 0 || currentNo === `${prefix}-${startNum}`) {
+            const allNo = await tx.select({ quotationNo: quotations.quotationNo })
+              .from(quotations)
+              .where(like(quotations.quotationNo, `${prefix}-%`));
+
+            const existingNumbers = allNo.map(r => r.quotationNo);
+            const nums = existingNumbers
+              .map(val => {
+                if (!val || typeof val !== 'string' || !val.startsWith(prefix + '-')) return 0;
+                const parts = val.split('-');
+                const lastPart = parts[parts.length - 1];
+                const num = parseInt(lastPart);
+                if (num < startNum) return 0;
+                return isNaN(num) ? 0 : num;
+              })
+              .filter(n => n >= startNum);
+
+            const max = nums.length > 0 ? Math.max(...nums) : (startNum - 1);
+            quotationData.quotationNo = `${prefix}-${max + 1}`;
+          }
+
           const newQt = await tx.insert(quotations).values(quotationData).returning();
           if (items?.length > 0) {
             const itemsWithId = items.map((item: any) => ({ ...item, quotationId: newQt[0].id }));

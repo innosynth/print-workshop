@@ -2198,6 +2198,7 @@ function CreateSalesModal({ trigger, title, type, initialData, open: controlledO
       const savedRecord = await res.json();
       toast({ title: "Success", description: `${title} ${initialData ? 'updated' : 'created'} successfully` });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       queryClient.invalidateQueries({ queryKey: ["invoice"] });
@@ -3800,6 +3801,7 @@ export default function Sales() {
 
       // 8. Invalidate caches
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["invoice"] });
       queryClient.invalidateQueries({ queryKey: ["sales_detail"] });
@@ -3934,12 +3936,14 @@ export default function Sales() {
       toast({ title: "Success", description: `Document converted to ${targetType} successfully` });
 
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
       queryClient.invalidateQueries({ queryKey: ["invoice"] });
       queryClient.invalidateQueries({ queryKey: ["sales_detail"] });
 
       // 5. Invalidate and Close dialog
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       setConvertDialog({ open: false, data: null, type: "" });
 
@@ -3964,6 +3968,7 @@ export default function Sales() {
       if (!res.ok) throw new Error("Failed to delete record");
       toast({ title: "Success", description: "Record deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
@@ -4062,6 +4067,7 @@ export default function Sales() {
       if (!res.ok) throw new Error("Failed to update status");
       toast({ title: "Status Updated", description: `${isEstimate ? 'Estimate' : 'Invoice'} marked as ${newStatus}` });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message });
     }
