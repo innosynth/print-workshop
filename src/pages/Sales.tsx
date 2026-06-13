@@ -3253,7 +3253,11 @@ function TxTable({
     : filtered.slice((pageToUse - 1) * pageSizeToUse, pageToUse * pageSizeToUse);
 
   // Multi-select helpers
-  const selectableRows = filtered.filter(r => r.status !== 'Invoiced');
+  const selectableRows = filtered.filter(r => {
+    const isRowConverted = (selectionLabel === 'estimate' && (r.status === 'Quoted' || r.status === 'Invoiced')) ||
+                           (selectionLabel === 'quotation' && r.status === 'Invoiced');
+    return !isRowConverted;
+  });
   const selectedRows = filtered.filter(r => selectedIds.has(r.id));
   const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
 
@@ -3444,7 +3448,8 @@ function TxTable({
                 <tbody>
                   {displayedData.map((row, i) => {
                     const isSelected = selectedIds.has(row.id);
-                    const isInvoiced = row.status === 'Invoiced';
+                    const isConverted = (selectionLabel === 'estimate' && (row.status === 'Quoted' || row.status === 'Invoiced')) ||
+                                        (selectionLabel === 'quotation' && row.status === 'Invoiced');
                     return (
                       <tr key={i} className={cn(
                         "border-b last:border-0 hover:bg-muted/30 transition-colors",
@@ -3452,8 +3457,8 @@ function TxTable({
                       )}>
                         {enableMultiSelect && (
                           <td className="px-3 py-2.5">
-                            {isInvoiced ? (
-                              <div className="h-4 w-4 flex items-center justify-center" title="Already converted to invoice">
+                            {isConverted ? (
+                              <div className="h-4 w-4 flex items-center justify-center" title={row.status === 'Quoted' ? "Already converted to quotation" : "Already converted to invoice"}>
                                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500 opacity-50" />
                               </div>
                             ) : (
@@ -3491,12 +3496,12 @@ function TxTable({
                                   <Download className="h-4 w-4 text-green-600" />
                                 </Button>
                               )}
-                              {onEdit && (
+                              {onEdit && !isConverted && (
                                 <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(row)}>
                                   <Edit className="h-3.5 w-3.5" />Edit
                                 </Button>
                               )}
-                              {onConvert && !isInvoiced && (
+                              {onConvert && !isConverted && (
                                 <Button
                                   variant="default"
                                   size="sm"
@@ -3508,7 +3513,7 @@ function TxTable({
                                   Convert
                                 </Button>
                               )}
-                              {onToggleStatus && (!isInvoiced || selectionLabel !== "estimate") && (
+                              {onToggleStatus && !isConverted && (
                                 <Button variant="ghost" size="icon" className="h-7 w-7 p-0" onClick={() => onToggleStatus(row)} title={row.status === "Paid" ? "Mark as Pending" : "Mark as Paid"}>
                                   {row.status === "Paid" ? <Clock className="h-4 w-4 text-orange-500" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                 </Button>
@@ -3799,10 +3804,14 @@ export default function Sales() {
       return;
     }
 
-    // Validate: none should be already invoiced
-    const alreadyInvoiced = selectedEstimates.filter(e => e.status === 'Invoiced');
-    if (alreadyInvoiced.length > 0) {
-      toast({ variant: "destructive", title: "Already Invoiced", description: `${alreadyInvoiced.length} estimate(s) have already been converted to an invoice.` });
+    // Validate: none should be already converted (Quoted or Invoiced)
+    const alreadyConverted = selectedEstimates.filter(e => e.status === 'Quoted' || e.status === 'Invoiced');
+    if (alreadyConverted.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Already Converted",
+        description: `${alreadyConverted.length} estimate(s) have already been converted to a quotation or an invoice.`
+      });
       return;
     }
 
