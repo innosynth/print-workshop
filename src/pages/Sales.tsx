@@ -40,6 +40,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { PaginationBar } from "@/components/ui/custom-pagination";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -3104,7 +3105,7 @@ function ColumnFilter({ label, column, filters, setFilters, options }: any) {
 
 function TxTable({
   data, cols, isLoading, onPrint, onConvert, onToggleStatus, loadingId, onWhatsApp, onEdit, onDelete, onDownload, enableMultiSelect, onBulkConvert, bulkConvertLoading, onBulkDownload, bulkDownloadLoading, selectionLabel,
-  totalCount, page, pageSize, onPageChange, serverSearch, onServerSearchChange, serverFilters, onServerFiltersChange
+  totalCount, page, pageSize, onPageChange, onPageSizeChange, serverSearch, onServerSearchChange, serverFilters, onServerFiltersChange
 }: {
   data: any[];
   cols: any[];
@@ -3127,6 +3128,7 @@ function TxTable({
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   serverSearch?: string;
   onServerSearchChange?: (s: string) => void;
   serverFilters?: Record<string, string>;
@@ -3136,6 +3138,16 @@ function TxTable({
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // Client-side pagination states (used if onPageChange is not passed, e.g. Returns tab)
+  const [localPage, setLocalPage] = useState(1);
+  const [localPageSize, setLocalPageSize] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem(`tx-table-size-${selectionLabel || 'default'}`) || "10");
+    } catch (e) {
+      return 10;
+    }
+  });
+
   const searchVal = serverSearch !== undefined ? serverSearch : search;
   const filterVal = serverFilters !== undefined ? serverFilters : columnFilters;
 
@@ -3144,6 +3156,7 @@ function TxTable({
       onServerSearchChange(val);
     } else {
       setSearch(val);
+      setLocalPage(1);
     }
   };
 
@@ -3153,6 +3166,7 @@ function TxTable({
       onServerFiltersChange(nextFilters);
     } else {
       setColumnFilters(nextFilters);
+      setLocalPage(1);
     }
   };
 
@@ -3228,6 +3242,15 @@ function TxTable({
 
     return matchesSearch && matchesColumnFilters;
   });
+
+  const isServerPaginated = onPageChange !== undefined;
+  const pageToUse = isServerPaginated ? (page || 1) : localPage;
+  const pageSizeToUse = isServerPaginated ? (pageSize || 25) : localPageSize;
+  const totalCountToUse = isServerPaginated ? (totalCount || 0) : filtered.length;
+
+  const displayedData = isServerPaginated
+    ? filtered
+    : filtered.slice((pageToUse - 1) * pageSizeToUse, pageToUse * pageSizeToUse);
 
   // Multi-select helpers
   const selectableRows = filtered.filter(r => r.status !== 'Invoiced');
@@ -3372,13 +3395,13 @@ function TxTable({
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto min-h-[200px] flex flex-col">
+          <div className="overflow-auto min-h-[400px] max-h-[550px] flex flex-col relative">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
-              <table className="w-full text-sm min-w-[600px]">
-                <thead>
-                  <tr className="border-b bg-muted/40">
+              <table className="w-full text-sm min-w-[600px] border-collapse relative">
+                <thead className="sticky top-0 bg-card border-b z-10 shadow-sm">
+                  <tr className="border-b bg-muted/90">
                     {enableMultiSelect && (
                       <th className="px-3 py-2.5 w-10">
                         <Checkbox
@@ -3419,7 +3442,7 @@ function TxTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => {
+                  {displayedData.map((row, i) => {
                     const isSelected = selectedIds.has(row.id);
                     const isInvoiced = row.status === 'Invoiced';
                     return (
@@ -3534,36 +3557,32 @@ function TxTable({
           </div>
         </CardContent>
       </Card>
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-xs text-muted-foreground">
-          {onPageChange && totalCount !== undefined ? `${totalCount} records` : `${filtered.length} records`}
-        </p>
-        {onPageChange && page && pageSize && totalCount !== undefined && Math.ceil(totalCount / pageSize) > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs font-bold"
-              disabled={page <= 1 || isLoading}
-              onClick={() => onPageChange(page - 1)}
-            >
-              Previous
-            </Button>
-            <span className="text-xs font-bold text-muted-foreground px-2">
-              Page {page} of {Math.ceil(totalCount / pageSize)}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs font-bold"
-              disabled={page >= Math.ceil(totalCount / pageSize) || isLoading}
-              onClick={() => onPageChange(page + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+      {totalCountToUse > 0 && (
+        <PaginationBar
+          page={pageToUse}
+          pageSize={pageSizeToUse}
+          totalCount={totalCountToUse}
+          onPageChange={(p) => {
+            if (isServerPaginated && onPageChange) {
+              onPageChange(p);
+            } else {
+              setLocalPage(p);
+            }
+          }}
+          onPageSizeChange={(s) => {
+            if (isServerPaginated && onPageSizeChange) {
+              onPageSizeChange(s);
+            } else {
+              setLocalPageSize(s);
+              setLocalPage(1);
+              try {
+                localStorage.setItem(`tx-table-size-${selectionLabel || 'default'}`, s.toString());
+              } catch (e) {}
+            }
+          }}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }
@@ -3595,6 +3614,7 @@ export default function Sales() {
 
   // Estimates State
   const [estPage, setEstPage] = useState(1);
+  const [estPageSize, setEstPageSize] = useState(() => parseInt(localStorage.getItem("estPageSize") || "10"));
   const [estSearch, setEstSearch] = useState("");
   const [debouncedEstSearch, setDebouncedEstSearch] = useState("");
   const [estFilters, setEstFilters] = useState<Record<string, string>>({});
@@ -3608,6 +3628,7 @@ export default function Sales() {
 
   // Invoices State
   const [invPage, setInvPage] = useState(1);
+  const [invPageSize, setInvPageSize] = useState(() => parseInt(localStorage.getItem("invPageSize") || "10"));
   const [invSearch, setInvSearch] = useState("");
   const [debouncedInvSearch, setDebouncedInvSearch] = useState("");
   const [invFilters, setInvFilters] = useState<Record<string, string>>({});
@@ -3621,6 +3642,7 @@ export default function Sales() {
 
   // Quotations State
   const [qtPage, setQtPage] = useState(1);
+  const [qtPageSize, setQtPageSize] = useState(() => parseInt(localStorage.getItem("qtPageSize") || "10"));
   const [qtSearch, setQtSearch] = useState("");
   const [debouncedQtSearch, setDebouncedQtSearch] = useState("");
   const [qtFilters, setQtFilters] = useState<Record<string, string>>({});
@@ -3633,12 +3655,12 @@ export default function Sales() {
   }, [qtSearch]);
 
   const { data: estimatesData, isLoading: estLoading } = useQuery({
-    queryKey: ["estimates", estPage, debouncedEstSearch, estFilters],
+    queryKey: ["estimates", estPage, estPageSize, debouncedEstSearch, estFilters],
     queryFn: () => {
       const params = new URLSearchParams({
         resource: 'estimates',
         page: estPage.toString(),
-        pageSize: '25',
+        pageSize: estPageSize.toString(),
       });
       if (debouncedEstSearch) params.append('search', debouncedEstSearch);
       if (estFilters.status) params.append('status', estFilters.status);
@@ -3657,12 +3679,12 @@ export default function Sales() {
   const estimatesTotal = estimatesData?.pagination?.total || 0;
 
   const { data: invoicesData, isLoading: invLoading } = useQuery({
-    queryKey: ["invoices", invPage, debouncedInvSearch, invFilters],
+    queryKey: ["invoices", invPage, invPageSize, debouncedInvSearch, invFilters],
     queryFn: () => {
       const params = new URLSearchParams({
         resource: 'invoices',
         page: invPage.toString(),
-        pageSize: '25',
+        pageSize: invPageSize.toString(),
       });
       if (debouncedInvSearch) params.append('search', debouncedInvSearch);
       if (invFilters.status) params.append('status', invFilters.status);
@@ -3681,12 +3703,12 @@ export default function Sales() {
   const invoicesTotal = invoicesData?.pagination?.total || 0;
 
   const { data: quotationsData, isLoading: qtLoading } = useQuery({
-    queryKey: ["quotations", qtPage, debouncedQtSearch, qtFilters],
+    queryKey: ["quotations", qtPage, qtPageSize, debouncedQtSearch, qtFilters],
     queryFn: () => {
       const params = new URLSearchParams({
         resource: 'quotations',
         page: qtPage.toString(),
-        pageSize: '25',
+        pageSize: qtPageSize.toString(),
       });
       if (debouncedQtSearch) params.append('search', debouncedQtSearch);
       if (qtFilters.status) params.append('status', qtFilters.status);
@@ -4289,8 +4311,13 @@ export default function Sales() {
             isLoading={estLoading}
             totalCount={estimatesTotal}
             page={estPage}
-            pageSize={25}
+            pageSize={estPageSize}
             onPageChange={setEstPage}
+            onPageSizeChange={(s) => {
+              setEstPageSize(s);
+              localStorage.setItem("estPageSize", s.toString());
+              setEstPage(1);
+            }}
             serverSearch={estSearch}
             onServerSearchChange={(s) => { setEstSearch(s); setEstPage(1); }}
             serverFilters={estFilters}
@@ -4318,8 +4345,13 @@ export default function Sales() {
             isLoading={qtLoading}
             totalCount={quotationsTotal}
             page={qtPage}
-            pageSize={25}
+            pageSize={qtPageSize}
             onPageChange={setQtPage}
+            onPageSizeChange={(s) => {
+              setQtPageSize(s);
+              localStorage.setItem("qtPageSize", s.toString());
+              setQtPage(1);
+            }}
             serverSearch={qtSearch}
             onServerSearchChange={(s) => { setQtSearch(s); setQtPage(1); }}
             serverFilters={qtFilters}
@@ -4344,8 +4376,13 @@ export default function Sales() {
             isLoading={invLoading}
             totalCount={invoicesTotal}
             page={invPage}
-            pageSize={25}
+            pageSize={invPageSize}
             onPageChange={setInvPage}
+            onPageSizeChange={(s) => {
+              setInvPageSize(s);
+              localStorage.setItem("invPageSize", s.toString());
+              setInvPage(1);
+            }}
             serverSearch={invSearch}
             onServerSearchChange={(s) => { setInvSearch(s); setInvPage(1); }}
             serverFilters={invFilters}

@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth-context";
+import { PaginationBar } from "@/components/ui/custom-pagination";
 
 
 function FormCombobox({ label, value, options, onSelect, action, triggerRef, onKeyDown, autoOpenTrigger, openOnFocus, includeBlank, allowCustom, className }: { label: string, value: string, options: string[], onSelect: (v: string) => void, action?: React.ReactNode, triggerRef?: any, onKeyDown?: (e: React.KeyboardEvent) => void, autoOpenTrigger?: number, openOnFocus?: boolean, includeBlank?: boolean, allowCustom?: boolean, className?: string }) {
@@ -920,6 +921,14 @@ function TxTable({
   selectionLabel?: string;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [localPage, setLocalPage] = useState(1);
+  const [localPageSize, setLocalPageSize] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem(`tx-table-size-${tableName || 'purchase'}`) || "10");
+    } catch (e) {
+      return 10;
+    }
+  });
   const [search, setSearch] = useState("");
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try {
@@ -973,6 +982,8 @@ function TxTable({
     Object.values(row).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
   );
 
+  const displayedData = filtered.slice((localPage - 1) * localPageSize, localPage * localPageSize);
+
   const selectableRows = filtered;
   const selectedRows = filtered.filter(r => selectedIds.has(r.id));
   const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
@@ -1002,7 +1013,7 @@ function TxTable({
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => { setSearch(e.target.value); setLocalPage(1); }} />
         </div>
         {enableMultiSelect && hasSelection && (
           <div className="ml-auto flex items-center gap-3 flex-wrap sm:flex-nowrap">
@@ -1030,13 +1041,13 @@ function TxTable({
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto min-h-[200px] flex flex-col">
+          <div className="overflow-auto min-h-[400px] max-h-[550px] flex flex-col relative">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
-              <table className="w-full text-sm min-w-[600px]">
-                <thead>
-                  <tr className="border-b bg-muted/40">
+              <table className="w-full text-sm min-w-[600px] border-collapse relative">
+                <thead className="sticky top-0 bg-card border-b z-10 shadow-sm">
+                  <tr className="border-b bg-muted/90">
                     {enableMultiSelect && (
                       <th className="px-3 py-2.5 w-10">
                         <Checkbox
@@ -1068,7 +1079,7 @@ function TxTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, i) => {
+                  {displayedData.map((row, i) => {
                     const isSelected = selectedIds.has(row.id);
                     return (
                       <tr key={i} className={cn(
@@ -1143,7 +1154,22 @@ function TxTable({
           </div>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">{filtered.length} records</p>
+      {filtered.length > 0 && (
+        <PaginationBar
+          page={localPage}
+          pageSize={localPageSize}
+          totalCount={filtered.length}
+          onPageChange={(p) => setLocalPage(p)}
+          onPageSizeChange={(s) => {
+            setLocalPageSize(s);
+            setLocalPage(1);
+            try {
+              localStorage.setItem(`tx-table-size-${tableName || 'purchase'}`, s.toString());
+            } catch (e) {}
+          }}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }
