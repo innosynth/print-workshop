@@ -3142,9 +3142,9 @@ function TxTable({
   const [localPage, setLocalPage] = useState(1);
   const [localPageSize, setLocalPageSize] = useState(() => {
     try {
-      return parseInt(localStorage.getItem(`tx-table-size-${selectionLabel || 'default'}`) || "10");
+      return parseInt(localStorage.getItem(`tx-table-size-${selectionLabel || 'default'}`) || "20");
     } catch (e) {
-      return 10;
+      return 20;
     }
   });
 
@@ -3399,7 +3399,7 @@ function TxTable({
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto min-h-[400px] max-h-[550px] flex flex-col relative">
+          <div className="overflow-auto min-h-[500px] max-h-[700px] flex flex-col relative">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
@@ -3619,7 +3619,7 @@ export default function Sales() {
 
   // Estimates State
   const [estPage, setEstPage] = useState(1);
-  const [estPageSize, setEstPageSize] = useState(() => parseInt(localStorage.getItem("estPageSize") || "10"));
+  const [estPageSize, setEstPageSize] = useState(() => parseInt(localStorage.getItem("estPageSize") || "20"));
   const [estSearch, setEstSearch] = useState("");
   const [debouncedEstSearch, setDebouncedEstSearch] = useState("");
   const [estFilters, setEstFilters] = useState<Record<string, string>>({});
@@ -3633,7 +3633,7 @@ export default function Sales() {
 
   // Invoices State
   const [invPage, setInvPage] = useState(1);
-  const [invPageSize, setInvPageSize] = useState(() => parseInt(localStorage.getItem("invPageSize") || "10"));
+  const [invPageSize, setInvPageSize] = useState(() => parseInt(localStorage.getItem("invPageSize") || "20"));
   const [invSearch, setInvSearch] = useState("");
   const [debouncedInvSearch, setDebouncedInvSearch] = useState("");
   const [invFilters, setInvFilters] = useState<Record<string, string>>({});
@@ -3647,7 +3647,7 @@ export default function Sales() {
 
   // Quotations State
   const [qtPage, setQtPage] = useState(1);
-  const [qtPageSize, setQtPageSize] = useState(() => parseInt(localStorage.getItem("qtPageSize") || "10"));
+  const [qtPageSize, setQtPageSize] = useState(() => parseInt(localStorage.getItem("qtPageSize") || "20"));
   const [qtSearch, setQtSearch] = useState("");
   const [debouncedQtSearch, setDebouncedQtSearch] = useState("");
   const [qtFilters, setQtFilters] = useState<Record<string, string>>({});

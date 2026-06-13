@@ -924,9 +924,9 @@ function TxTable({
   const [localPage, setLocalPage] = useState(1);
   const [localPageSize, setLocalPageSize] = useState(() => {
     try {
-      return parseInt(localStorage.getItem(`tx-table-size-${tableName || 'purchase'}`) || "10");
+      return parseInt(localStorage.getItem(`tx-table-size-${tableName || 'purchase'}`) || "20");
     } catch (e) {
-      return 10;
+      return 20;
     }
   });
   const [search, setSearch] = useState("");
@@ -1041,7 +1041,7 @@ function TxTable({
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto min-h-[400px] max-h-[550px] flex flex-col relative">
+          <div className="overflow-auto min-h-[600px] max-h-[900px] flex flex-col relative">
             {isLoading ? (
               <div className="flex-1 flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
